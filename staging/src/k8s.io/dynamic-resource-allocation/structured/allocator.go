@@ -25,6 +25,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1beta1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
 	draapi "k8s.io/dynamic-resource-allocation/api"
 	"k8s.io/dynamic-resource-allocation/cel"
@@ -46,12 +47,13 @@ type deviceClassLister interface {
 // available and the current state of the cluster (claims, classes, resource
 // slices).
 type Allocator struct {
-	adminAccessEnabled bool
-	claimsToAllocate   []*resourceapi.ResourceClaim
-	allocatedDevices   sets.Set[DeviceID]
-	classLister        deviceClassLister
-	slices             []*resourceapi.ResourceSlice
-	celCache           *cel.Cache
+	adminAccessEnabled       bool
+	claimsToAllocate         []*resourceapi.ResourceClaim
+	allocatedDevices         sets.Set[DeviceID]
+	allocatedShareCollection AllocatedShareCollection
+	classLister              deviceClassLister
+	slices                   []*resourceapi.ResourceSlice
+	celCache                 *cel.Cache
 }
 
 // NewAllocator returns an allocator for a certain set of claims or an error if
@@ -62,17 +64,19 @@ func NewAllocator(ctx context.Context,
 	adminAccessEnabled bool,
 	claimsToAllocate []*resourceapi.ResourceClaim,
 	allocatedDevices sets.Set[DeviceID],
+	allocatedShareCollection AllocatedShareCollection,
 	classLister deviceClassLister,
 	slices []*resourceapi.ResourceSlice,
 	celCache *cel.Cache,
 ) (*Allocator, error) {
 	return &Allocator{
-		adminAccessEnabled: adminAccessEnabled,
-		claimsToAllocate:   claimsToAllocate,
-		allocatedDevices:   allocatedDevices,
-		classLister:        classLister,
-		slices:             slices,
-		celCache:           celCache,
+		adminAccessEnabled:       adminAccessEnabled,
+		claimsToAllocate:         claimsToAllocate,
+		allocatedDevices:         allocatedDevices,
+		allocatedShareCollection: allocatedShareCollection,
+		classLister:              classLister,
+		slices:                   slices,
+		celCache:                 celCache,
 	}, nil
 }
 
@@ -231,6 +235,9 @@ func (a *Allocator) Allocate(ctx context.Context, node *v1.Node) (finalResult []
 				}
 				requestData.numDevices = len(requestData.allDevices)
 				alloc.logger.V(6).Info("Request for 'all' devices", "claim", klog.KObj(claim), "request", request.Name, "numDevicesPerRequest", requestData.numDevices)
+			case resourceapi.DeviceAllocationModeShared:
+				requestData.allDevices = make([]deviceWithID, 0, resourceapi.AllocationResultsMaxSize)
+				requestData.numDevices = 1
 			default:
 				return nil, fmt.Errorf("claim %s, request %s: unsupported count mode %s", klog.KObj(claim), request.Name, request.AllocationMode)
 			}
@@ -319,11 +326,12 @@ func (a *Allocator) Allocate(ctx context.Context, node *v1.Node) (finalResult []
 		allocationResult.Devices.Results = make([]resourceapi.DeviceRequestAllocationResult, len(internalResult.devices))
 		for i, internal := range internalResult.devices {
 			allocationResult.Devices.Results[i] = resourceapi.DeviceRequestAllocationResult{
-				Request:     internal.request,
-				Driver:      internal.id.Driver.String(),
-				Pool:        internal.id.Pool.String(),
-				Device:      internal.id.Device.String(),
-				AdminAccess: internal.adminAccess,
+				Request:        internal.request,
+				Driver:         internal.id.Driver.String(),
+				Pool:           internal.id.Pool.String(),
+				Device:         internal.id.Device.String(),
+				AdminAccess:    internal.adminAccess,
+				AllocatedShare: internal.resources,
 			}
 		}
 
@@ -417,6 +425,7 @@ type internalDeviceResult struct {
 	request     string
 	id          DeviceID
 	slice       *draapi.ResourceSlice
+	resources   *map[resourceapi.QualifiedName]resource.Quantity
 	adminAccess *bool
 }
 
@@ -572,7 +581,7 @@ func (alloc *allocator) allocateOne(r deviceIndices) (bool, error) {
 		// For "all" devices we already know which ones we need. We
 		// just need to check whether we can use them.
 		deviceWithID := requestData.allDevices[r.deviceIndex]
-		success, _, err := alloc.allocateDevice(r, deviceWithID, true)
+		success, _, err := alloc.allocateDevice(r, deviceWithID, true, false)
 		if err != nil {
 			return false, err
 		}
@@ -607,7 +616,7 @@ func (alloc *allocator) allocateOne(r deviceIndices) (bool, error) {
 
 				// Checking for "in use" is cheap and thus gets done first.
 				if !ptr.Deref(request.AdminAccess, false) && (alloc.allocatedDevices.Has(deviceID) || alloc.allocatingDevices[deviceID]) {
-					alloc.logger.V(7).Info("Device in use", "device", deviceID)
+					alloc.logger.V(7).Info("Device in use or allocating", "device", deviceID)
 					continue
 				}
 
@@ -620,6 +629,18 @@ func (alloc *allocator) allocateOne(r deviceIndices) (bool, error) {
 					alloc.logger.V(7).Info("Device not selectable", "device", deviceID)
 					continue
 				}
+				shared := alloc.isSharedDevice(slice, deviceIndex)
+				if shared {
+					// Next check consumable.
+					consumable, err := alloc.isConsumable(requestIndices{claimIndex: r.claimIndex, requestIndex: r.requestIndex}, slice, deviceIndex)
+					if err != nil {
+						return false, err
+					}
+					if !consumable {
+						alloc.logger.V(7).Info("Device not consumable", "device", deviceID)
+						continue
+					}
+				}
 
 				// Finally treat as allocated and move on to the next device.
 				device := deviceWithID{
@@ -627,7 +648,7 @@ func (alloc *allocator) allocateOne(r deviceIndices) (bool, error) {
 					basic: slice.Spec.Devices[deviceIndex].Basic,
 					slice: slice,
 				}
-				allocated, deallocate, err := alloc.allocateDevice(r, device, false)
+				allocated, deallocate, err := alloc.allocateDevice(r, device, false, shared)
 				if err != nil {
 					return false, err
 				}
@@ -699,6 +720,38 @@ func (alloc *allocator) isSelectable(r requestIndices, slice *draapi.ResourceSli
 
 }
 
+// isSharedDevice checks whether the device is shared.
+// A device is considered as a shared device if at least one consumableCapacity is defined.
+func (alloc *allocator) isSharedDevice(slice *draapi.ResourceSlice, deviceIndex int) bool {
+	return len(slice.Spec.Devices[deviceIndex].Basic.ConsumableCapacity) > 0
+}
+
+// isConsumable checks whether a device with remaining resources is consumable by the request.
+func (alloc *allocator) isConsumable(r requestIndices, slice *draapi.ResourceSlice, deviceIndex int) (bool, error) {
+	deviceID := DeviceID{Driver: slice.Spec.Driver, Pool: slice.Spec.Pool.Name, Device: slice.Spec.Devices[deviceIndex].Name}
+	request := &alloc.claimsToAllocate[r.claimIndex].Spec.Devices.Requests[r.requestIndex]
+
+	if IsFullDeviceRequest(*request) {
+		if allocatedShare, found := alloc.allocatedShareCollection[deviceID]; found {
+			if allocatedShare.HasNoShare() {
+				return true, nil
+			}
+			return false, nil
+		}
+		return true, nil
+	}
+
+	consumableCapacity := slice.Spec.Devices[deviceIndex].Basic.ConsumableCapacity
+	var consumable bool
+	var err error
+	if allocatedShare, found := alloc.allocatedShareCollection[deviceID]; found {
+		consumable, err = allocatedShare.IsConsumable(request.Resources.Requests, consumableCapacity)
+	} else {
+		consumable, err = NewAllocatedShare().IsConsumable(request.Resources.Requests, consumableCapacity)
+	}
+	return consumable, err
+}
+
 func (alloc *allocator) selectorsMatch(r requestIndices, device *draapi.BasicDevice, deviceID DeviceID, class *resourceapi.DeviceClass, selectors []resourceapi.DeviceSelector) (bool, error) {
 	for i, selector := range selectors {
 		expr := alloc.celCache.GetOrCompile(selector.CEL.Expression)
@@ -750,13 +803,20 @@ func (alloc *allocator) selectorsMatch(r requestIndices, device *draapi.BasicDev
 // as if that candidate had been allocated. If allocation cannot continue later
 // and must try something else, then the rollback function can be invoked to
 // restore the previous state.
-func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, must bool) (bool, func(), error) {
+func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, must, shared bool) (bool, func(), error) {
 	claim := alloc.claimsToAllocate[r.claimIndex]
 	request := &claim.Spec.Devices.Requests[r.requestIndex]
 	adminAccess := ptr.Deref(request.AdminAccess, false)
-	if !adminAccess && (alloc.allocatedDevices.Has(device.id) || alloc.allocatingDevices[device.id]) {
+	if !shared && !adminAccess && (alloc.allocatedDevices.Has(device.id) || alloc.allocatingDevices[device.id]) {
 		alloc.logger.V(7).Info("Device in use", "device", device.id)
 		return false, nil, nil
+	}
+
+	if shared {
+		consumableCapacity := device.slice.Spec.Devices[r.deviceIndex].Basic.ConsumableCapacity
+		if consumableCapacity == nil || len(consumableCapacity) == 0 {
+			return false, nil, errors.New("no consumable capacity for device sharing mode")
+		}
 	}
 
 	// It's available. Now check constraints.
@@ -777,16 +837,39 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 		}
 	}
 
-	// All constraints satisfied. Mark as in use (unless we do admin access)
+	// All constraints satisfied. Mark as in use (unless we do admin access or shared)
 	// and record the result.
 	alloc.logger.V(7).Info("Device allocated", "device", device.id)
 	if !adminAccess {
 		alloc.allocatingDevices[device.id] = true
 	}
+	var requestedResourcePtr *map[resourceapi.QualifiedName]resource.Quantity
+	if shared {
+		requestedResource := make(map[resourceapi.QualifiedName]resource.Quantity)
+		if IsFullDeviceRequest(*request) {
+			for name, consumableCapacity := range device.slice.Spec.Devices[r.deviceIndex].Basic.ConsumableCapacity {
+				if consumableCapacity.InfinityResource {
+					requestedResource[name] = resource.MustParse("1")
+					continue
+				}
+				if consumableCapacity.Value.IsZero() {
+					return false, nil, fmt.Errorf("zero capacity on non-infinity attribute")
+				}
+				requestedResource[name] = consumableCapacity.Value
+			}
+		} else {
+			for name, value := range request.Resources.Requests {
+				requestedResource[name] = value
+			}
+		}
+		requestedResourcePtr = &requestedResource
+	}
+
 	result := internalDeviceResult{
-		request: request.Name,
-		id:      device.id,
-		slice:   device.slice,
+		request:   request.Name,
+		id:        device.id,
+		slice:     device.slice,
+		resources: requestedResourcePtr,
 	}
 	if adminAccess {
 		result.adminAccess = &adminAccess

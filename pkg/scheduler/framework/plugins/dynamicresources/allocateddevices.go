@@ -50,11 +50,51 @@ func foreachAllocatedDevice(claim *resourceapi.ResourceClaim, cb func(deviceID s
 			// Is not considered as allocated.
 			continue
 		}
+		if result.AllocatedShare != nil {
+			// Is considered as shared allocation.
+			continue
+		}
 		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
 
 		// None of the users of this helper need to abort iterating,
 		// therefore it's not supported as it only would add overhead.
 		cb(deviceID)
+	}
+}
+
+// foreachAllocatedShare invokes the provided callback for each
+// device in the claim's shared allocation result which was allocated
+// exclusively for the claim.
+//
+// Devices allocated with admin access can be shared with other
+// claims and are skipped without invoking the callback.
+//
+// foreachAllocatedShare does nothing if the claim is not allocated.
+func foreachAllocatedShare(claim *resourceapi.ResourceClaim, cb func(allocatedSharedDevice structured.AllocatedSharedDevice)) {
+	if claim.Status.Allocation == nil {
+		return
+	}
+	for _, result := range claim.Status.Allocation.Devices.Results {
+		// Kubernetes 1.31 did not set this, 1.32 always does.
+		// Supporting 1.31 is not worth the additional code that
+		// would have to be written (= looking up in request) because
+		// it is extremely unlikely that there really is a result
+		// that still exists in a cluster from 1.31 where this matters.
+		if ptr.Deref(result.AdminAccess, false) {
+			// Is not considered as allocated.
+			continue
+		}
+		claimedShare := result.AllocatedShare
+		if claimedShare == nil {
+			// Is not considered as shared allocation.
+			continue
+		}
+		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
+		sharedAllocation := structured.NewAllocatedSharedDevice(deviceID, *claimedShare)
+
+		// None of the users of this helper need to abort iterating,
+		// therefore it's not supported as it only would add overhead.
+		cb(sharedAllocation)
 	}
 }
 
@@ -66,14 +106,16 @@ func foreachAllocatedDevice(claim *resourceapi.ResourceClaim, cb func(deviceID s
 type allocatedDevices struct {
 	logger klog.Logger
 
-	mutex sync.RWMutex
-	ids   sets.Set[structured.DeviceID]
+	mutex  sync.RWMutex
+	ids    sets.Set[structured.DeviceID]
+	shares structured.AllocatedShareCollection
 }
 
 func newAllocatedDevices(logger klog.Logger) *allocatedDevices {
 	return &allocatedDevices{
 		logger: logger,
 		ids:    sets.New[structured.DeviceID](),
+		shares: make(map[structured.DeviceID]structured.AllocatedShare),
 	}
 }
 
@@ -82,6 +124,13 @@ func (a *allocatedDevices) Get() sets.Set[structured.DeviceID] {
 	defer a.mutex.RUnlock()
 
 	return a.ids.Clone()
+}
+
+func (a *allocatedDevices) GetShareCollection() structured.AllocatedShareCollection {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+
+	return a.shares.Clone()
 }
 
 func (a *allocatedDevices) handlers() cache.ResourceEventHandler {
@@ -146,11 +195,24 @@ func (a *allocatedDevices) addDevices(claim *resourceapi.ResourceClaim) {
 		a.logger.V(6).Info("Observed device allocation", "device", deviceID, "claim", klog.KObj(claim))
 		deviceIDs = append(deviceIDs, deviceID)
 	})
+	shares := make([]structured.AllocatedSharedDevice, 0, 20)
+	foreachAllocatedShare(claim, func(allocatedSharedDevice structured.AllocatedSharedDevice) {
+		a.logger.V(6).Info("Observed shared device allocation", "share", allocatedSharedDevice, "claim", klog.KObj(claim))
+		shares = append(shares, allocatedSharedDevice)
+	})
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	for _, deviceID := range deviceIDs {
 		a.ids.Insert(deviceID)
+	}
+	for _, share := range shares {
+		deviceID := share.DeviceID
+		if currentShare, found := a.shares[deviceID]; found {
+			a.shares[deviceID].Add(currentShare)
+		} else {
+			a.shares[deviceID] = share.AllocatedShare.Clone()
+		}
 	}
 }
 
@@ -166,10 +228,24 @@ func (a *allocatedDevices) removeDevices(claim *resourceapi.ResourceClaim) {
 		a.logger.V(6).Info("Observed device deallocation", "device", deviceID, "claim", klog.KObj(claim))
 		deviceIDs = append(deviceIDs, deviceID)
 	})
+	shares := make([]structured.AllocatedSharedDevice, 0, 20)
+	foreachAllocatedShare(claim, func(allocatedSharedDevice structured.AllocatedSharedDevice) {
+		a.logger.V(6).Info("Observed shared device allocation", "share", allocatedSharedDevice, "claim", klog.KObj(claim))
+		shares = append(shares, allocatedSharedDevice)
+	})
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	for _, deviceID := range deviceIDs {
 		a.ids.Delete(deviceID)
+	}
+	for _, share := range shares {
+		deviceID := share.DeviceID
+		if currentShare, found := a.shares[deviceID]; found {
+			a.shares[deviceID].Sub(currentShare)
+			if a.shares[deviceID].HasNoShare() {
+				delete(a.shares, deviceID)
+			}
+		}
 	}
 }

@@ -312,16 +312,31 @@ claims:
 		claims, err := draManager.ResourceClaims().List()
 		tCtx.ExpectNoError(err, "list claims")
 		allocatedDevices := sets.New[structured.DeviceID]()
+		allocatedShares := make(structured.AllocatedShareCollection)
 		for _, claim := range claims {
 			if claim.Status.Allocation == nil {
 				continue
 			}
 			for _, result := range claim.Status.Allocation.Devices.Results {
-				allocatedDevices.Insert(structured.MakeDeviceID(result.Driver, result.Pool, result.Device))
+				deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
+				allocatedDevices.Insert(deviceID)
+
+				claimedShare := result.AllocatedShare
+				if claimedShare == nil {
+					// Is not considered as shared allocation.
+					allocatedDevices.Insert(deviceID)
+				} else {
+					sharedAllocation := structured.NewAllocatedSharedDevice(deviceID, *claimedShare)
+					if _, found := allocatedShares[deviceID]; found {
+						allocatedShares[deviceID].Add(sharedAllocation.AllocatedShare)
+					} else {
+						allocatedShares[deviceID] = sharedAllocation.AllocatedShare.Clone()
+					}
+				}
 			}
 		}
 
-		allocator, err := structured.NewAllocator(tCtx, utilfeature.DefaultFeatureGate.Enabled(features.DRAAdminAccess), []*resourceapi.ResourceClaim{claim}, allocatedDevices, draManager.DeviceClasses(), slices, celCache)
+		allocator, err := structured.NewAllocator(tCtx, utilfeature.DefaultFeatureGate.Enabled(features.DRAAdminAccess), []*resourceapi.ResourceClaim{claim}, allocatedDevices, allocatedShares, draManager.DeviceClasses(), slices, celCache)
 		tCtx.ExpectNoError(err, "create allocator")
 
 		rand.Shuffle(len(nodes), func(i, j int) {

@@ -156,6 +156,12 @@ const (
 	// Enable usage of Provision of PVCs from snapshots in other namespaces
 	CrossNamespaceVolumeDataSource featuregate.Feature = "CrossNamespaceVolumeDataSource"
 
+	// owner: @sunya-ch
+	// kep: https://kep.k8s.io/5075
+	//
+	// ConsumableCapacity
+	ConsumableCapacity featuregate.Feature = "ConsumableCapacity"
+
 	// owner: @atiratree
 	// kep: http://kep.k8s.io/3973
 	//
