@@ -612,6 +612,14 @@ func (alloc *allocator) allocateOne(r deviceIndices) (bool, error) {
 		}
 		for _, slice := range pool.Slices {
 			for deviceIndex := range slice.Spec.Devices {
+				// Skip shared device if allocation mode is not Shared.
+				// Skip unsharable device if allocation mode is Shared.
+				shared := alloc.isSharedDevice(slice, deviceIndex)
+				if shared && request.AllocationMode != resourceapi.DeviceAllocationModeShared ||
+					!shared && request.AllocationMode == resourceapi.DeviceAllocationModeShared {
+					continue
+				}
+
 				deviceID := DeviceID{Driver: pool.Driver, Pool: pool.Pool, Device: slice.Spec.Devices[deviceIndex].Name}
 
 				// Checking for "in use" is cheap and thus gets done first.
@@ -629,7 +637,6 @@ func (alloc *allocator) allocateOne(r deviceIndices) (bool, error) {
 					alloc.logger.V(7).Info("Device not selectable", "device", deviceID)
 					continue
 				}
-				shared := alloc.isSharedDevice(slice, deviceIndex)
 				if shared {
 					// Next check consumable.
 					consumable, err := alloc.isConsumable(requestIndices{claimIndex: r.claimIndex, requestIndex: r.requestIndex}, slice, deviceIndex)
@@ -723,7 +730,12 @@ func (alloc *allocator) isSelectable(r requestIndices, slice *draapi.ResourceSli
 // isSharedDevice checks whether the device is shared.
 // A device is considered as a shared device if at least one consumableCapacity is defined.
 func (alloc *allocator) isSharedDevice(slice *draapi.ResourceSlice, deviceIndex int) bool {
-	return len(slice.Spec.Devices[deviceIndex].Basic.ConsumableCapacity) > 0
+	basicDevice := slice.Spec.Devices[deviceIndex].Basic
+	if basicDevice == nil {
+		return false
+	}
+	return slice.Spec.Devices[deviceIndex].Basic.ConsumableCapacity != nil &&
+		len(slice.Spec.Devices[deviceIndex].Basic.ConsumableCapacity) > 0
 }
 
 // isConsumable checks whether a device with remaining resources is consumable by the request.
