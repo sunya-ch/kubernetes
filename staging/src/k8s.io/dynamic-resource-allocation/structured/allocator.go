@@ -117,7 +117,6 @@ func (a *Allocator) Allocate(ctx context.Context, node *v1.Node) (finalResult []
 		constraints:          make([][]constraint, len(a.claimsToAllocate)),
 		requestData:          make(map[requestIndices]requestData),
 		result:               make([]internalAllocationResult, len(a.claimsToAllocate)),
-		allocatingShares:     make(AllocatedShareCollection),
 	}
 	alloc.logger.V(5).Info("Starting allocation", "numClaims", len(alloc.claimsToAllocate))
 	defer alloc.logger.V(5).Info("Done with allocation", "success", len(finalResult) == len(alloc.claimsToAllocate), "err", finalErr)
@@ -383,7 +382,6 @@ type allocator struct {
 	constraints          [][]constraint                 // one list of constraints per claim
 	requestData          map[requestIndices]requestData // one entry per request
 	allocatingDevices    map[DeviceID]bool
-	allocatingShares     AllocatedShareCollection
 	result               []internalAllocationResult
 }
 
@@ -746,14 +744,11 @@ func (alloc *allocator) isConsumable(r requestIndices, slice *draapi.ResourceSli
 	consumableCapacity := slice.Spec.Devices[deviceIndex].Basic.ConsumableCapacity
 	var consumable bool
 	var err error
-	var allocatingSharePtr *AllocatedShare
-	if allocatingShare, found := alloc.allocatingShares[deviceID]; found {
-		allocatingSharePtr = &allocatingShare
-	}
+
 	if allocatedShare, found := alloc.allocatedShareCollection[deviceID]; found {
-		consumable, err = allocatedShare.IsConsumable(request.Resources.Requests, consumableCapacity, allocatingSharePtr)
+		consumable, err = allocatedShare.IsConsumable(request.Resources.Requests, consumableCapacity)
 	} else {
-		consumable, err = NewAllocatedShare().IsConsumable(request.Resources.Requests, consumableCapacity, allocatingSharePtr)
+		consumable, err = NewAllocatedShare().IsConsumable(request.Resources.Requests, consumableCapacity)
 	}
 	return consumable, err
 }
@@ -846,7 +841,7 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 	// All constraints satisfied. Mark as in use (unless we do admin access or shared)
 	// and record the result.
 	alloc.logger.V(7).Info("Device allocated", "device", device.id)
-	if !adminAccess && !shared {
+	if !adminAccess {
 		alloc.allocatingDevices[device.id] = true
 	}
 
@@ -857,7 +852,6 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 			return false, nil, fmt.Errorf("failed to get share from request: %w", err)
 		}
 		requestedResourcePtr = &requestedResource
-		alloc.allocatingShares.Insert(NewAllocatedSharedDevice(device.id, requestedResource))
 		fmt.Println("Requested resource: ", requestedResource)
 	}
 	result := internalDeviceResult{
@@ -877,14 +871,7 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 			constraint.remove(request.Name, device.basic, device.id)
 		}
 		if !adminAccess {
-			if !shared {
-				alloc.allocatingDevices[device.id] = false
-			} else {
-				requestedResource := alloc.result[r.claimIndex].devices[previousNumResults].resources
-				if requestedResource != nil {
-					alloc.allocatingShares.Remove(NewAllocatedSharedDevice(device.id, *requestedResource))
-				}
-			}
+			alloc.allocatingDevices[device.id] = false
 		}
 		// Truncate, but keep the underlying slice.
 		alloc.result[r.claimIndex].devices = alloc.result[r.claimIndex].devices[:previousNumResults]

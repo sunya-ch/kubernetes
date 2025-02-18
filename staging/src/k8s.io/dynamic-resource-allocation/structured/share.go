@@ -116,8 +116,7 @@ func (s AllocatedShare) Sub(substractedShare AllocatedShare) {
 
 // IsConsumable checks whether the new request can be added given the consumable capacity.
 func (s AllocatedShare) IsConsumable(requestedResources map[resourceapi.QualifiedName]resource.Quantity,
-	consumableCapacity map[resourceapi.QualifiedName]resourceapi.DeviceConsumableCapacity,
-	allocatingResources *AllocatedShare) (bool, error) {
+	consumableCapacity map[resourceapi.QualifiedName]resourceapi.DeviceConsumableCapacity) (bool, error) {
 	clone := s.Clone()
 	if requestedResources == nil {
 		return false, errors.New("nil resource request.")
@@ -144,11 +143,6 @@ func (s AllocatedShare) IsConsumable(requestedResources map[resourceapi.Qualifie
 			clone[name] = &requestedVal
 		} else {
 			clone[name].Add(requestedVal)
-		}
-		if allocatingResources != nil {
-			if allocatingVal, allocatingFound := (*allocatingResources)[name]; allocatingFound {
-				clone[name].Add(*allocatingVal)
-			}
 		}
 		if clone[name].Cmp(consumableCapacity.Value) > 0 {
 			return false, nil
@@ -181,6 +175,13 @@ func NewAllocatedSharedDevice(deviceID DeviceID, requestedResource map[resourcea
 type AllocatedSharedDevice struct {
 	DeviceID
 	AllocatedShare
+}
+
+func (a AllocatedSharedDevice) Clone() AllocatedSharedDevice {
+	return AllocatedSharedDevice{
+		DeviceID:       a.DeviceID,
+		AllocatedShare: a.AllocatedShare.Clone(),
+	}
 }
 
 func (a AllocatedSharedDevice) String() string {
