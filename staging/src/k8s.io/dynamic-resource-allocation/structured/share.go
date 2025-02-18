@@ -42,10 +42,44 @@ func (c AllocatedShareCollection) Insert(new AllocatedSharedDevice) {
 	}
 }
 
+func (c AllocatedShareCollection) Remove(new AllocatedSharedDevice) {
+	if _, found := c[new.DeviceID]; found {
+		c[new.DeviceID].Sub(new.AllocatedShare)
+		if c[new.DeviceID].HasNoShare() {
+			delete(c, new.DeviceID)
+		}
+	}
+}
+
 type AllocatedShare map[resourceapi.QualifiedName]*resource.Quantity
 
 func NewAllocatedShare() AllocatedShare {
 	return make(AllocatedShare)
+}
+
+// GetShareFromRequest returns resource share to be allocated,
+// according to claim request and defined consumable capacity.
+func GetShareFromRequest(request *resourceapi.DeviceRequest,
+	consumableCapacity map[resourceapi.QualifiedName]resourceapi.DeviceConsumableCapacity) (
+	map[resourceapi.QualifiedName]resource.Quantity, error) {
+	requestedResource := make(map[resourceapi.QualifiedName]resource.Quantity)
+	if IsFullDeviceRequest(*request) {
+		for name, consumableCapacity := range consumableCapacity {
+			if consumableCapacity.InfinityResource {
+				requestedResource[name] = resource.MustParse("1")
+				continue
+			}
+			if consumableCapacity.Value.IsZero() {
+				return nil, fmt.Errorf("zero capacity on non-infinity attribute")
+			}
+			requestedResource[name] = consumableCapacity.Value
+		}
+	} else {
+		for name, value := range request.Resources.Requests {
+			requestedResource[name] = value
+		}
+	}
+	return requestedResource, nil
 }
 
 // Copy makes a copy of AllocatedShare
@@ -81,7 +115,9 @@ func (s AllocatedShare) Sub(substractedShare AllocatedShare) {
 }
 
 // IsConsumable checks whether the new request can be added given the consumable capacity.
-func (s AllocatedShare) IsConsumable(requestedResources map[resourceapi.QualifiedName]resource.Quantity, consumableCapacity map[resourceapi.QualifiedName]resourceapi.DeviceConsumableCapacity) (bool, error) {
+func (s AllocatedShare) IsConsumable(requestedResources map[resourceapi.QualifiedName]resource.Quantity,
+	consumableCapacity map[resourceapi.QualifiedName]resourceapi.DeviceConsumableCapacity,
+	allocatingResources *AllocatedShare) (bool, error) {
 	clone := s.Clone()
 	if requestedResources == nil {
 		return false, errors.New("nil resource request.")
@@ -98,16 +134,24 @@ func (s AllocatedShare) IsConsumable(requestedResources map[resourceapi.Qualifie
 		if consumableCapacity.Value.IsZero() {
 			return false, errors.New("consumable capacity is zero.")
 		}
-		currentAllocatedShare := clone[name]
-		if addedVal, found := requestedResources[name]; found {
-			currentAllocatedShare.Add(addedVal)
-			if currentAllocatedShare.Cmp(consumableCapacity.Value) > 0 {
-				return false, nil
-			}
+		requestedVal, requestedFound := requestedResources[name]
+		if !requestedFound {
+			// does not request this resource, continue
+			continue
+		}
+		_, allocatedFound := clone[name]
+		if !allocatedFound {
+			clone[name] = &requestedVal
 		} else {
-			if !currentAllocatedShare.IsZero() {
-				return false, nil
+			clone[name].Add(requestedVal)
+		}
+		if allocatingResources != nil {
+			if allocatingVal, allocatingFound := (*allocatingResources)[name]; allocatingFound {
+				clone[name].Add(*allocatingVal)
 			}
+		}
+		if clone[name].Cmp(consumableCapacity.Value) > 0 {
+			return false, nil
 		}
 	}
 	return true, nil
@@ -123,9 +167,9 @@ func (s AllocatedShare) HasNoShare() bool {
 	return true
 }
 
-func NewAllocatedSharedDevice(deviceID DeviceID, claimedShare map[resourceapi.QualifiedName]resource.Quantity) AllocatedSharedDevice {
+func NewAllocatedSharedDevice(deviceID DeviceID, requestedResource map[resourceapi.QualifiedName]resource.Quantity) AllocatedSharedDevice {
 	allocatedShare := make(AllocatedShare)
-	for name, quantity := range claimedShare {
+	for name, quantity := range requestedResource {
 		allocatedShare[name] = &quantity
 	}
 	return AllocatedSharedDevice{
