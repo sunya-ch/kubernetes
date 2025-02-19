@@ -312,7 +312,7 @@ claims:
 		claims, err := draManager.ResourceClaims().List()
 		tCtx.ExpectNoError(err, "list claims")
 		allocatedDevices := sets.New[structured.DeviceID]()
-		allocatedShares := make(structured.AllocatedShareCollection)
+		allocatedShares := make(structured.AllocatedCapacityCollection)
 		for _, claim := range claims {
 			if claim.Status.Allocation == nil {
 				continue
@@ -321,16 +321,16 @@ claims:
 				deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
 				allocatedDevices.Insert(deviceID)
 
-				claimedShare := result.AllocatedShare
-				if claimedShare == nil {
+				claimedCapacity := result.ConsumedCapacity
+				if claimedCapacity == nil {
 					// Is not considered as shared allocation.
 					allocatedDevices.Insert(deviceID)
 				} else {
-					sharedAllocation := structured.NewAllocatedSharedDevice(deviceID, *claimedShare)
+					sharedAllocation := structured.NewSharedDeviceAllocation(deviceID, claimedCapacity)
 					if _, found := allocatedShares[deviceID]; found {
-						allocatedShares[deviceID].Add(sharedAllocation.AllocatedShare)
+						allocatedShares[deviceID].Add(sharedAllocation.AllocatedCapacity)
 					} else {
-						allocatedShares[deviceID] = sharedAllocation.AllocatedShare.Clone()
+						allocatedShares[deviceID] = sharedAllocation.AllocatedCapacity.Clone()
 					}
 				}
 			}

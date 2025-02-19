@@ -100,7 +100,7 @@ func (r *resourceClaimTrackerContract) ListAllAllocatedDevices() (sets.Set[struc
 	return nil, nil
 }
 
-func (r *resourceClaimTrackerContract) ListAllAllocatedShares() (structured.AllocatedShareCollection, error) {
+func (r *resourceClaimTrackerContract) ListAllAllocatedShares() (structured.AllocatedCapacityCollection, error) {
 	return nil, nil
 }
 

@@ -223,16 +223,16 @@ type BasicDevice struct {
 	// +optional
 	Capacity map[QualifiedName]DeviceCapacity `json:"capacity,omitempty" protobuf:"bytes,2,rep,name=capacity"`
 
-	// ConsumableCapacity defines the set of capacities for this device,
-	// which can be partially consumed and shared by more than one claim.
-	// If at least one item is defined in this field, the device is considered as shared device
-	// and can be allocated only with the `Shared` allocation mode.
-	//
-	// The maximum number of attributes, capacities, and consumable capactites combined is 32.
+	// Shared marks whether the device is shared.
+	// The device with shared="true" can be allocated to more than one claim,
+	// and all value in capacity is considered as consumable.
+	// If there is no capacity defined,
+	// the device is considered as having an infinity sharable capacity.
 	//
 	// +optional
+	// +default=false
 	// +featureGate=ConsumableCapacity
-	ConsumableCapacity map[QualifiedName]DeviceConsumableCapacity `json:"consumableCapacity,omitempty" protobuf:"bytes,3,rep,name=consumableCapacity"`
+	Shared *bool `json:"shared" protobuf:"bytes,3,opt,name=shared"`
 }
 
 // DeviceCapacity describes a quantity associated with a device.
@@ -242,24 +242,43 @@ type DeviceCapacity struct {
 	// +required
 	Value resource.Quantity `json:"value" protobuf:"bytes,1,rep,name=value"`
 
-	// potential future addition: fields which define how to "consume"
-	// capacity (= share a single device between different consumers).
-}
-
-// DeviceConsumableCapacity describes a consumable quantity associated with a device.
-type DeviceConsumableCapacity struct {
-	// InfinityResource marks no capacity limit.
-	// If InfinityResource is set to true, Value will be ignored.
+	// Consumable identifies whether the capacity is consumable or not.
 	//
 	// +optional
 	// +default=false
-	InfinityResource bool `json:"infinity" protobuf:"bytes,1,name=infinity"`
+	// +featureGate=ConsumableCapacity
+	Consumable *bool `json:"consumable" protobuf:"bytes,2,opt,name=consumable"`
 
-	// Value defines how much of a certain device capacity is consumable.
-	// The value must be greater than zero if `infinity` is false.
+	// ConsumeConstraints refines constraints for consumable capacity.
+	// This field is only applied when consumable is "true".
 	//
 	// +optional
-	Value resource.Quantity `json:"value" protobuf:"bytes,2,rep,name=value"`
+	// +default=false
+	// +featureGate=ConsumableCapacity
+	*ConsumeConstraint `json:"consumeConstraint" protobuf:"bytes,3,rep,name=consumeConstraint"`
+}
+
+type ConsumeConstraint struct {
+	// Required indicates that the capacity must be defined in the consuming request.
+	// +optional
+	Required *bool `json:"required,omitempty"`
+
+	// Set defines a set of acceptable quantities of consuming requests.
+	// +optional
+	// +oneOf=QuantityCondition
+	Set *[]resource.Quantity `json:"set" protobuf:"bytes,2,opt,name=set"`
+
+	// ConsumeRange defines an acceptable quantity range of consuming requests.
+	// +optional
+	// +oneOf=QuantityCondition
+	*ConsumeRange `json:",inline"`
+}
+
+type ConsumeRange struct {
+	// +optional
+	Minimum *resource.Quantity `json:"minimum" protobuf:"bytes,1,opt,name=minimum"`
+	// +optional
+	Maximum *resource.Quantity `json:"maximum" protobuf:"bytes,2,opt,name=maximum"`
 }
 
 // Limit for the sum of the number of entries in both attributes and capacity.
@@ -502,33 +521,25 @@ type DeviceRequest struct {
 	// +featureGate=DRAAdminAccess
 	AdminAccess *bool `json:"adminAccess,omitempty" protobuf:"bytes,6,opt,name=adminAccess"`
 
-	// Resource is used only when the allocation mode is `Shared`.
-	// Only the resource in ConsumableCapacity can be requested.
-	// If the device is shared and this field is nil,
-	// the default is to request all consumable capacity.
+	// Capacity defines resource requirements against capacity.
 	//
 	// +optional
-	// +oneOf=AllocationMode
 	// +featureGate=ConsumableCapacity
-	Resources *ResourceRequest `json:"resources,omitempty" protobuf:"bytes,7,opt,name=resources"`
+	Capacity *CapacityRequirements `json:"resources,omitempty" protobuf:"bytes,7,opt,name=resources"`
 }
 
-// ResourceRequest is a per-device resource request specification.
-type ResourceRequest struct {
-	// All marks requesting all resource from the shared device.
-	// If All is set to true, Quantity will be ignored.
-	//
-	// +optional
-	// +default=false
-	All bool `json:"all" protobuf:"bytes,1,name=all"`
-
-	// Requests define a set of requested per-device amount of each resource.
-	// This field is ignored if All is true.
-	// nil set implies requesting all resources.
-	// A zero-length set implies an infinity consumable capacity and requesting zero resource.
-	//
+type CapacityRequirements struct {
+	// Requests describe the amount of resources to be reserved from the device.
+	// If Requests is omitted, it defaults to Limits if that is explicitly specified,
+	// otherwise to an implementation-defined value. Requests cannot exceed Limits.
 	// +optional
 	Requests map[QualifiedName]resource.Quantity `json:"requests,omitempty" protobuf:"bytes,2,rep,name=requests"`
+
+	// Potentially enhancement field.
+	// Limits define the maximum amount of per-device resources allowed.
+	// This enables burstable usage when applicable.
+	// +optional
+	// Limits map[QualifiedName]resource.Quantity `json:"limits" protobuf:"bytes,3,rep,name=limits"`
 }
 
 const (
@@ -541,7 +552,6 @@ type DeviceAllocationMode string
 const (
 	DeviceAllocationModeExactCount = DeviceAllocationMode("ExactCount")
 	DeviceAllocationModeAll        = DeviceAllocationMode("All")
-	DeviceAllocationModeShared     = DeviceAllocationMode("Shared")
 )
 
 // DeviceSelector must have exactly one field set.
@@ -898,15 +908,18 @@ type DeviceRequestAllocationResult struct {
 	// +featureGate=DRAAdminAccess
 	AdminAccess *bool `json:"adminAccess" protobuf:"bytes,5,name=adminAccess"`
 
-	// AllocatedShare indicates a per-device resource amount allocated by the claim request.
-	// Only the capacity defined in consumableCapacity can be partially allocated.
-	// A summation of allocated resource must be less than or equal each corresponding capacity.
-	// This field lists all consumableCapacity of the device.
-	// nil if the device has no consumableCapacity defined (not sharable).
+	// Shared indicates whether the allocated device is shared.
+	//
+	// +required
+	// +featureGate=ConsumableCapacity
+	Shared bool `json:"shared" protobuf:"bytes,6,name=device"`
+
+	// ConsumedCapacity indicates a per-device capacity amount consumed by the claim request.
+	// A summation of consumed request capacity must be less than or equal each corresponding capacity.
 	//
 	// +optional
 	// +featureGate=ConsumableCapacity
-	AllocatedShare *map[QualifiedName]resource.Quantity `json:"allocatedShare" protobuf:"bytes,6,opt,name=allocatedShare"`
+	ConsumedCapacity map[QualifiedName]resource.Quantity `json:"consumedCapacity,omitempty" protobuf:"bytes,7,rep,name=consumedCapacity"`
 }
 
 // DeviceAllocationConfiguration gets embedded in an AllocationResult.

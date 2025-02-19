@@ -18,7 +18,6 @@ package api
 
 import (
 	v1 "k8s.io/api/core/v1"
-	resourceapi "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -49,9 +48,9 @@ type Device struct {
 }
 
 type BasicDevice struct {
-	Attributes         map[QualifiedName]DeviceAttribute
-	Capacity           map[QualifiedName]DeviceCapacity
-	ConsumableCapacity map[resourceapi.QualifiedName]resourceapi.DeviceConsumableCapacity
+	Attributes map[QualifiedName]DeviceAttribute
+	Capacity   map[QualifiedName]DeviceCapacity
+	Shared     bool
 }
 
 type QualifiedName string

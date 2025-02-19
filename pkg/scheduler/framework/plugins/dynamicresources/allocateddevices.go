@@ -50,8 +50,7 @@ func foreachAllocatedDevice(claim *resourceapi.ResourceClaim, cb func(deviceID s
 			// Is not considered as allocated.
 			continue
 		}
-		if result.AllocatedShare != nil {
-			// Is considered as shared allocation.
+		if result.Shared {
 			continue
 		}
 		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
@@ -62,15 +61,15 @@ func foreachAllocatedDevice(claim *resourceapi.ResourceClaim, cb func(deviceID s
 	}
 }
 
-// foreachAllocatedShare invokes the provided callback for each
+// foreachAllocatedSharedDevice invokes the provided callback for each
 // device in the claim's shared allocation result which was allocated
 // exclusively for the claim.
 //
 // Devices allocated with admin access can be shared with other
 // claims and are skipped without invoking the callback.
 //
-// foreachAllocatedShare does nothing if the claim is not allocated.
-func foreachAllocatedShare(claim *resourceapi.ResourceClaim, cb func(allocatedSharedDevice structured.AllocatedSharedDevice)) {
+// foreachAllocatedSharedDevice does nothing if the claim is not allocated.
+func foreachAllocatedSharedDevice(claim *resourceapi.ResourceClaim, cb func(allocatedSharedDevice structured.SharedDeviceAllocation)) {
 	if claim.Status.Allocation == nil {
 		return
 	}
@@ -84,13 +83,11 @@ func foreachAllocatedShare(claim *resourceapi.ResourceClaim, cb func(allocatedSh
 			// Is not considered as allocated.
 			continue
 		}
-		claimedShare := result.AllocatedShare
-		if claimedShare == nil {
-			// Is not considered as shared allocation.
+		if !result.Shared || result.ConsumedCapacity == nil {
 			continue
 		}
 		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
-		sharedAllocation := structured.NewAllocatedSharedDevice(deviceID, *claimedShare)
+		sharedAllocation := structured.NewSharedDeviceAllocation(deviceID, result.ConsumedCapacity)
 
 		// None of the users of this helper need to abort iterating,
 		// therefore it's not supported as it only would add overhead.
@@ -108,14 +105,14 @@ type allocatedDevices struct {
 
 	mutex  sync.RWMutex
 	ids    sets.Set[structured.DeviceID]
-	shares structured.AllocatedShareCollection
+	shares structured.AllocatedCapacityCollection
 }
 
 func newAllocatedDevices(logger klog.Logger) *allocatedDevices {
 	return &allocatedDevices{
 		logger: logger,
 		ids:    sets.New[structured.DeviceID](),
-		shares: make(map[structured.DeviceID]structured.AllocatedShare),
+		shares: make(map[structured.DeviceID]structured.AllocatedCapacity),
 	}
 }
 
@@ -126,7 +123,7 @@ func (a *allocatedDevices) Get() sets.Set[structured.DeviceID] {
 	return a.ids.Clone()
 }
 
-func (a *allocatedDevices) GetShareCollection() structured.AllocatedShareCollection {
+func (a *allocatedDevices) GetShareCollection() structured.AllocatedCapacityCollection {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 
@@ -195,8 +192,8 @@ func (a *allocatedDevices) addDevices(claim *resourceapi.ResourceClaim) {
 		a.logger.V(6).Info("Observed device allocation", "device", deviceID, "claim", klog.KObj(claim))
 		deviceIDs = append(deviceIDs, deviceID)
 	})
-	shares := make([]structured.AllocatedSharedDevice, 0, 20)
-	foreachAllocatedShare(claim, func(allocatedSharedDevice structured.AllocatedSharedDevice) {
+	shares := make([]structured.SharedDeviceAllocation, 0, 20)
+	foreachAllocatedSharedDevice(claim, func(allocatedSharedDevice structured.SharedDeviceAllocation) {
 		a.logger.V(6).Info("Observed shared device allocation", "share", allocatedSharedDevice, "claim", klog.KObj(claim))
 		shares = append(shares, allocatedSharedDevice)
 	})
@@ -211,7 +208,7 @@ func (a *allocatedDevices) addDevices(claim *resourceapi.ResourceClaim) {
 		if currentShare, found := a.shares[deviceID]; found {
 			a.shares[deviceID].Add(currentShare)
 		} else {
-			a.shares[deviceID] = share.AllocatedShare.Clone()
+			a.shares[deviceID] = share.AllocatedCapacity.Clone()
 		}
 	}
 }
@@ -228,8 +225,8 @@ func (a *allocatedDevices) removeDevices(claim *resourceapi.ResourceClaim) {
 		a.logger.V(6).Info("Observed device deallocation", "device", deviceID, "claim", klog.KObj(claim))
 		deviceIDs = append(deviceIDs, deviceID)
 	})
-	shares := make([]structured.AllocatedSharedDevice, 0, 20)
-	foreachAllocatedShare(claim, func(allocatedSharedDevice structured.AllocatedSharedDevice) {
+	shares := make([]structured.SharedDeviceAllocation, 0, 20)
+	foreachAllocatedSharedDevice(claim, func(allocatedSharedDevice structured.SharedDeviceAllocation) {
 		a.logger.V(6).Info("Observed shared device allocation", "share", allocatedSharedDevice, "claim", klog.KObj(claim))
 		shares = append(shares, allocatedSharedDevice)
 	})

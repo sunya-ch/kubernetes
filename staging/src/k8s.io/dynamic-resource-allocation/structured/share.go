@@ -17,74 +17,69 @@ limitations under the License.
 package structured
 
 import (
-	"errors"
 	"fmt"
 
 	resourceapi "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-type AllocatedShareCollection map[DeviceID]AllocatedShare
+// AllocatedCapacity define a quantity set which is updatable.
+// This field is used for aggregating allocated capacity,
+// and for calculating consumability.
+type AllocatedCapacity map[resourceapi.QualifiedName]*resource.Quantity
 
-func (c AllocatedShareCollection) Clone() AllocatedShareCollection {
-	clone := make(AllocatedShareCollection)
+// AllocatedCapacityCollection collects a set of AllocatedCapacity
+// for each shared device.
+type AllocatedCapacityCollection map[DeviceID]AllocatedCapacity
+
+func (c AllocatedCapacityCollection) Clone() AllocatedCapacityCollection {
+	clone := make(AllocatedCapacityCollection)
 	for deviceID, share := range c {
 		clone[deviceID] = share.Clone()
 	}
 	return clone
 }
 
-func (c AllocatedShareCollection) Insert(new AllocatedSharedDevice) {
+func (c AllocatedCapacityCollection) Insert(new SharedDeviceAllocation) {
 	if _, found := c[new.DeviceID]; found {
-		c[new.DeviceID].Add(new.AllocatedShare)
+		c[new.DeviceID].Add(new.AllocatedCapacity)
 	} else {
-		c[new.DeviceID] = new.AllocatedShare.Clone()
+		c[new.DeviceID] = new.AllocatedCapacity.Clone()
 	}
 }
 
-func (c AllocatedShareCollection) Remove(new AllocatedSharedDevice) {
+func (c AllocatedCapacityCollection) Remove(new SharedDeviceAllocation) {
 	if _, found := c[new.DeviceID]; found {
-		c[new.DeviceID].Sub(new.AllocatedShare)
+		c[new.DeviceID].Sub(new.AllocatedCapacity)
 		if c[new.DeviceID].HasNoShare() {
 			delete(c, new.DeviceID)
 		}
 	}
 }
 
-type AllocatedShare map[resourceapi.QualifiedName]*resource.Quantity
-
-func NewAllocatedShare() AllocatedShare {
-	return make(AllocatedShare)
+func NewAllocatedShare() AllocatedCapacity {
+	return make(AllocatedCapacity)
 }
 
-// GetShareFromRequest returns resource share to be allocated,
-// according to claim request and defined consumable capacity.
-func GetShareFromRequest(request *resourceapi.DeviceRequest,
-	consumableCapacity map[resourceapi.QualifiedName]resourceapi.DeviceConsumableCapacity) (
-	map[resourceapi.QualifiedName]resource.Quantity, error) {
-	requestedResource := make(map[resourceapi.QualifiedName]resource.Quantity)
-	if IsFullDeviceRequest(*request) {
-		for name, consumableCapacity := range consumableCapacity {
-			if consumableCapacity.InfinityResource {
-				requestedResource[name] = resource.MustParse("1")
-				continue
-			}
-			if consumableCapacity.Value.IsZero() {
-				return nil, fmt.Errorf("zero capacity on non-infinity attribute")
-			}
-			requestedResource[name] = consumableCapacity.Value
-		}
-	} else {
-		for name, value := range request.Resources.Requests {
-			requestedResource[name] = value
-		}
+// GetCapacityAllocationFromRequest returns allocated resource,
+// according to claim request and defined capacity.
+func GetCapacityAllocationFromRequest(request *resourceapi.DeviceRequest,
+	consumableCapacity map[resourceapi.QualifiedName]resourceapi.DeviceCapacity) map[resourceapi.QualifiedName]resource.Quantity {
+	requestedCapacity := make(map[resourceapi.QualifiedName]resource.Quantity)
+
+	for name, requestVal := range request.Capacity.Requests {
+		requestedCapacity[name] = requestVal
 	}
-	return requestedResource, nil
+	// for name, limitVal := range request.Capacity.Limits {
+	// 	requestedCapacity[name] = limitVal
+	// }
+
+	return requestedCapacity
 }
 
 // Copy makes a copy of AllocatedShare
-func (s AllocatedShare) Clone() AllocatedShare {
-	clone := make(AllocatedShare)
+func (s AllocatedCapacity) Clone() AllocatedCapacity {
+	clone := make(AllocatedCapacity)
 	for name, quantity := range s {
 		q := quantity.DeepCopy()
 		clone[name] = &q
@@ -94,7 +89,7 @@ func (s AllocatedShare) Clone() AllocatedShare {
 
 // Add adds quantity to corresponding consumable capacity.
 // add new entry if no corresponding consumable capacity found.
-func (s AllocatedShare) Add(addedShare AllocatedShare) {
+func (s AllocatedCapacity) Add(addedShare AllocatedCapacity) {
 	for name, quantity := range addedShare {
 		if _, found := s[name]; found {
 			s[name].Add(*quantity)
@@ -106,7 +101,7 @@ func (s AllocatedShare) Add(addedShare AllocatedShare) {
 
 // Sub subtracts quantity
 // ignore if no corresponding consumable capacity found.
-func (s AllocatedShare) Sub(substractedShare AllocatedShare) {
+func (s AllocatedCapacity) Sub(substractedShare AllocatedCapacity) {
 	for name, quantity := range substractedShare {
 		if _, found := s[name]; found {
 			s[name].Sub(*quantity)
@@ -114,45 +109,49 @@ func (s AllocatedShare) Sub(substractedShare AllocatedShare) {
 	}
 }
 
-// IsConsumable checks whether the new request can be added given the consumable capacity.
-func (s AllocatedShare) IsConsumable(requestedResources map[resourceapi.QualifiedName]resource.Quantity,
-	consumableCapacity map[resourceapi.QualifiedName]resourceapi.DeviceConsumableCapacity) (bool, error) {
+// CmpRequestOverCapacity checks whether the new request can be added within the given capacity.
+func (s AllocatedCapacity) CmpRequestOverCapacity(request *resourceapi.DeviceRequest,
+	capacity map[resourceapi.QualifiedName]resourceapi.DeviceCapacity) (bool, error) {
 	clone := s.Clone()
-	if requestedResources == nil {
-		return false, errors.New("nil resource request.")
-	}
-	for name := range requestedResources {
-		if _, found := consumableCapacity[name]; !found {
-			return false, fmt.Errorf("%s has not been defined in consumable capacitiy", name)
+	requestedCapacity := GetCapacityAllocationFromRequest(request, capacity)
+	for name := range requestedCapacity {
+		if _, found := capacity[name]; !found {
+			return false, fmt.Errorf("%s has not been defined in capacitiy", name)
 		}
 	}
-	for name, consumableCapacity := range consumableCapacity {
-		if consumableCapacity.InfinityResource {
-			continue
-		}
-		if consumableCapacity.Value.IsZero() {
-			return false, errors.New("consumable capacity is zero.")
-		}
-		requestedVal, requestedFound := requestedResources[name]
+	for name, cap := range capacity {
+		requestedVal, requestedFound := requestedCapacity[name]
 		if !requestedFound {
+			if isRequiredConsumableCapacity(cap) {
+				return false, fmt.Errorf("require %s in the resource request", name)
+			}
 			// does not request this resource, continue
 			continue
 		}
-		_, allocatedFound := clone[name]
-		if !allocatedFound {
-			clone[name] = &requestedVal
+		if isConsumableCapacity(cap) {
+			if violateConstraints(requestedVal, cap.ConsumeConstraint) {
+				return false, nil
+			}
+			_, allocatedFound := clone[name]
+			if !allocatedFound {
+				clone[name] = &requestedVal
+			} else {
+				clone[name].Add(requestedVal)
+			}
+			if clone[name].Cmp(cap.Value) > 0 {
+				return false, nil
+			}
 		} else {
-			clone[name].Add(requestedVal)
-		}
-		if clone[name].Cmp(consumableCapacity.Value) > 0 {
-			return false, nil
+			if requestedVal.Cmp(cap.Value) > 0 {
+				return false, nil
+			}
 		}
 	}
 	return true, nil
 }
 
 // HasNoShare return true if all quantity is zero.
-func (s AllocatedShare) HasNoShare() bool {
+func (s AllocatedCapacity) HasNoShare() bool {
 	for _, quantity := range s {
 		if !quantity.IsZero() {
 			return false
@@ -161,33 +160,66 @@ func (s AllocatedShare) HasNoShare() bool {
 	return true
 }
 
-func NewAllocatedSharedDevice(deviceID DeviceID, requestedResource map[resourceapi.QualifiedName]resource.Quantity) AllocatedSharedDevice {
-	allocatedShare := make(AllocatedShare)
-	for name, quantity := range requestedResource {
-		allocatedShare[name] = &quantity
-	}
-	return AllocatedSharedDevice{
-		DeviceID:       deviceID,
-		AllocatedShare: allocatedShare,
-	}
-}
-
-type AllocatedSharedDevice struct {
+// SharedDeviceAllocation defines resource allocation results of the shared device.
+type SharedDeviceAllocation struct {
 	DeviceID
-	AllocatedShare
+	AllocatedCapacity
 }
 
-func (a AllocatedSharedDevice) Clone() AllocatedSharedDevice {
-	return AllocatedSharedDevice{
-		DeviceID:       a.DeviceID,
-		AllocatedShare: a.AllocatedShare.Clone(),
+func NewSharedDeviceAllocation(deviceID DeviceID, consumedCapacity map[resourceapi.QualifiedName]resource.Quantity) SharedDeviceAllocation {
+	allocatedCapacity := make(AllocatedCapacity)
+	for name, quantity := range consumedCapacity {
+		allocatedCapacity[name] = &quantity
+	}
+	return SharedDeviceAllocation{
+		DeviceID:          deviceID,
+		AllocatedCapacity: allocatedCapacity,
 	}
 }
 
-func (a AllocatedSharedDevice) String() string {
+func (a SharedDeviceAllocation) Clone() SharedDeviceAllocation {
+	return SharedDeviceAllocation{
+		DeviceID:          a.DeviceID,
+		AllocatedCapacity: a.AllocatedCapacity.Clone(),
+	}
+}
+
+func (a SharedDeviceAllocation) String() string {
 	return a.DeviceID.String()
 }
 
-func IsFullDeviceRequest(request resourceapi.DeviceRequest) bool {
-	return request.Resources == nil || request.Resources.All || request.Resources.Requests == nil
+func isConsumableCapacity(cap resourceapi.DeviceCapacity) bool {
+	return cap.Consumable != nil && *cap.Consumable == true
+}
+
+func isRequiredConsumableCapacity(cap resourceapi.DeviceCapacity) bool {
+	return isConsumableCapacity(cap) && cap.ConsumeConstraint != nil &&
+		cap.ConsumeConstraint.Required != nil && *cap.ConsumeConstraint.Required
+}
+
+// violateConstraints checks whether the request violate the consume constraints.
+func violateConstraints(requestedVal resource.Quantity, constraints *resourceapi.ConsumeConstraint) bool {
+	if constraints == nil {
+		return false
+	}
+	if constraints.ConsumeRange != nil {
+		if constraints.ConsumeRange.Maximum != nil &&
+			requestedVal.Cmp(*constraints.Maximum) > 0 {
+			return true
+		}
+		if constraints.ConsumeRange.Minimum != nil &&
+			requestedVal.Cmp(*constraints.Minimum) < 0 {
+			return true
+		}
+		return false
+	}
+	if constraints.Set != nil && len(*constraints.Set) > 0 {
+		for _, validVal := range *constraints.Set {
+			if requestedVal.Cmp(validVal) == 0 {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
