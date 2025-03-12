@@ -217,7 +217,7 @@ func (c *claimTracker) ListAllAllocatedDevices() (sets.Set[structured.DeviceID],
 	return allocated, nil
 }
 
-func (c *claimTracker) ListAllAllocatedShares() (structured.AllocatedCapacityCollection, error) {
+func (c *claimTracker) ListAllAllocatedSharedDevices() (structured.AllocatedCapacityCollection, error) {
 	// Start with a fresh set that matches the current known state of the
 	// world according to the informers.
 	collection := c.allocatedDevices.GetShareCollection()

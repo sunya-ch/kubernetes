@@ -231,7 +231,7 @@ type BasicDevice struct {
 	//
 	// +optional
 	// +default=false
-	// +featureGate=ConsumableCapacity
+	// +featureGate=DRAConsumableCapacity
 	Shared *bool `json:"shared" protobuf:"bytes,3,opt,name=shared"`
 }
 
@@ -246,7 +246,7 @@ type DeviceCapacity struct {
 	//
 	// +optional
 	// +default=false
-	// +featureGate=ConsumableCapacity
+	// +featureGate=DRAConsumableCapacity
 	Consumable *bool `json:"consumable" protobuf:"bytes,2,opt,name=consumable"`
 
 	// ConsumeConstraints refines constraints for consumable capacity.
@@ -254,7 +254,7 @@ type DeviceCapacity struct {
 	//
 	// +optional
 	// +default=false
-	// +featureGate=ConsumableCapacity
+	// +featureGate=DRAConsumableCapacity
 	*ConsumeConstraint `json:"consumeConstraint" protobuf:"bytes,3,rep,name=consumeConstraint"`
 }
 
@@ -524,7 +524,7 @@ type DeviceRequest struct {
 	// Capacity defines resource requirements against capacity.
 	//
 	// +optional
-	// +featureGate=ConsumableCapacity
+	// +featureGate=DRAConsumableCapacity
 	Capacity *CapacityRequirements `json:"resources,omitempty" protobuf:"bytes,7,opt,name=resources"`
 }
 
@@ -676,6 +676,18 @@ type DeviceConstraint struct {
 	// +optional
 	// +oneOf=ConstraintType
 	MatchAttribute *FullyQualifiedName `json:"matchAttribute,omitempty" protobuf:"bytes,2,opt,name=matchAttribute"`
+
+	// DistinctAttribute requires that all devices in question have this
+	// attribute and that its type and value are unique across those
+	// devices.
+	//
+	// Must include the domain qualifier.
+	//
+	// For example, specify attribute name to get virtual devices from distinct shared physical devices.
+	//
+	// +optional
+	// +oneOf=ConstraintType
+	DistinctAttribute *FullyQualifiedName `json:"distinctAttribute,omitempty" protobuf:"bytes,3,opt,name=distinctAttribute"`
 
 	// Potential future extension, not part of the current design:
 	// A CEL expression which compares different devices and returns
@@ -911,14 +923,14 @@ type DeviceRequestAllocationResult struct {
 	// Shared indicates whether the allocated device is shared.
 	//
 	// +required
-	// +featureGate=ConsumableCapacity
+	// +featureGate=DRAConsumableCapacity
 	Shared bool `json:"shared" protobuf:"bytes,6,name=device"`
 
 	// ConsumedCapacity indicates a per-device capacity amount consumed by the claim request.
 	// A summation of consumed request capacity must be less than or equal each corresponding capacity.
 	//
 	// +optional
-	// +featureGate=ConsumableCapacity
+	// +featureGate=DRAConsumableCapacity
 	ConsumedCapacity map[QualifiedName]resource.Quantity `json:"consumedCapacity,omitempty" protobuf:"bytes,7,rep,name=consumedCapacity"`
 }
 

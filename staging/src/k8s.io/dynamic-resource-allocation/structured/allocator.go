@@ -272,6 +272,20 @@ func (a *Allocator) Allocate(ctx context.Context, node *v1.Node) (finalResult []
 					attributeName: matchAttribute,
 				}
 				constraints[i] = m
+			case constraint.DistinctAttribute != nil:
+				distinctAttribute := draapi.FullyQualifiedName(*constraint.DistinctAttribute)
+				logger := alloc.logger
+				if loggerV := alloc.logger.V(6); loggerV.Enabled() {
+					logger = klog.LoggerWithName(logger, "distinctAttributeConstraint")
+					logger = klog.LoggerWithValues(logger, "distinctAttribute", distinctAttribute)
+				}
+				m := &distinctAttributeConstraint{
+					logger:        logger,
+					requestNames:  sets.New(constraint.Requests...),
+					attributeName: distinctAttribute,
+					attributes:    make(map[string]draapi.DeviceAttribute),
+				}
+				constraints[i] = m
 			default:
 				// Unknown constraint type!
 				return nil, fmt.Errorf("claim %s, constraint #%d: empty constraint (unsupported constraint type?)", klog.KObj(claim), i)

@@ -443,7 +443,7 @@ func (pl *DynamicResources) PreFilter(ctx context.Context, state *framework.Cycl
 		if err != nil {
 			return nil, statusError(logger, err)
 		}
-		allAllocatedShares, err := pl.draManager.ResourceClaims().ListAllAllocatedShares()
+		allAllocatedShares, err := pl.draManager.ResourceClaims().ListAllAllocatedSharedDevices()
 		if err != nil {
 			return nil, statusError(logger, err)
 		}
