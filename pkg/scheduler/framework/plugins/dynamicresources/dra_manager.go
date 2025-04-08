@@ -225,7 +225,7 @@ func (c *claimTracker) ListAllAllocatedSharedDevices() (structured.AllocatedCapa
 	// Whatever is in flight also has to be checked.
 	c.inFlightAllocations.Range(func(key, value any) bool {
 		claim := value.(*resourceapi.ResourceClaim)
-		foreachAllocatedSharedDevice(claim, func(device structured.SharedDeviceAllocation) {
+		foreachAllocatedSharedDevice(claim, func(device structured.DeviceAllocatedCapacity) {
 			c.logger.V(6).Info("Device is in flight for allocation", "device", device.DeviceID, "claim", klog.KObj(claim))
 			collection.Insert(device)
 		})

@@ -242,43 +242,48 @@ type DeviceCapacity struct {
 	// +required
 	Value resource.Quantity `json:"value" protobuf:"bytes,1,rep,name=value"`
 
-	// Consumable identifies whether the capacity is consumable or not.
+	// Consumable specifies a consumable property of capacity.
+	// and refines constraints for consumable capacity.
+	// If this field is not defined, the capacity is not consumable.
 	//
 	// +optional
-	// +default=false
 	// +featureGate=DRAConsumableCapacity
-	Consumable *bool `json:"consumable" protobuf:"bytes,2,opt,name=consumable"`
-
-	// ConsumeConstraints refines constraints for consumable capacity.
-	// This field is only applied when consumable is "true".
-	//
-	// +optional
-	// +default=false
-	// +featureGate=DRAConsumableCapacity
-	*ConsumeConstraint `json:"consumeConstraint" protobuf:"bytes,3,rep,name=consumeConstraint"`
+	Consumable *ConsumableSpec `json:"consumable" protobuf:"bytes,2,rep,name=consumable"`
 }
 
-type ConsumeConstraint struct {
-	// Required indicates that the capacity must be defined in the consuming request.
+// ConsumableSpec defines constraints for consumable capacity.
+// Either one of the consumable conditions must be defined.
+type ConsumableSpec struct {
+	// ConsumableSet defines a set of acceptable quantities of consuming requests.
 	// +optional
-	Required *bool `json:"required,omitempty"`
+	// +oneOf=ConsumeCondition
+	*ConsumableSet `json:",inline"`
 
-	// Set defines a set of acceptable quantities of consuming requests.
+	// ConsumableRange defines an acceptable quantity range of consuming requests.
 	// +optional
-	// +oneOf=QuantityCondition
+	// +oneOf=ConsumeCondition
+	*ConsumableRange `json:",inline"`
+}
+
+// ConsumableSet defines a discrete set of consuming capacity.
+// default field is required as a default value of consumed capacity.
+type ConsumableSet struct {
+	// +required
+	Default resource.Quantity `json:"default" protobuf:"bytes,1,opt,name=default"`
+	// +optional
 	Set *[]resource.Quantity `json:"set" protobuf:"bytes,2,opt,name=set"`
-
-	// ConsumeRange defines an acceptable quantity range of consuming requests.
-	// +optional
-	// +oneOf=QuantityCondition
-	*ConsumeRange `json:",inline"`
 }
 
-type ConsumeRange struct {
-	// +optional
-	Minimum *resource.Quantity `json:"minimum" protobuf:"bytes,1,opt,name=minimum"`
+// ConsumableRange defines a valid range of consuming capacity.
+// minimum field is required as a default value of consumed capacity.
+// step field is used to define the block consuming.
+type ConsumableRange struct {
+	// +required
+	Minimum resource.Quantity `json:"minimum" protobuf:"bytes,1,opt,name=minimum"`
 	// +optional
 	Maximum *resource.Quantity `json:"maximum" protobuf:"bytes,2,opt,name=maximum"`
+	// +optional
+	Step *resource.Quantity `json:"step" protobuf:"bytes,3,opt,name=step"`
 }
 
 // Limit for the sum of the number of entries in both attributes and capacity.
@@ -533,13 +538,13 @@ type CapacityRequirements struct {
 	// If Requests is omitted, it defaults to Limits if that is explicitly specified,
 	// otherwise to an implementation-defined value. Requests cannot exceed Limits.
 	// +optional
-	Requests map[QualifiedName]resource.Quantity `json:"requests,omitempty" protobuf:"bytes,2,rep,name=requests"`
+	Requests map[QualifiedName]resource.Quantity `json:"requests,omitempty" protobuf:"bytes,1,rep,name=requests"`
 
 	// Potentially enhancement field.
 	// Limits define the maximum amount of per-device resources allowed.
 	// This enables burstable usage when applicable.
 	// +optional
-	// Limits map[QualifiedName]resource.Quantity `json:"limits" protobuf:"bytes,3,rep,name=limits"`
+	// Limits map[QualifiedName]resource.Quantity `json:"limits" protobuf:"bytes,2,rep,name=limits"`
 }
 
 const (
@@ -920,7 +925,7 @@ type DeviceRequestAllocationResult struct {
 	// +featureGate=DRAAdminAccess
 	AdminAccess *bool `json:"adminAccess" protobuf:"bytes,5,name=adminAccess"`
 
-	// Shared indicates whether the allocated device is shared.
+	// Shared indicates whether the allocated device can be shared by multiple claims.
 	//
 	// +required
 	// +featureGate=DRAConsumableCapacity

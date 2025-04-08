@@ -326,7 +326,7 @@ claims:
 					// Is not considered as shared allocation.
 					allocatedDevices.Insert(deviceID)
 				} else {
-					sharedAllocation := structured.NewSharedDeviceAllocation(deviceID, claimedCapacity)
+					sharedAllocation := structured.NewDeviceAllocatedCapacity(deviceID, claimedCapacity)
 					if _, found := allocatedShares[deviceID]; found {
 						allocatedShares[deviceID].Add(sharedAllocation.AllocatedCapacity)
 					} else {

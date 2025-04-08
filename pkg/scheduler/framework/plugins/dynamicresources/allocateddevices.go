@@ -69,7 +69,7 @@ func foreachAllocatedDevice(claim *resourceapi.ResourceClaim, cb func(deviceID s
 // claims and are skipped without invoking the callback.
 //
 // foreachAllocatedSharedDevice does nothing if the claim is not allocated.
-func foreachAllocatedSharedDevice(claim *resourceapi.ResourceClaim, cb func(allocatedSharedDevice structured.SharedDeviceAllocation)) {
+func foreachAllocatedSharedDevice(claim *resourceapi.ResourceClaim, cb func(allocatedSharedDevice structured.DeviceAllocatedCapacity)) {
 	if claim.Status.Allocation == nil {
 		return
 	}
@@ -87,11 +87,11 @@ func foreachAllocatedSharedDevice(claim *resourceapi.ResourceClaim, cb func(allo
 			continue
 		}
 		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
-		sharedAllocation := structured.NewSharedDeviceAllocation(deviceID, result.ConsumedCapacity)
+		deviceAllocatedCapacity := structured.NewDeviceAllocatedCapacity(deviceID, result.ConsumedCapacity)
 
 		// None of the users of this helper need to abort iterating,
 		// therefore it's not supported as it only would add overhead.
-		cb(sharedAllocation)
+		cb(deviceAllocatedCapacity)
 	}
 }
 
@@ -192,8 +192,8 @@ func (a *allocatedDevices) addDevices(claim *resourceapi.ResourceClaim) {
 		a.logger.V(6).Info("Observed device allocation", "device", deviceID, "claim", klog.KObj(claim))
 		deviceIDs = append(deviceIDs, deviceID)
 	})
-	shares := make([]structured.SharedDeviceAllocation, 0, 20)
-	foreachAllocatedSharedDevice(claim, func(allocatedSharedDevice structured.SharedDeviceAllocation) {
+	shares := make([]structured.DeviceAllocatedCapacity, 0, 20)
+	foreachAllocatedSharedDevice(claim, func(allocatedSharedDevice structured.DeviceAllocatedCapacity) {
 		a.logger.V(6).Info("Observed shared device allocation", "share", allocatedSharedDevice, "claim", klog.KObj(claim))
 		shares = append(shares, allocatedSharedDevice)
 	})
@@ -225,8 +225,8 @@ func (a *allocatedDevices) removeDevices(claim *resourceapi.ResourceClaim) {
 		a.logger.V(6).Info("Observed device deallocation", "device", deviceID, "claim", klog.KObj(claim))
 		deviceIDs = append(deviceIDs, deviceID)
 	})
-	shares := make([]structured.SharedDeviceAllocation, 0, 20)
-	foreachAllocatedSharedDevice(claim, func(allocatedSharedDevice structured.SharedDeviceAllocation) {
+	shares := make([]structured.DeviceAllocatedCapacity, 0, 20)
+	foreachAllocatedSharedDevice(claim, func(allocatedSharedDevice structured.DeviceAllocatedCapacity) {
 		a.logger.V(6).Info("Observed shared device allocation", "share", allocatedSharedDevice, "claim", klog.KObj(claim))
 		shares = append(shares, allocatedSharedDevice)
 	})
@@ -240,7 +240,7 @@ func (a *allocatedDevices) removeDevices(claim *resourceapi.ResourceClaim) {
 		deviceID := share.DeviceID
 		if currentShare, found := a.shares[deviceID]; found {
 			a.shares[deviceID].Sub(currentShare)
-			if a.shares[deviceID].HasNoShare() {
+			if a.shares[deviceID].Empty() {
 				delete(a.shares, deviceID)
 			}
 		}
