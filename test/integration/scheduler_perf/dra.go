@@ -329,20 +329,34 @@ claims:
 		claims, err := draManager.ResourceClaims().List()
 		tCtx.ExpectNoError(err, "list claims")
 		allocatedDevices := sets.New[structured.DeviceID]()
+		aggregatedCapacity := structured.NewAllocatedCapacityCollection()
 		for _, claim := range claims {
 			if claim.Status.Allocation == nil {
 				continue
 			}
 			for _, result := range claim.Status.Allocation.Devices.Results {
-				allocatedDevices.Insert(structured.MakeDeviceID(result.Driver, result.Pool, result.Device))
+				deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
+				allocatedDevices.Insert(deviceID)
+				claimedCapacity := result.ConsumedCapacities
+				if claimedCapacity == nil {
+					allocatedDevices.Insert(deviceID)
+				} else {
+					allocatedCapacity := structured.NewDeviceAllocatedCapacity(deviceID, claimedCapacity)
+					if _, found := aggregatedCapacity[deviceID]; found {
+						aggregatedCapacity[deviceID].Add(allocatedCapacity.AllocatedCapacity)
+					} else {
+						aggregatedCapacity[deviceID] = allocatedCapacity.AllocatedCapacity.Clone()
+					}
+				}
 			}
 		}
 
 		allocator, err := structured.NewAllocator(tCtx, structured.Features{
-			PrioritizedList: utilfeature.DefaultFeatureGate.Enabled(features.DRAPrioritizedList),
-			AdminAccess:     utilfeature.DefaultFeatureGate.Enabled(features.DRAAdminAccess),
-			DeviceTaints:    utilfeature.DefaultFeatureGate.Enabled(features.DRADeviceTaints),
-		}, []*resourceapi.ResourceClaim{claim}, allocatedDevices, draManager.DeviceClasses(), slices, celCache)
+			PrioritizedList:    utilfeature.DefaultFeatureGate.Enabled(features.DRAPrioritizedList),
+			AdminAccess:        utilfeature.DefaultFeatureGate.Enabled(features.DRAAdminAccess),
+			DeviceTaints:       utilfeature.DefaultFeatureGate.Enabled(features.DRADeviceTaints),
+			ConsumableCapacity: utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity),
+		}, []*resourceapi.ResourceClaim{claim}, allocatedDevices, aggregatedCapacity, draManager.DeviceClasses(), slices, celCache)
 		tCtx.ExpectNoError(err, "create allocator")
 
 		rand.Shuffle(len(nodes), func(i, j int) {

@@ -46,6 +46,7 @@ import (
 const (
 	deviceVar     = "device"
 	driverVar     = "driver"
+	sharedVar     = "shared"
 	attributesVar = "attributes"
 	capacityVar   = "capacity"
 )
@@ -62,6 +63,7 @@ var (
 	domainType = withMaxElements(apiservercel.StringType, resourceapi.DeviceMaxDomainLength)
 	idType     = withMaxElements(apiservercel.StringType, resourceapi.DeviceMaxIDLength)
 	driverType = withMaxElements(apiservercel.StringType, resourceapi.DriverNameMaxLength)
+	sharedType = apiservercel.BoolType
 
 	// Each map is bound by the maximum number of different attributes.
 	innerAttributesMapType = apiservercel.NewMapType(idType, attributeType, resourceapi.ResourceSliceMaxAttributesAndCapacitiesPerDevice)
@@ -100,6 +102,7 @@ type Device struct {
 	// have a domain prefix. If set, then it is also made available as a
 	// string attribute.
 	Driver     string
+	Shared     *bool
 	Attributes map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
 	Capacity   map[resourceapi.QualifiedName]resourceapi.DeviceCapacity
 }
@@ -250,14 +253,18 @@ func (c CompilationResult) DeviceMatches(ctx context.Context, input Device) (boo
 		capacity[domain].(map[string]apiservercel.Quantity)[id] = apiservercel.Quantity{Quantity: &cap.Value}
 	}
 
+	shared := false
+	if input.Shared != nil {
+		shared = *input.Shared
+	}
 	variables := map[string]any{
 		deviceVar: map[string]any{
 			driverVar:     input.Driver,
+			sharedVar:     shared,
 			attributesVar: newStringInterfaceMapWithDefault(c.Environment.CELTypeAdapter(), attributes, c.emptyMapVal),
 			capacityVar:   newStringInterfaceMapWithDefault(c.Environment.CELTypeAdapter(), capacity, c.emptyMapVal),
 		},
 	}
-
 	result, details, err := c.Program.ContextEval(ctx, variables)
 	if err != nil {
 		return false, details, err
@@ -288,6 +295,7 @@ func newCompiler() *compiler {
 
 	deviceType := apiservercel.NewObjectType("kubernetes.DRADevice", fields(
 		field(driverVar, driverType, true),
+		field(sharedVar, sharedType, true),
 		field(attributesVar, outerAttributesMapType, true),
 		field(capacityVar, outerCapacityMapType, true),
 	))

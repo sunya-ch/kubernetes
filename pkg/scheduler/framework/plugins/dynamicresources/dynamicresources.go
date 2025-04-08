@@ -108,6 +108,7 @@ type DynamicResources struct {
 	enableSchedulingQueueHint  bool
 	enablePartitionableDevices bool
 	enableDeviceTaints         bool
+	enableConsumableCapacity   bool
 
 	fh         framework.Handle
 	clientset  kubernetes.Interface
@@ -129,6 +130,7 @@ func New(ctx context.Context, plArgs runtime.Object, fh framework.Handle, fts fe
 		enablePrioritizedList:      fts.EnableDRAPrioritizedList,
 		enableSchedulingQueueHint:  fts.EnableSchedulingQueueHint,
 		enablePartitionableDevices: fts.EnablePartitionableDevices,
+		enableConsumableCapacity:   fts.EnableConsumableCapacity,
 
 		fh:        fh,
 		clientset: fh.ClientSet(),
@@ -452,7 +454,12 @@ func (pl *DynamicResources) PreFilter(ctx context.Context, state *framework.Cycl
 		if err != nil {
 			return nil, statusError(logger, err)
 		}
+		allAllocatedCapacity, err := pl.draManager.ResourceClaims().ListAllAllocatedCapacity()
+		if err != nil {
+			return nil, statusError(logger, err)
+		}
 		slices, err := pl.draManager.ResourceSlices().ListWithDeviceTaintRules()
+
 		if err != nil {
 			return nil, statusError(logger, err)
 		}
@@ -461,8 +468,9 @@ func (pl *DynamicResources) PreFilter(ctx context.Context, state *framework.Cycl
 			PrioritizedList:      pl.enablePrioritizedList,
 			PartitionableDevices: pl.enablePartitionableDevices,
 			DeviceTaints:         pl.enableDeviceTaints,
+			ConsumableCapacity:   pl.enableConsumableCapacity,
 		}
-		allocator, err := structured.NewAllocator(ctx, features, allocateClaims, allAllocatedDevices, pl.draManager.DeviceClasses(), slices, pl.celCache)
+		allocator, err := structured.NewAllocator(ctx, features, allocateClaims, allAllocatedDevices, allAllocatedCapacity, pl.draManager.DeviceClasses(), slices, pl.celCache)
 		if err != nil {
 			return nil, statusError(logger, err)
 		}

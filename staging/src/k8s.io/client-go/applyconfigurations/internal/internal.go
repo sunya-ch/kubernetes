@@ -12640,6 +12640,10 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: nodeSelector
       type:
         namedType: io.k8s.api.core.v1.NodeSelector
+    - name: shared
+      type:
+        scalar: boolean
+      default: false
     - name: taints
       type:
         list:
@@ -12653,6 +12657,14 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
+- name: io.k8s.api.resource.v1alpha3.CapacityRequirements
+  map:
+    fields:
+    - name: requests
+      type:
+        map:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
 - name: io.k8s.api.resource.v1alpha3.Counter
   map:
     fields:
@@ -12801,6 +12813,9 @@ var schemaYAML = typed.YAMLObject(`types:
 - name: io.k8s.api.resource.v1alpha3.DeviceConstraint
   map:
     fields:
+    - name: distinctAttribute
+      type:
+        scalar: string
     - name: matchAttribute
       type:
         scalar: string
@@ -12831,6 +12846,9 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: allocationMode
       type:
         scalar: string
+    - name: capacities
+      type:
+        namedType: io.k8s.api.resource.v1alpha3.CapacityRequirements
     - name: count
       type:
         scalar: numeric
@@ -12866,6 +12884,11 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: adminAccess
       type:
         scalar: boolean
+    - name: consumedCapacities
+      type:
+        map:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
     - name: device
       type:
         scalar: string
@@ -12882,6 +12905,9 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
+    - name: shared
+      type:
+        scalar: boolean
     - name: tolerations
       type:
         list:
@@ -12900,6 +12926,9 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: allocationMode
       type:
         scalar: string
+    - name: capacities
+      type:
+        namedType: io.k8s.api.resource.v1alpha3.CapacityRequirements
     - name: count
       type:
         scalar: numeric
@@ -13264,6 +13293,10 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: nodeSelector
       type:
         namedType: io.k8s.api.core.v1.NodeSelector
+    - name: shared
+      type:
+        scalar: boolean
+      default: false
     - name: taints
       type:
         list:
@@ -13277,6 +13310,47 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
+- name: io.k8s.api.resource.v1beta1.CapacityClaimPolicy
+  map:
+    fields:
+    - name: range
+      type:
+        namedType: io.k8s.api.resource.v1beta1.CapacityClaimPolicyRange
+    - name: set
+      type:
+        namedType: io.k8s.api.resource.v1beta1.CapacityClaimPolicySet
+- name: io.k8s.api.resource.v1beta1.CapacityClaimPolicyRange
+  map:
+    fields:
+    - name: maximum
+      type:
+        namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+    - name: minimum
+      type:
+        namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+    - name: step
+      type:
+        namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+- name: io.k8s.api.resource.v1beta1.CapacityClaimPolicySet
+  map:
+    fields:
+    - name: default
+      type:
+        namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+    - name: options
+      type:
+        list:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+          elementRelationship: atomic
+- name: io.k8s.api.resource.v1beta1.CapacityRequirements
+  map:
+    fields:
+    - name: requests
+      type:
+        map:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
 - name: io.k8s.api.resource.v1beta1.Counter
   map:
     fields:
@@ -13354,6 +13428,9 @@ var schemaYAML = typed.YAMLObject(`types:
 - name: io.k8s.api.resource.v1beta1.DeviceCapacity
   map:
     fields:
+    - name: claimPolicy
+      type:
+        namedType: io.k8s.api.resource.v1beta1.CapacityClaimPolicy
     - name: value
       type:
         namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
@@ -13431,6 +13508,9 @@ var schemaYAML = typed.YAMLObject(`types:
 - name: io.k8s.api.resource.v1beta1.DeviceConstraint
   map:
     fields:
+    - name: distinctAttribute
+      type:
+        scalar: string
     - name: matchAttribute
       type:
         scalar: string
@@ -13461,6 +13541,9 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: allocationMode
       type:
         scalar: string
+    - name: capacities
+      type:
+        namedType: io.k8s.api.resource.v1beta1.CapacityRequirements
     - name: count
       type:
         scalar: numeric
@@ -13496,6 +13579,11 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: adminAccess
       type:
         scalar: boolean
+    - name: consumedCapacities
+      type:
+        map:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
     - name: device
       type:
         scalar: string
@@ -13512,6 +13600,9 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
+    - name: shared
+      type:
+        scalar: boolean
     - name: tolerations
       type:
         list:
@@ -13530,6 +13621,9 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: allocationMode
       type:
         scalar: string
+    - name: capacities
+      type:
+        namedType: io.k8s.api.resource.v1beta1.CapacityRequirements
     - name: count
       type:
         scalar: numeric
@@ -13825,6 +13919,47 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
+- name: io.k8s.api.resource.v1beta2.CapacityClaimPolicy
+  map:
+    fields:
+    - name: range
+      type:
+        namedType: io.k8s.api.resource.v1beta2.CapacityClaimPolicyRange
+    - name: set
+      type:
+        namedType: io.k8s.api.resource.v1beta2.CapacityClaimPolicySet
+- name: io.k8s.api.resource.v1beta2.CapacityClaimPolicyRange
+  map:
+    fields:
+    - name: maximum
+      type:
+        namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+    - name: minimum
+      type:
+        namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+    - name: step
+      type:
+        namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+- name: io.k8s.api.resource.v1beta2.CapacityClaimPolicySet
+  map:
+    fields:
+    - name: default
+      type:
+        namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+    - name: options
+      type:
+        list:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+          elementRelationship: atomic
+- name: io.k8s.api.resource.v1beta2.CapacityRequirements
+  map:
+    fields:
+    - name: requests
+      type:
+        map:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
 - name: io.k8s.api.resource.v1beta2.Counter
   map:
     fields:
@@ -13875,6 +14010,10 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: nodeSelector
       type:
         namedType: io.k8s.api.core.v1.NodeSelector
+    - name: shared
+      type:
+        scalar: boolean
+      default: false
     - name: taints
       type:
         list:
@@ -13930,6 +14069,9 @@ var schemaYAML = typed.YAMLObject(`types:
 - name: io.k8s.api.resource.v1beta2.DeviceCapacity
   map:
     fields:
+    - name: claimPolicy
+      type:
+        namedType: io.k8s.api.resource.v1beta2.CapacityClaimPolicy
     - name: value
       type:
         namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
@@ -14007,6 +14149,9 @@ var schemaYAML = typed.YAMLObject(`types:
 - name: io.k8s.api.resource.v1beta2.DeviceConstraint
   map:
     fields:
+    - name: distinctAttribute
+      type:
+        scalar: string
     - name: matchAttribute
       type:
         scalar: string
@@ -14050,6 +14195,11 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: adminAccess
       type:
         scalar: boolean
+    - name: consumedCapacities
+      type:
+        map:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
     - name: device
       type:
         scalar: string
@@ -14066,6 +14216,9 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
+    - name: shared
+      type:
+        scalar: boolean
     - name: tolerations
       type:
         list:
@@ -14084,6 +14237,9 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: allocationMode
       type:
         scalar: string
+    - name: capacities
+      type:
+        namedType: io.k8s.api.resource.v1beta2.CapacityRequirements
     - name: count
       type:
         scalar: numeric
@@ -14152,6 +14308,9 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: allocationMode
       type:
         scalar: string
+    - name: capacities
+      type:
+        namedType: io.k8s.api.resource.v1beta2.CapacityRequirements
     - name: count
       type:
         scalar: numeric

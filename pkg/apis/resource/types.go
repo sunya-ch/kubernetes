@@ -322,6 +322,15 @@ type Device struct {
 	// +listType=atomic
 	// +featureGate=DRADeviceTaints
 	Taints []DeviceTaint
+
+	// Shared marks whether the device is shared.
+	//
+	// The device with shared="true" can be allocated to more than one resource claim,
+	//
+	// +optional
+	// +default=false
+	// +featureGate=DRAConsumableCapacity
+	Shared *bool
 }
 
 // DeviceCounterConsumption defines a set of counters that
@@ -351,8 +360,60 @@ type DeviceCapacity struct {
 	// +required
 	Value resource.Quantity
 
-	// potential future addition: fields which define how to "consume"
-	// capacity (= share a single device between different consumers).
+	// ClaimPolicy specifies that this device capacity must be consumed
+	// by each resource claim according to the defined consumption policy.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	ClaimPolicy *CapacityClaimPolicy
+}
+
+// CapacityClaimPolicy defines consumption policy for consumable capacity.
+// Either one of the consumption policies must be defined.
+type CapacityClaimPolicy struct {
+	// Set defines a set of acceptable quantities of consuming requests.
+	//
+	// +optional
+	// +oneOf=CapacityClaimPolicy
+	Set *CapacityClaimPolicySet
+
+	// Range defines an acceptable quantity range of consuming requests.
+	// +optional
+	// +oneOf=CapacityClaimPolicy
+	Range *CapacityClaimPolicyRange
+}
+
+// CapacityClaimPolicySet defines a discrete set of allowable capacity values for consumption.
+type CapacityClaimPolicySet struct {
+	// Default specifies the default capacity to be used for a consumption request
+	// if no value is explicitly provided.
+	//
+	// +required
+	Default resource.Quantity
+
+	// Options defines a discrete set of additional valid capacity values that can be requested.
+	// +optional
+	// +listType=atomic
+	Options []resource.Quantity
+}
+
+// CapacityClaimPolicyRange defines a valid range of consuming capacity.
+type CapacityClaimPolicyRange struct {
+	// Minimum specifies the minimum capacity required for a consumption request.
+	// This field is required and serves as the default capacity to be consumed.
+	//
+	// +required
+	Minimum resource.Quantity
+
+	// Maximum specifies the maximum capacity that can be requested in a consumption request.
+	//
+	// +optional
+	Maximum *resource.Quantity
+
+	// Step defines the incremental block size by which capacity can increase from the minimum.
+	//
+	// +optional
+	Step *resource.Quantity
 }
 
 // Counter describes a quantity associated with a device.
@@ -640,6 +701,18 @@ type DeviceRequest struct {
 	FirstAvailable []DeviceSubRequest
 }
 
+// CapacityRequirements defines the capacity requirements for a specific device request.
+type CapacityRequirements struct {
+	// Requests specifies the requested quantity of device capacities for a device request,
+	// keyed by qualified resource names.
+	// +optional
+	Requests map[QualifiedName]resource.Quantity
+
+	// Potentially enhancement field.
+	// Limits define the maximum amount of per-device resources allowed.
+	// This enables burstable usage when applicable.
+}
+
 // ExactDeviceRequest is a request for one or more identical devices.
 type ExactDeviceRequest struct {
 	// DeviceClassName references a specific DeviceClass, which can define
@@ -731,6 +804,12 @@ type ExactDeviceRequest struct {
 	// +listType=atomic
 	// +featureGate=DRADeviceTaints
 	Tolerations []DeviceToleration
+
+	// Capacities defines resource requirements against each capacity.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	Capacities *CapacityRequirements
 }
 
 // DeviceSubRequest describes a request for device provided in the
@@ -825,6 +904,12 @@ type DeviceSubRequest struct {
 	// +listType=atomic
 	// +featureGate=DRADeviceTaints
 	Tolerations []DeviceToleration
+
+	// Capacities defines requirements against capacity.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	Capacities *CapacityRequirements
 }
 
 const (
@@ -967,6 +1052,15 @@ type DeviceConstraint struct {
 	// +optional
 	// +oneOf=ConstraintType
 	MatchAttribute *FullyQualifiedName
+
+	// DistinctAttribute requires that all devices in question have this
+	// attribute and that its type and value are unique across those devices.
+	//
+	// For example, specify attribute name to get virtual devices from distinct shared physical devices.
+	//
+	// +optional
+	// +oneOf=ConstraintType
+	DistinctAttribute *FullyQualifiedName
 
 	// Potential future extension, not part of the current design:
 	// A CEL expression which compares different devices and returns
@@ -1272,6 +1366,19 @@ type DeviceRequestAllocationResult struct {
 	// +listType=atomic
 	// +featureGate=DRADeviceTaints
 	Tolerations []DeviceToleration
+
+	// Shared indicates whether the allocated device can be shared by multiple claims.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	Shared *bool
+
+	// ConsumedCapacities is used for tracking the capacity consumed per device by the claim request.
+	// The total consumed capacity for each device must not exceed its corresponding available capacity.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	ConsumedCapacities map[QualifiedName]resource.Quantity
 }
 
 // DeviceAllocationConfiguration gets embedded in an AllocationResult.

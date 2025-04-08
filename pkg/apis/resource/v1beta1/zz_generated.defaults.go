@@ -122,6 +122,10 @@ func SetObjectDefaults_ResourceSlice(in *resourcev1beta1.ResourceSlice) {
 				b := &a.Basic.Taints[j]
 				SetDefaults_DeviceTaint(b)
 			}
+			if a.Basic.Shared == nil {
+				var ptrVar1 bool = false
+				a.Basic.Shared = &ptrVar1
+			}
 		}
 	}
 }

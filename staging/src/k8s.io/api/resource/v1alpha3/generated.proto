@@ -171,6 +171,15 @@ message BasicDevice {
   // +listType=atomic
   // +featureGate=DRADeviceTaints
   repeated DeviceTaint taints = 7;
+
+  // Shared marks whether the device is shared.
+  //
+  // The device with shared="true" can be allocated to more than one resource claim,
+  //
+  // +optional
+  // +default=false
+  // +featureGate=DRAConsumableCapacity
+  optional bool shared = 8;
 }
 
 // CELDeviceSelector contains a CEL expression for selecting a device.
@@ -228,6 +237,14 @@ message CELDeviceSelector {
   //
   // +required
   optional string expression = 1;
+}
+
+message CapacityRequirements {
+  // Requests describe the amount of resources to be reserved from the device.
+  // If Requests is omitted, it defaults to Limits if that is explicitly specified,
+  // otherwise to an implementation-defined value. Requests cannot exceed Limits.
+  // +optional
+  map<string, .k8s.io.apimachinery.pkg.api.resource.Quantity> requests = 1;
 }
 
 // Counter describes a quantity associated with a device.
@@ -496,6 +513,15 @@ message DeviceConstraint {
   // +optional
   // +oneOf=ConstraintType
   optional string matchAttribute = 2;
+
+  // DistinctAttribute requires that all devices in question have this
+  // attribute and that its type and value are unique across those devices.
+  //
+  // For example, specify attribute name to get virtual devices from distinct shared physical devices.
+  //
+  // +optional
+  // +oneOf=ConstraintType
+  optional string distinctAttribute = 3;
 }
 
 // DeviceCounterConsumption defines a set of counters that
@@ -661,6 +687,12 @@ message DeviceRequest {
   // +listType=atomic
   // +featureGate=DRADeviceTaints
   repeated DeviceToleration tolerations = 8;
+
+  // Capacities defines resource requirements against each capacity.
+  //
+  // +optional
+  // +featureGate=DRAConsumableCapacity
+  optional CapacityRequirements capacities = 9;
 }
 
 // DeviceRequestAllocationResult contains the allocation result for one request.
@@ -725,6 +757,19 @@ message DeviceRequestAllocationResult {
   // +listType=atomic
   // +featureGate=DRADeviceTaints
   repeated DeviceToleration tolerations = 6;
+
+  // Shared indicates whether the allocated device can be shared by multiple claims.
+  //
+  // +optional
+  // +featureGate=DRAConsumableCapacity
+  optional bool shared = 7;
+
+  // ConsumedCapacities is used for tracking the capacity consumed per device by the claim request.
+  // The total consumed capacity for each device must not exceed its corresponding available capacity.
+  //
+  // +optional
+  // +featureGate=DRAConsumableCapacity
+  map<string, .k8s.io.apimachinery.pkg.api.resource.Quantity> consumedCapacities = 8;
 }
 
 // DeviceSelector must have exactly one field set.
@@ -829,6 +874,12 @@ message DeviceSubRequest {
   // +listType=atomic
   // +featureGate=DRADeviceTaints
   repeated DeviceToleration tolerations = 7;
+
+  // Capacities defines requirements against capacity.
+  //
+  // +optional
+  // +featureGate=DRAConsumableCapacity
+  optional CapacityRequirements capacities = 8;
 }
 
 // The device this taint is attached to has the "effect" on

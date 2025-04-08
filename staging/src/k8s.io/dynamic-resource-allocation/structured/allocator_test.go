@@ -73,6 +73,13 @@ const (
 	device4       = "device-4"
 	capacityPool1 = "capacity-pool-1"
 	capacityPool2 = "capacity-pool-2"
+	capacity0     = "capacity-0"
+	capacity1     = "capacity-1"
+)
+
+var (
+	shared                = true
+	emptyConsumedCapacity = map[resourceapi.QualifiedName]resource.Quantity{}
 )
 
 func init() {
@@ -117,6 +124,26 @@ func class(name, driver string) *resourceapi.DeviceClass {
 				{
 					CEL: &resourceapi.CELDeviceSelector{
 						Expression: fmt.Sprintf(`device.driver == "%s"`, driver),
+					},
+				},
+			},
+		},
+	}
+}
+
+// generate a DeviceClass object with the given name and a driver CEL selector.
+// driver name is assumed to be the same as the class name.
+// shared condition is explicitly set.
+func classWithShared(name, driver string, shared bool) *resourceapi.DeviceClass {
+	return &resourceapi.DeviceClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: resourceapi.DeviceClassSpec{
+			Selectors: []resourceapi.DeviceSelector{
+				{
+					CEL: &resourceapi.CELDeviceSelector{
+						Expression: fmt.Sprintf(`device.driver == "%s" && device.shared == %v`, driver, shared),
 					},
 				},
 			},
@@ -198,6 +225,24 @@ func claim(name, req, class string, constraints ...resourceapi.DeviceConstraint)
 	return claim
 }
 
+// generate a ResourceClaim object with the given name, request, class, and capacity requests.
+func claimWithCapacityReqeust(name, req, class string, count int64, capacityRequest *resourceapi.CapacityRequirements, constraints ...resourceapi.DeviceConstraint) wrapResourceClaim {
+	claim := claimWithRequests(name, constraints, requestWithCapacityRequest(req, class, count, capacityRequest))
+	return claim
+}
+
+func requestWithCapacityRequest(name, class string, count int64, capacityRequest *resourceapi.CapacityRequirements,
+	selectors ...resourceapi.DeviceSelector) resourceapi.DeviceRequest {
+	return resourceapi.DeviceRequest{
+		Name:            name,
+		Capacities:      capacityRequest,
+		Count:           count,
+		AllocationMode:  resourceapi.DeviceAllocationModeExactCount,
+		DeviceClassName: class,
+		Selectors:       selectors,
+	}
+}
+
 type wrapResourceClaim struct{ *resourceapi.ResourceClaim }
 
 func (in wrapResourceClaim) obj() *resourceapi.ResourceClaim {
@@ -249,6 +294,22 @@ func device(name string, capacity map[resourceapi.QualifiedName]resource.Quantit
 	return wrapDevice(device)
 }
 
+// generate a Device object with the given name, (consumable) capacity, and attributes.
+func deviceWithConsumableCapacity(name string, capacity map[resourceapi.QualifiedName]resource.Quantity, attributes map[resourceapi.QualifiedName]resourceapi.DeviceAttribute, consumable bool) wrapDevice {
+	d := device(name, capacity, attributes)
+	if consumable {
+		d.Basic.Capacity = toConsumableDeviceCapacity(capacity)
+	}
+	return wrapDevice(d)
+}
+
+// generate a shared Device object with the given name, (consumable) capacity, and attributes.
+func sharedDevice(name string, capacity map[resourceapi.QualifiedName]resource.Quantity, attributes map[resourceapi.QualifiedName]resourceapi.DeviceAttribute, consumable bool) wrapDevice {
+	d := deviceWithConsumableCapacity(name, capacity, attributes, consumable)
+	d.Basic.Shared = &shared
+	return wrapDevice(d)
+}
+
 const (
 	fromDeviceCapacityConsumption = "fromDeviceCapacityConsumption"
 )
@@ -271,7 +332,9 @@ func partitionableDevice(name string, capacity any, attributes map[resourceapi.Q
 			c := make(map[resourceapi.QualifiedName]resourceapi.DeviceCapacity)
 			for _, dcc := range consumesCapacity {
 				for name, cap := range dcc.Counters {
-					ccap := resourceapi.DeviceCapacity(cap)
+					ccap := resourceapi.DeviceCapacity{
+						Value: cap.Value,
+					}
 					c[resourceapi.QualifiedName(name)] = ccap
 				}
 			}
@@ -391,6 +454,28 @@ func deviceAllocationResult(request, driver, pool, device string, adminAccess bo
 	}
 	if adminAccess {
 		r.AdminAccess = &adminAccess
+	}
+	return r
+}
+
+func deviceAllocationResultWithConsumedCapacity(request, driver, pool, device string, adminAccess bool,
+	allocatedCapacity *resourceapi.CapacityRequirements, shared bool) resourceapi.DeviceRequestAllocationResult {
+	result := deviceAllocationResult(request, driver, pool, device, adminAccess)
+	result.ConsumedCapacities = allocatedCapacity.Requests
+	result.Shared = &shared
+	return result
+}
+
+func capacityRequests(request *resource.Quantity) *resourceapi.CapacityRequirements {
+	return &resourceapi.CapacityRequirements{
+		Requests: requirements(request),
+	}
+}
+
+func requirements(request *resource.Quantity) map[resourceapi.QualifiedName]resource.Quantity {
+	r := make(map[resourceapi.QualifiedName]resource.Quantity, 0)
+	if request != nil {
+		r[capacity0] = *request
 	}
 	return r
 }
@@ -537,6 +622,17 @@ func sliceWithCapacityPools(name string, nodeSelection any, pool, driver string,
 	return slice
 }
 
+// generate a ResourceSlice object with the given parameters and one shared device "device-1"
+func sliceWithOneSharedDevice(name string, nodeSelection any, pool, driver, device string,
+	capacity map[resourceapi.QualifiedName]resource.Quantity, attributes map[resourceapi.QualifiedName]resourceapi.DeviceAttribute, consumable bool) *resourceapi.ResourceSlice {
+	return slice(name, nodeSelection, pool, driver, sharedDevice(device, capacity, attributes, consumable))
+}
+
+// generate a ResourceSlice object with the given parameters and one specific device name
+func sliceWithDeviceName(name string, nodeSelection any, pool, driver, deviceName string) *resourceapi.ResourceSlice {
+	return slice(name, nodeSelection, pool, driver, device(deviceName, nil, nil))
+}
+
 func counterSet(name string, capacity map[resourceapi.QualifiedName]resource.Quantity) resourceapi.CounterSet {
 	return resourceapi.CounterSet{
 		Name:     name,
@@ -552,12 +648,328 @@ func toDeviceCapacity(capacity map[resourceapi.QualifiedName]resource.Quantity) 
 	return out
 }
 
+func toConsumableDeviceCapacity(capacity map[resourceapi.QualifiedName]resource.Quantity) map[resourceapi.QualifiedName]resourceapi.DeviceCapacity {
+	out := make(map[resourceapi.QualifiedName]resourceapi.DeviceCapacity, len(capacity))
+	for name, quantity := range capacity {
+		out[name] = resourceapi.DeviceCapacity{
+			Value: quantity,
+			ClaimPolicy: &resourceapi.CapacityClaimPolicy{
+				Range: &resourceapi.CapacityClaimPolicyRange{
+					Minimum: resource.MustParse("1"),
+				},
+			},
+		}
+	}
+	return out
+}
+
 func toDeviceCounter(capacity map[resourceapi.QualifiedName]resource.Quantity) map[string]resourceapi.Counter {
 	out := make(map[string]resourceapi.Counter, len(capacity))
 	for name, quantity := range capacity {
 		out[string(name)] = resourceapi.Counter{Value: quantity}
 	}
 	return out
+}
+func TestAllocatorShared(t *testing.T) {
+	stringAttribute := resourceapi.FullyQualifiedName(driverA + "/" + "stringAttribute")
+
+	testcases := map[string]struct {
+		features                 Features
+		claimsToAllocate         []wrapResourceClaim
+		allocatedDevices         []DeviceID
+		allocatedCapacityDevices AllocatedCapacityCollection
+		classes                  []*resourceapi.DeviceClass
+		slices                   []*resourceapi.ResourceSlice
+		node                     *v1.Node
+
+		expectResults []any
+		expectError   types.GomegaMatcher // can be used to check for no error or match specific error types
+	}{
+		"shared-device-with-consumable-capacity": {
+			features: Features{
+				ConsumableCapacity: true,
+			},
+			claimsToAllocate: objects(
+				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+				claimWithCapacityReqeust(claim1, req0, classA, 1, capacityRequests(&one)),
+			),
+			classes: objects(classWithShared(classA, driverA, true)),
+			slices: objects(
+				sliceWithOneSharedDevice(slice1, node1, pool1, driverA, device1, map[resourceapi.QualifiedName]resource.Quantity{capacity0: two}, nil, true),
+			),
+			node: node(node1, region1),
+
+			expectResults: []any{
+				allocationResult(
+					localNodeSelector(node1),
+					deviceAllocationResultWithConsumedCapacity(req0, driverA, pool1, device1, false, capacityRequests(&one), true),
+				),
+				allocationResult(
+					localNodeSelector(node1),
+					deviceAllocationResultWithConsumedCapacity(req0, driverA, pool1, device1, false, capacityRequests(&one), true),
+				),
+			},
+		},
+		"shared-device-with-consumable-capacity-without-request": {
+			features: Features{
+				ConsumableCapacity: true,
+			},
+			claimsToAllocate: objects(
+				claimWithCapacityReqeust(claim0, req0, classA, 1, nil),
+				claimWithCapacityReqeust(claim1, req0, classA, 1, nil),
+			),
+			classes: objects(classWithShared(classA, driverA, true)),
+			slices: objects(
+				sliceWithOneSharedDevice(slice1, node1, pool1, driverA, device1, map[resourceapi.QualifiedName]resource.Quantity{capacity0: two}, nil, true),
+			),
+			node: node(node1, region1),
+
+			expectResults: []any{
+				allocationResult(
+					localNodeSelector(node1),
+					deviceAllocationResultWithConsumedCapacity(req0, driverA, pool1, device1, false, capacityRequests(&one), true),
+				),
+				allocationResult(
+					localNodeSelector(node1),
+					deviceAllocationResultWithConsumedCapacity(req0, driverA, pool1, device1, false, capacityRequests(&one), true),
+				),
+			},
+		},
+		"shared-device-with-exceeded-consumable-capacity-request": {
+			features: Features{
+				ConsumableCapacity: true,
+			},
+			claimsToAllocate: objects(
+				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+				claimWithCapacityReqeust(claim1, req0, classA, 1, capacityRequests(&two)),
+			),
+			classes: objects(classWithShared(classA, driverA, true)),
+			slices: objects(
+				sliceWithOneSharedDevice(slice1, node1, pool1, driverA, device1, map[resourceapi.QualifiedName]resource.Quantity{capacity0: two}, nil, true),
+			),
+			node: node(node1, region1),
+
+			expectResults: []any{},
+		},
+		"shared-device-with-some-remaining-consumable-capacity": {
+			features: Features{
+				ConsumableCapacity: true,
+			},
+			claimsToAllocate: objects(
+				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+			),
+			allocatedCapacityDevices: map[DeviceID]AllocatedCapacity{
+				MakeDeviceID(driverA, pool1, device1): AllocatedCapacity{
+					capacity0: &one,
+				},
+			},
+			classes: objects(classWithShared(classA, driverA, true)),
+			slices: objects(
+				sliceWithOneSharedDevice(slice1, node1, pool1, driverA, device1, map[resourceapi.QualifiedName]resource.Quantity{capacity0: two}, nil, true),
+			),
+			node: node(node1, region1),
+
+			expectResults: []any{
+				allocationResult(
+					localNodeSelector(node1),
+					deviceAllocationResultWithConsumedCapacity(req0, driverA, pool1, device1, false, capacityRequests(&one), true),
+				),
+			},
+		},
+		"shared-device-with-no-available-consumable-capacity": {
+			features: Features{
+				ConsumableCapacity: true,
+			},
+			claimsToAllocate: objects(
+				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+			),
+			allocatedCapacityDevices: map[DeviceID]AllocatedCapacity{
+				MakeDeviceID(driverA, pool1, device1): AllocatedCapacity{
+					capacity0: &one,
+				},
+			},
+			classes: objects(classWithShared(classA, driverA, true)),
+			slices: objects(
+				sliceWithOneSharedDevice(slice1, node1, pool1, driverA, device1, map[resourceapi.QualifiedName]resource.Quantity{capacity0: one}, nil, true),
+			),
+			node: node(node1, region1),
+
+			expectResults: []any{},
+		},
+		"shared-device-with-unconsumable-capacity": {
+			features: Features{
+				ConsumableCapacity: true,
+			},
+			claimsToAllocate: objects(
+				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+				claimWithCapacityReqeust(claim1, req0, classA, 1, capacityRequests(&one)),
+			),
+			classes: objects(classWithShared(classA, driverA, true)),
+			slices: objects(
+				sliceWithOneSharedDevice(slice1, node1, pool1, driverA, device1, map[resourceapi.QualifiedName]resource.Quantity{capacity0: one}, nil, false),
+			),
+			node: node(node1, region1),
+
+			expectResults: []any{
+				allocationResult(
+					localNodeSelector(node1),
+					deviceAllocationResultWithConsumedCapacity(req0, driverA, pool1, device1, false, capacityRequests(nil), true),
+				),
+				allocationResult(
+					localNodeSelector(node1),
+					deviceAllocationResultWithConsumedCapacity(req0, driverA, pool1, device1, false, capacityRequests(nil), true),
+				),
+			},
+		},
+		"non-shared-device-with-single-consumable-capacity-request": {
+			features: Features{
+				ConsumableCapacity: true,
+			},
+			claimsToAllocate: objects(
+				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+			),
+			classes: objects(classWithShared(classA, driverA, false)),
+			slices: objects(
+				slice(slice1, node1, pool1, driverA, deviceWithConsumableCapacity(device1, map[resourceapi.QualifiedName]resource.Quantity{capacity0: two}, nil, true)),
+			),
+			node: node(node1, region1),
+
+			expectResults: []any{
+				allocationResult(
+					localNodeSelector(node1),
+					deviceAllocationResultWithConsumedCapacity(req0, driverA, pool1, device1, false, capacityRequests(&one), false),
+				),
+			},
+		},
+		"non-shared-device-with-multiple-consumable-capacity-request": {
+			features: Features{
+				ConsumableCapacity: true,
+			},
+			claimsToAllocate: objects(
+				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+				claimWithCapacityReqeust(claim1, req0, classA, 1, capacityRequests(&one)),
+			),
+			classes: objects(classWithShared(classA, driverA, false)),
+			slices: objects(
+				slice(slice1, node1, pool1, driverA, deviceWithConsumableCapacity(device1, map[resourceapi.QualifiedName]resource.Quantity{capacity0: two}, nil, true)),
+			),
+			node: node(node1, region1),
+
+			expectResults: []any{},
+		},
+		"exclude-non-shared-device-from-class-selector": {
+			features: Features{
+				ConsumableCapacity: true,
+			},
+			claimsToAllocate: objects(
+				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+			),
+			classes: objects(classWithShared(classA, driverA, false)),
+			slices: objects(
+				sliceWithOneSharedDevice(slice1, node1, pool1, driverA, device1, map[resourceapi.QualifiedName]resource.Quantity{capacity0: one}, nil, false),
+			),
+			node: node(node1, region1),
+
+			expectResults: []any{},
+		},
+		"one-shared-device-with-distinct-constraint": {
+			features: Features{
+				ConsumableCapacity: true,
+			},
+			claimsToAllocate: objects(claimWithRequests(
+				claim0,
+				[]resourceapi.DeviceConstraint{
+					{DistinctAttribute: &stringAttribute},
+				},
+				requestWithCapacityRequest(req0, classA, 1, capacityRequests(&one)),
+				requestWithCapacityRequest(req1, classA, 1, capacityRequests(&one)),
+			),
+			),
+			classes: objects(classWithShared(classA, driverA, true)),
+			slices: objects(
+				sliceWithOneSharedDevice(slice1, node1, pool1, driverA, device1,
+					map[resourceapi.QualifiedName]resource.Quantity{capacity0: two},
+					map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
+						"stringAttribute": {StringValue: ptr.To("stringAttributeValue")}}, true),
+			),
+			node: node(node1, region1),
+
+			expectResults: []any{},
+		},
+		"two-shared-devices-with-distinct-constraint": {
+			features: Features{
+				ConsumableCapacity: true,
+			},
+			claimsToAllocate: objects(claimWithRequests(
+				claim0,
+				[]resourceapi.DeviceConstraint{
+					{DistinctAttribute: &stringAttribute},
+				},
+				requestWithCapacityRequest(req0, classA, 1, capacityRequests(&one)),
+				requestWithCapacityRequest(req1, classA, 1, capacityRequests(&one)),
+			),
+			),
+			classes: objects(classWithShared(classA, driverA, true)),
+			slices: objects(
+				sliceWithOneSharedDevice(slice1, node1, pool1, driverA, device1,
+					map[resourceapi.QualifiedName]resource.Quantity{capacity0: two},
+					map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
+						"stringAttribute": {StringValue: ptr.To("stringAttributeValue1")}}, true),
+				sliceWithOneSharedDevice(slice1, node1, pool1, driverA, device2,
+					map[resourceapi.QualifiedName]resource.Quantity{capacity0: two},
+					map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
+						"stringAttribute": {StringValue: ptr.To("stringAttributeValue2")}}, true),
+			),
+			node: node(node1, region1),
+
+			expectResults: []any{
+				allocationResult(
+					localNodeSelector(node1),
+					deviceAllocationResultWithConsumedCapacity(req0, driverA, pool1, device1, false, capacityRequests(&one), true),
+					deviceAllocationResultWithConsumedCapacity(req1, driverA, pool1, device2, false, capacityRequests(&one), true),
+				),
+			},
+		},
+	}
+
+	for name, tc := range testcases {
+		t.Run(name, func(t *testing.T) {
+			_, ctx := ktesting.NewTestContext(t)
+			g := gomega.NewWithT(t)
+			fmt.Println("test case:", name)
+			// Listing objects is deterministic and returns them in the same
+			// order as in the test case. That makes the allocation result
+			// also deterministic.
+			var classLister informerLister[resourceapi.DeviceClass]
+			for _, class := range tc.classes {
+				classLister.objs = append(classLister.objs, class.DeepCopy())
+			}
+			claimsToAllocate := slices.Clone(tc.claimsToAllocate)
+			allocatedDevices := slices.Clone(tc.allocatedDevices)
+			allocatedShare := tc.allocatedCapacityDevices.Clone()
+			slices := slices.Clone(tc.slices)
+			if len(slices) > 0 && len(slices[0].Spec.Devices) > 0 {
+				fmt.Println("device basic", slices[0].Spec.Devices[0].Basic)
+			}
+			allocator, err := NewAllocator(ctx, tc.features, unwrap(claimsToAllocate...), sets.New(allocatedDevices...), allocatedShare, classLister, slices, cel.NewCache(1))
+			fmt.Println("error", err)
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			fmt.Println(name)
+			results, err := allocator.Allocate(ctx, tc.node)
+			matchError := tc.expectError
+			if matchError == nil {
+				matchError = gomega.Not(gomega.HaveOccurred())
+			}
+			g.Expect(err).To(matchError)
+			g.Expect(results).To(gomega.ConsistOf(tc.expectResults...))
+
+			// Objects that the allocator had access to should not have been modified.
+			g.Expect(claimsToAllocate).To(gomega.HaveExactElements(tc.claimsToAllocate))
+			g.Expect(allocatedDevices).To(gomega.HaveExactElements(tc.allocatedDevices))
+			g.Expect(slices).To(gomega.ConsistOf(tc.slices))
+			g.Expect(classLister.objs).To(gomega.ConsistOf(tc.classes))
+		})
+	}
 }
 
 func TestAllocator(t *testing.T) {
@@ -592,17 +1004,17 @@ func TestAllocator(t *testing.T) {
 	}
 
 	testcases := map[string]struct {
-		features         Features
-		claimsToAllocate []wrapResourceClaim
-		allocatedDevices []DeviceID
-		classes          []*resourceapi.DeviceClass
-		slices           []*resourceapi.ResourceSlice
-		node             *v1.Node
+		features                 Features
+		claimsToAllocate         []wrapResourceClaim
+		allocatedDevices         []DeviceID
+		allocatedCapacityDevices AllocatedCapacityCollection
+		classes                  []*resourceapi.DeviceClass
+		slices                   []*resourceapi.ResourceSlice
+		node                     *v1.Node
 
 		expectResults []any
 		expectError   types.GomegaMatcher // can be used to check for no error or match specific error types
 	}{
-
 		"empty": {},
 		"simple": {
 			claimsToAllocate: objects(claim(claim0, req0, classA)),
@@ -3030,7 +3442,7 @@ func TestAllocator(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			_, ctx := ktesting.NewTestContext(t)
 			g := gomega.NewWithT(t)
-
+			fmt.Println("test case:", name)
 			// Listing objects is deterministic and returns them in the same
 			// order as in the test case. That makes the allocation result
 			// also deterministic.
@@ -3040,11 +3452,15 @@ func TestAllocator(t *testing.T) {
 			}
 			claimsToAllocate := slices.Clone(tc.claimsToAllocate)
 			allocatedDevices := slices.Clone(tc.allocatedDevices)
+			allocatedShare := tc.allocatedCapacityDevices.Clone()
 			slices := slices.Clone(tc.slices)
-
-			allocator, err := NewAllocator(ctx, tc.features, unwrap(claimsToAllocate...), sets.New(allocatedDevices...), classLister, slices, cel.NewCache(1))
+			if len(slices) > 0 && len(slices[0].Spec.Devices) > 0 {
+				fmt.Println("device basic", slices[0].Spec.Devices[0].Basic)
+			}
+			allocator, err := NewAllocator(ctx, tc.features, unwrap(claimsToAllocate...), sets.New(allocatedDevices...), allocatedShare, classLister, slices, cel.NewCache(1))
+			fmt.Println("error", err)
 			g.Expect(err).ToNot(gomega.HaveOccurred())
-
+			fmt.Println(name)
 			results, err := allocator.Allocate(ctx, tc.node)
 			matchError := tc.expectError
 			if matchError == nil {

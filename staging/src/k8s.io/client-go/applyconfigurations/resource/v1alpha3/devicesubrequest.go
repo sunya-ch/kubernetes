@@ -25,12 +25,13 @@ import (
 // DeviceSubRequestApplyConfiguration represents a declarative configuration of the DeviceSubRequest type for use
 // with apply.
 type DeviceSubRequestApplyConfiguration struct {
-	Name            *string                                `json:"name,omitempty"`
-	DeviceClassName *string                                `json:"deviceClassName,omitempty"`
-	Selectors       []DeviceSelectorApplyConfiguration     `json:"selectors,omitempty"`
-	AllocationMode  *resourcev1alpha3.DeviceAllocationMode `json:"allocationMode,omitempty"`
-	Count           *int64                                 `json:"count,omitempty"`
-	Tolerations     []DeviceTolerationApplyConfiguration   `json:"tolerations,omitempty"`
+	Name            *string                                 `json:"name,omitempty"`
+	DeviceClassName *string                                 `json:"deviceClassName,omitempty"`
+	Selectors       []DeviceSelectorApplyConfiguration      `json:"selectors,omitempty"`
+	AllocationMode  *resourcev1alpha3.DeviceAllocationMode  `json:"allocationMode,omitempty"`
+	Count           *int64                                  `json:"count,omitempty"`
+	Tolerations     []DeviceTolerationApplyConfiguration    `json:"tolerations,omitempty"`
+	Capacities      *CapacityRequirementsApplyConfiguration `json:"capacities,omitempty"`
 }
 
 // DeviceSubRequestApplyConfiguration constructs a declarative configuration of the DeviceSubRequest type for use with
@@ -94,5 +95,13 @@ func (b *DeviceSubRequestApplyConfiguration) WithTolerations(values ...*DeviceTo
 		}
 		b.Tolerations = append(b.Tolerations, *values[i])
 	}
+	return b
+}
+
+// WithCapacities sets the Capacities field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Capacities field is set to the value of the last call.
+func (b *DeviceSubRequestApplyConfiguration) WithCapacities(value *CapacityRequirementsApplyConfiguration) *DeviceSubRequestApplyConfiguration {
+	b.Capacities = value
 	return b
 }

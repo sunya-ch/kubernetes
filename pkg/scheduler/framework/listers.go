@@ -83,7 +83,10 @@ type ResourceClaimTracker interface {
 	// ListAllAllocatedDevices lists all allocated Devices from allocated ResourceClaims. The result is guaranteed to immediately include
 	// any changes made via AssumeClaimAfterAPICall(), and SignalClaimPendingAllocation().
 	ListAllAllocatedDevices() (sets.Set[structured.DeviceID], error)
-
+	// ListAllAllocatedCapacity lists all allocated capacity of shared devices from allocated ResourceClaims.
+	// The result is guaranteed to immediately include
+	// any changes made via AssumeClaimAfterAPICall(), and SignalClaimPendingAllocation().
+	ListAllAllocatedCapacity() (structured.AllocatedCapacityCollection, error)
 	// SignalClaimPendingAllocation signals to the tracker that the given ResourceClaim will be allocated via an API call in the
 	// binding phase. This change is immediately reflected in the result of List() and the other accessors.
 	SignalClaimPendingAllocation(claimUID types.UID, allocatedClaim *resourceapi.ResourceClaim) error

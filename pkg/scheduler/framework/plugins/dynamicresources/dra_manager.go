@@ -219,6 +219,24 @@ func (c *claimTracker) ListAllAllocatedDevices() (sets.Set[structured.DeviceID],
 	return allocated, nil
 }
 
+func (c *claimTracker) ListAllAllocatedCapacity() (structured.AllocatedCapacityCollection, error) {
+	// Start with a fresh set that matches the current known state of the
+	// world according to the informers.
+	collection := c.allocatedDevices.GetAllocatedCapacityCollection()
+
+	// Whatever is in flight also has to be checked.
+	c.inFlightAllocations.Range(func(key, value any) bool {
+		claim := value.(*resourceapi.ResourceClaim)
+		foreachAllocatedCapacity(claim, func(device structured.DeviceAllocatedCapacity) {
+			c.logger.V(6).Info("Device is in flight for allocation", "device", device.DeviceID, "claim", klog.KObj(claim))
+			collection.Insert(device)
+		})
+		return true
+	})
+	// There's no reason to return an error in this implementation, but the error might be helpful for other implementations.
+	return collection, nil
+}
+
 func (c *claimTracker) AssumeClaimAfterAPICall(claim *resourceapi.ResourceClaim) error {
 	return c.cache.Assume(claim)
 }

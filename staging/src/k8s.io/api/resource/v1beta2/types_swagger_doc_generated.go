@@ -60,6 +60,46 @@ func (CELDeviceSelector) SwaggerDoc() map[string]string {
 	return map_CELDeviceSelector
 }
 
+var map_CapacityClaimPolicy = map[string]string{
+	"":      "CapacityClaimPolicy defines consumption policy for consumable capacity. Either one of the consumption policies must be defined.",
+	"set":   "Set defines a set of acceptable quantities of consuming requests.",
+	"range": "Range defines an acceptable quantity range of consuming requests.",
+}
+
+func (CapacityClaimPolicy) SwaggerDoc() map[string]string {
+	return map_CapacityClaimPolicy
+}
+
+var map_CapacityClaimPolicyRange = map[string]string{
+	"":        "CapacityClaimPolicyRange defines a valid range of consuming capacity.",
+	"minimum": "Minimum specifies the minimum capacity required for a consumption request. This field is required and serves as the default capacity to be consumed.",
+	"maximum": "Maximum specifies the maximum capacity that can be requested in a consumption request.",
+	"step":    "Step defines the incremental block size by which capacity can increase from the minimum.",
+}
+
+func (CapacityClaimPolicyRange) SwaggerDoc() map[string]string {
+	return map_CapacityClaimPolicyRange
+}
+
+var map_CapacityClaimPolicySet = map[string]string{
+	"":        "CapacityClaimPolicySet defines a discrete set of allowable capacity values for consumption.",
+	"default": "Default specifies the default capacity to be used for a consumption request if no value is explicitly provided.",
+	"options": "Options defines a discrete set of additional valid capacity values that can be requested.",
+}
+
+func (CapacityClaimPolicySet) SwaggerDoc() map[string]string {
+	return map_CapacityClaimPolicySet
+}
+
+var map_CapacityRequirements = map[string]string{
+	"":         "CapacityRequirements defines the capacity requirements for a specific device request.",
+	"requests": "Requests specifies the requested quantity of device capacities for a device request, keyed by qualified resource names.",
+}
+
+func (CapacityRequirements) SwaggerDoc() map[string]string {
+	return map_CapacityRequirements
+}
+
 var map_Counter = map[string]string{
 	"":      "Counter describes a quantity associated with a device.",
 	"value": "Value defines how much of a certain device counter is available.",
@@ -89,6 +129,7 @@ var map_Device = map[string]string{
 	"nodeSelector":     "NodeSelector defines the nodes where the device is available.\n\nMust use exactly one term.\n\nMust only be set if Spec.PerDeviceNodeSelection is set to true. At most one of NodeName, NodeSelector and AllNodes can be set.",
 	"allNodes":         "AllNodes indicates that all nodes have access to the device.\n\nMust only be set if Spec.PerDeviceNodeSelection is set to true. At most one of NodeName, NodeSelector and AllNodes can be set.",
 	"taints":           "If specified, these are the driver-defined taints.\n\nThe maximum number of taints is 4.\n\nThis is an alpha field and requires enabling the DRADeviceTaints feature gate.",
+	"shared":           "Shared marks whether the device is shared.\n\nThe device with shared=\"true\" can be allocated to more than one resource claim,",
 }
 
 func (Device) SwaggerDoc() map[string]string {
@@ -128,8 +169,9 @@ func (DeviceAttribute) SwaggerDoc() map[string]string {
 }
 
 var map_DeviceCapacity = map[string]string{
-	"":      "DeviceCapacity describes a quantity associated with a device.",
-	"value": "Value defines how much of a certain device capacity is available.",
+	"":            "DeviceCapacity describes a quantity associated with a device.",
+	"value":       "Value defines how much of a certain device capacity is available.",
+	"claimPolicy": "ClaimPolicy specifies that this device capacity must be consumed by each resource claim according to the defined consumption policy.",
 }
 
 func (DeviceCapacity) SwaggerDoc() map[string]string {
@@ -204,9 +246,10 @@ func (DeviceConfiguration) SwaggerDoc() map[string]string {
 }
 
 var map_DeviceConstraint = map[string]string{
-	"":               "DeviceConstraint must have exactly one field set besides Requests.",
-	"requests":       "Requests is a list of the one or more requests in this claim which must co-satisfy this constraint. If a request is fulfilled by multiple devices, then all of the devices must satisfy the constraint. If this is not specified, this constraint applies to all requests in this claim.\n\nReferences to subrequests must include the name of the main request and may include the subrequest using the format <main request>[/<subrequest>]. If just the main request is given, the constraint applies to all subrequests.",
-	"matchAttribute": "MatchAttribute requires that all devices in question have this attribute and that its type and value are the same across those devices.\n\nFor example, if you specified \"dra.example.com/numa\" (a hypothetical example!), then only devices in the same NUMA node will be chosen. A device which does not have that attribute will not be chosen. All devices should use a value of the same type for this attribute because that is part of its specification, but if one device doesn't, then it also will not be chosen.\n\nMust include the domain qualifier.",
+	"":                  "DeviceConstraint must have exactly one field set besides Requests.",
+	"requests":          "Requests is a list of the one or more requests in this claim which must co-satisfy this constraint. If a request is fulfilled by multiple devices, then all of the devices must satisfy the constraint. If this is not specified, this constraint applies to all requests in this claim.\n\nReferences to subrequests must include the name of the main request and may include the subrequest using the format <main request>[/<subrequest>]. If just the main request is given, the constraint applies to all subrequests.",
+	"matchAttribute":    "MatchAttribute requires that all devices in question have this attribute and that its type and value are the same across those devices.\n\nFor example, if you specified \"dra.example.com/numa\" (a hypothetical example!), then only devices in the same NUMA node will be chosen. A device which does not have that attribute will not be chosen. All devices should use a value of the same type for this attribute because that is part of its specification, but if one device doesn't, then it also will not be chosen.\n\nMust include the domain qualifier.",
+	"distinctAttribute": "DistinctAttribute requires that all devices in question have this attribute and that its type and value are unique across those devices.\n\nFor example, specify attribute name to get virtual devices from distinct shared physical devices.",
 }
 
 func (DeviceConstraint) SwaggerDoc() map[string]string {
@@ -235,13 +278,15 @@ func (DeviceRequest) SwaggerDoc() map[string]string {
 }
 
 var map_DeviceRequestAllocationResult = map[string]string{
-	"":            "DeviceRequestAllocationResult contains the allocation result for one request.",
-	"request":     "Request is the name of the request in the claim which caused this device to be allocated. If it references a subrequest in the firstAvailable list on a DeviceRequest, this field must include both the name of the main request and the subrequest using the format <main request>/<subrequest>.\n\nMultiple devices may have been allocated per request.",
-	"driver":      "Driver specifies the name of the DRA driver whose kubelet plugin should be invoked to process the allocation once the claim is needed on a node.\n\nMust be a DNS subdomain and should end with a DNS domain owned by the vendor of the driver.",
-	"pool":        "This name together with the driver name and the device name field identify which device was allocated (`<driver name>/<pool name>/<device name>`).\n\nMust not be longer than 253 characters and may contain one or more DNS sub-domains separated by slashes.",
-	"device":      "Device references one device instance via its name in the driver's resource pool. It must be a DNS label.",
-	"adminAccess": "AdminAccess indicates that this device was allocated for administrative access. See the corresponding request field for a definition of mode.\n\nThis is an alpha field and requires enabling the DRAAdminAccess feature gate. Admin access is disabled if this field is unset or set to false, otherwise it is enabled.",
-	"tolerations": "A copy of all tolerations specified in the request at the time when the device got allocated.\n\nThe maximum number of tolerations is 16.\n\nThis is an alpha field and requires enabling the DRADeviceTaints feature gate.",
+	"":                   "DeviceRequestAllocationResult contains the allocation result for one request.",
+	"request":            "Request is the name of the request in the claim which caused this device to be allocated. If it references a subrequest in the firstAvailable list on a DeviceRequest, this field must include both the name of the main request and the subrequest using the format <main request>/<subrequest>.\n\nMultiple devices may have been allocated per request.",
+	"driver":             "Driver specifies the name of the DRA driver whose kubelet plugin should be invoked to process the allocation once the claim is needed on a node.\n\nMust be a DNS subdomain and should end with a DNS domain owned by the vendor of the driver.",
+	"pool":               "This name together with the driver name and the device name field identify which device was allocated (`<driver name>/<pool name>/<device name>`).\n\nMust not be longer than 253 characters and may contain one or more DNS sub-domains separated by slashes.",
+	"device":             "Device references one device instance via its name in the driver's resource pool. It must be a DNS label.",
+	"adminAccess":        "AdminAccess indicates that this device was allocated for administrative access. See the corresponding request field for a definition of mode.\n\nThis is an alpha field and requires enabling the DRAAdminAccess feature gate. Admin access is disabled if this field is unset or set to false, otherwise it is enabled.",
+	"tolerations":        "A copy of all tolerations specified in the request at the time when the device got allocated.\n\nThe maximum number of tolerations is 16.\n\nThis is an alpha field and requires enabling the DRADeviceTaints feature gate.",
+	"shared":             "Shared indicates whether the allocated device can be shared by multiple claims.",
+	"consumedCapacities": "ConsumedCapacities is used for tracking the capacity consumed per device by the claim request. The total consumed capacity for each device must not exceed its corresponding available capacity.",
 }
 
 func (DeviceRequestAllocationResult) SwaggerDoc() map[string]string {
@@ -265,6 +310,7 @@ var map_DeviceSubRequest = map[string]string{
 	"allocationMode":  "AllocationMode and its related fields define how devices are allocated to satisfy this subrequest. Supported values are:\n\n- ExactCount: This request is for a specific number of devices.\n  This is the default. The exact number is provided in the\n  count field.\n\n- All: This subrequest is for all of the matching devices in a pool.\n  Allocation will fail if some devices are already allocated,\n  unless adminAccess is requested.\n\nIf AllocationMode is not specified, the default mode is ExactCount. If the mode is ExactCount and count is not specified, the default count is one. Any other subrequests must specify this field.\n\nMore modes may get added in the future. Clients must refuse to handle requests with unknown modes.",
 	"count":           "Count is used only when the count mode is \"ExactCount\". Must be greater than zero. If AllocationMode is ExactCount and this field is not specified, the default is one.",
 	"tolerations":     "If specified, the request's tolerations.\n\nTolerations for NoSchedule are required to allocate a device which has a taint with that effect. The same applies to NoExecute.\n\nIn addition, should any of the allocated devices get tainted with NoExecute after allocation and that effect is not tolerated, then all pods consuming the ResourceClaim get deleted to evict them. The scheduler will not let new pods reserve the claim while it has these tainted devices. Once all pods are evicted, the claim will get deallocated.\n\nThe maximum number of tolerations is 16.\n\nThis is an alpha field and requires enabling the DRADeviceTaints feature gate.",
+	"capacities":      "Capacities defines requirements against capacity.",
 }
 
 func (DeviceSubRequest) SwaggerDoc() map[string]string {
@@ -304,6 +350,7 @@ var map_ExactDeviceRequest = map[string]string{
 	"count":           "Count is used only when the count mode is \"ExactCount\". Must be greater than zero. If AllocationMode is ExactCount and this field is not specified, the default is one.",
 	"adminAccess":     "AdminAccess indicates that this is a claim for administrative access to the device(s). Claims with AdminAccess are expected to be used for monitoring or other management services for a device.  They ignore all ordinary claims to the device with respect to access modes and any resource allocations.\n\nThis is an alpha field and requires enabling the DRAAdminAccess feature gate. Admin access is disabled if this field is unset or set to false, otherwise it is enabled.",
 	"tolerations":     "If specified, the request's tolerations.\n\nTolerations for NoSchedule are required to allocate a device which has a taint with that effect. The same applies to NoExecute.\n\nIn addition, should any of the allocated devices get tainted with NoExecute after allocation and that effect is not tolerated, then all pods consuming the ResourceClaim get deleted to evict them. The scheduler will not let new pods reserve the claim while it has these tainted devices. Once all pods are evicted, the claim will get deallocated.\n\nThe maximum number of tolerations is 16.\n\nThis is an alpha field and requires enabling the DRADeviceTaints feature gate.",
+	"capacities":      "Capacities define resource requirements against each capacity.",
 }
 
 func (ExactDeviceRequest) SwaggerDoc() map[string]string {

@@ -34,6 +34,7 @@ type BasicDeviceApplyConfiguration struct {
 	NodeSelector     *v1.NodeSelectorApplyConfiguration                                   `json:"nodeSelector,omitempty"`
 	AllNodes         *bool                                                                `json:"allNodes,omitempty"`
 	Taints           []DeviceTaintApplyConfiguration                                      `json:"taints,omitempty"`
+	Shared           *bool                                                                `json:"shared,omitempty"`
 }
 
 // BasicDeviceApplyConfiguration constructs a declarative configuration of the BasicDevice type for use with
@@ -117,5 +118,13 @@ func (b *BasicDeviceApplyConfiguration) WithTaints(values ...*DeviceTaintApplyCo
 		}
 		b.Taints = append(b.Taints, *values[i])
 	}
+	return b
+}
+
+// WithShared sets the Shared field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Shared field is set to the value of the last call.
+func (b *BasicDeviceApplyConfiguration) WithShared(value bool) *BasicDeviceApplyConfiguration {
+	b.Shared = &value
 	return b
 }

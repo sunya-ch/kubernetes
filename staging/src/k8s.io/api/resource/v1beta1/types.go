@@ -337,6 +337,14 @@ type BasicDevice struct {
 	// +listType=atomic
 	// +featureGate=DRADeviceTaints
 	Taints []DeviceTaint `json:"taints,omitempty" protobuf:"bytes,7,rep,name=taints"`
+
+	// Shared marks whether the device is shared.
+	// The device with shared="true" can be allocated to more than one claim.
+	//
+	// +optional
+	// +default=false
+	// +featureGate=DRAConsumableCapacity
+	Shared *bool `json:"shared,omitempty" protobuf:"bytes,8,opt,name=shared"`
 }
 
 // DeviceCounterConsumption defines a set of counters that
@@ -366,8 +374,60 @@ type DeviceCapacity struct {
 	// +required
 	Value resource.Quantity `json:"value" protobuf:"bytes,1,rep,name=value"`
 
-	// potential future addition: fields which define how to "consume"
-	// capacity (= share a single device between different consumers).
+	// ClaimPolicy specifies that this device capacity must be consumed
+	// by each resource claim according to the defined consumption policy.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	ClaimPolicy *CapacityClaimPolicy `json:"claimPolicy,omitempty" protobuf:"bytes,2,opt,name=claimPolicy"`
+}
+
+// CapacityClaimPolicy defines consumption policy for consumable capacity.
+// Either one of the consumption policies must be defined.
+type CapacityClaimPolicy struct {
+	// Set defines a set of acceptable quantities of consuming requests.
+	//
+	// +optional
+	// +oneOf=CapacityClaimPolicy
+	Set *CapacityClaimPolicySet `json:"set,omitempty" protobuf:"bytes,1,opt,name=set"`
+
+	// Range defines an acceptable quantity range of consuming requests.
+	// +optional
+	// +oneOf=CapacityClaimPolicy
+	Range *CapacityClaimPolicyRange `json:"range,omitempty" protobuf:"bytes,2,opt,name=range"`
+}
+
+// CapacityClaimPolicySet defines a discrete set of allowable capacity values for consumption.
+type CapacityClaimPolicySet struct {
+	// Default specifies the default capacity to be used for a consumption request
+	// if no value is explicitly provided.
+	//
+	// +required
+	Default resource.Quantity `json:"default,omitempty" protobuf:"bytes,1,name=default"`
+
+	// Options defines a discrete set of additional valid capacity values that can be requested.
+	// +optional
+	// +listType=atomic
+	Options []resource.Quantity `json:"options,omitempty" protobuf:"bytes,2,rep,name=options"`
+}
+
+// CapacityClaimPolicyRange defines a valid range of consuming capacity.
+type CapacityClaimPolicyRange struct {
+	// Minimum specifies the minimum capacity required for a consumption request.
+	// This field is required and serves as the default capacity to be consumed.
+	//
+	// +required
+	Minimum resource.Quantity `json:"minimum,omitempty" protobuf:"bytes,1,name=minimum"`
+
+	// Maximum specifies the maximum capacity that can be requested in a consumption request.
+	//
+	// +optional
+	Maximum *resource.Quantity `json:"maximum,omitempty" protobuf:"bytes,2,opt,name=maximum"`
+
+	// Step defines the incremental block size by which capacity can increase from the minimum.
+	//
+	// +optional
+	Step *resource.Quantity `json:"step,omitempty" protobuf:"bytes,3,opt,name=step"`
 }
 
 // Limit for the sum of the number of entries in both attributes and capacity.
@@ -746,6 +806,24 @@ type DeviceRequest struct {
 	// +listType=atomic
 	// +featureGate=DRADeviceTaints
 	Tolerations []DeviceToleration `json:"tolerations,omitempty" protobuf:"bytes,8,opt,name=tolerations"`
+
+	// Capacities define resource requirements against each capacity.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	Capacities *CapacityRequirements `json:"capacities,omitempty" protobuf:"bytes,9,opt,name=capacities"`
+}
+
+// CapacityRequirements defines the capacity requirements for a specific device request.
+type CapacityRequirements struct {
+	// Requests specifies the requested quantity of device capacities for a device request,
+	// keyed by qualified resource names.
+	// +optional
+	Requests map[QualifiedName]resource.Quantity `json:"requests,omitempty" protobuf:"bytes,1,rep,name=requests"`
+
+	// Potentially enhancement field.
+	// Limits define the maximum amount of per-device resources allowed.
+	// This enables burstable usage when applicable.
 }
 
 // DeviceSubRequest describes a request for device provided in the
@@ -841,6 +919,12 @@ type DeviceSubRequest struct {
 	// +listType=atomic
 	// +featureGate=DRADeviceTaints
 	Tolerations []DeviceToleration `json:"tolerations,omitempty" protobuf:"bytes,7,opt,name=tolerations"`
+
+	// Capacities defines requirements against capacity.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	Capacities *CapacityRequirements `json:"capacities,omitempty" protobuf:"bytes,8,opt,name=capacities"`
 }
 
 const (
@@ -983,6 +1067,15 @@ type DeviceConstraint struct {
 	// +optional
 	// +oneOf=ConstraintType
 	MatchAttribute *FullyQualifiedName `json:"matchAttribute,omitempty" protobuf:"bytes,2,opt,name=matchAttribute"`
+
+	// DistinctAttribute requires that all devices in question have this
+	// attribute and that its type and value are unique across those devices.
+	//
+	// For example, specify attribute name to get virtual devices from distinct shared physical devices.
+	//
+	// +optional
+	// +oneOf=ConstraintType
+	DistinctAttribute *FullyQualifiedName `json:"distinctAttribute,omitempty" protobuf:"bytes,3,opt,name=distinctAttribute"`
 
 	// Potential future extension, not part of the current design:
 	// A CEL expression which compares different devices and returns
@@ -1288,6 +1381,19 @@ type DeviceRequestAllocationResult struct {
 	// +listType=atomic
 	// +featureGate=DRADeviceTaints
 	Tolerations []DeviceToleration `json:"tolerations,omitempty" protobuf:"bytes,6,opt,name=tolerations"`
+
+	// Shared indicates whether the allocated device can be shared by multiple claims.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	Shared *bool `json:"shared,omitempty" protobuf:"bytes,7,opt,name=shared"`
+
+	// ConsumedCapacities is used for tracking the capacity consumed per device by the claim request.
+	// The total consumed capacity for each device must not exceed its corresponding available capacity.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	ConsumedCapacities map[QualifiedName]resource.Quantity `json:"consumedCapacities,omitempty" protobuf:"bytes,8,rep,name=consumedCapacities"`
 }
 
 // DeviceAllocationConfiguration gets embedded in an AllocationResult.

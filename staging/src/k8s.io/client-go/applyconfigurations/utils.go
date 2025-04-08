@@ -1616,6 +1616,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &resourcev1alpha3.AllocationResultApplyConfiguration{}
 	case v1alpha3.SchemeGroupVersion.WithKind("BasicDevice"):
 		return &resourcev1alpha3.BasicDeviceApplyConfiguration{}
+	case v1alpha3.SchemeGroupVersion.WithKind("CapacityRequirements"):
+		return &resourcev1alpha3.CapacityRequirementsApplyConfiguration{}
 	case v1alpha3.SchemeGroupVersion.WithKind("CELDeviceSelector"):
 		return &resourcev1alpha3.CELDeviceSelectorApplyConfiguration{}
 	case v1alpha3.SchemeGroupVersion.WithKind("Counter"):
@@ -1694,6 +1696,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationsresourcev1beta1.AllocationResultApplyConfiguration{}
 	case resourcev1beta1.SchemeGroupVersion.WithKind("BasicDevice"):
 		return &applyconfigurationsresourcev1beta1.BasicDeviceApplyConfiguration{}
+	case resourcev1beta1.SchemeGroupVersion.WithKind("CapacityClaimPolicy"):
+		return &applyconfigurationsresourcev1beta1.CapacityClaimPolicyApplyConfiguration{}
+	case resourcev1beta1.SchemeGroupVersion.WithKind("CapacityClaimPolicyRange"):
+		return &applyconfigurationsresourcev1beta1.CapacityClaimPolicyRangeApplyConfiguration{}
+	case resourcev1beta1.SchemeGroupVersion.WithKind("CapacityClaimPolicySet"):
+		return &applyconfigurationsresourcev1beta1.CapacityClaimPolicySetApplyConfiguration{}
+	case resourcev1beta1.SchemeGroupVersion.WithKind("CapacityRequirements"):
+		return &applyconfigurationsresourcev1beta1.CapacityRequirementsApplyConfiguration{}
 	case resourcev1beta1.SchemeGroupVersion.WithKind("CELDeviceSelector"):
 		return &applyconfigurationsresourcev1beta1.CELDeviceSelectorApplyConfiguration{}
 	case resourcev1beta1.SchemeGroupVersion.WithKind("Counter"):
@@ -1766,6 +1776,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationsresourcev1beta2.AllocatedDeviceStatusApplyConfiguration{}
 	case resourcev1beta2.SchemeGroupVersion.WithKind("AllocationResult"):
 		return &applyconfigurationsresourcev1beta2.AllocationResultApplyConfiguration{}
+	case resourcev1beta2.SchemeGroupVersion.WithKind("CapacityClaimPolicy"):
+		return &applyconfigurationsresourcev1beta2.CapacityClaimPolicyApplyConfiguration{}
+	case resourcev1beta2.SchemeGroupVersion.WithKind("CapacityClaimPolicyRange"):
+		return &applyconfigurationsresourcev1beta2.CapacityClaimPolicyRangeApplyConfiguration{}
+	case resourcev1beta2.SchemeGroupVersion.WithKind("CapacityClaimPolicySet"):
+		return &applyconfigurationsresourcev1beta2.CapacityClaimPolicySetApplyConfiguration{}
+	case resourcev1beta2.SchemeGroupVersion.WithKind("CapacityRequirements"):
+		return &applyconfigurationsresourcev1beta2.CapacityRequirementsApplyConfiguration{}
 	case resourcev1beta2.SchemeGroupVersion.WithKind("CELDeviceSelector"):
 		return &applyconfigurationsresourcev1beta2.CELDeviceSelectorApplyConfiguration{}
 	case resourcev1beta2.SchemeGroupVersion.WithKind("Counter"):

@@ -68,6 +68,8 @@ func GatherPools(ctx context.Context, slices []*resourceapi.ResourceSlice, node 
 				if err := addSlice(pools, slice); err != nil {
 					return nil, fmt.Errorf("failed to add node slice %s: %w", slice.Name, err)
 				}
+			} else {
+				fmt.Println("unmatch pool")
 			}
 		case slice.Spec.PerDeviceNodeSelection != nil && *slice.Spec.PerDeviceNodeSelection:
 			for _, device := range slice.Spec.Devices {
@@ -170,6 +172,10 @@ type Pool struct {
 	IsInvalid     bool
 	InvalidReason string
 	Slices        []*draapi.ResourceSlice
+}
+
+func (p Pool) String() string {
+	return p.PoolID.String()
 }
 
 type PoolID struct {
