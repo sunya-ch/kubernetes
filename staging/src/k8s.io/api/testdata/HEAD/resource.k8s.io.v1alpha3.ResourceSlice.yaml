@@ -63,6 +63,7 @@ spec:
             operator: operatorValue
             values:
             - valuesValue
+      shared: true
       taints:
       - effect: effectValue
         key: keyValue

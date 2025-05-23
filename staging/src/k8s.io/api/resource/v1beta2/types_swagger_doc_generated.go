@@ -35,6 +35,7 @@ var map_AllocatedDeviceStatus = map[string]string{
 	"conditions":  "Conditions contains the latest observation of the device's state. If the device has been configured according to the class and claim config references, the `Ready` condition should be True.\n\nMust not contain more than 8 entries.",
 	"data":        "Data contains arbitrary driver-specific data.\n\nThe length of the raw data must be smaller or equal to 10 Ki.",
 	"networkData": "NetworkData contains network-related information specific to the device.",
+	"shareUID":    "ShareUID indicates whether the allocated device can be shared by multiple claims.",
 }
 
 func (AllocatedDeviceStatus) SwaggerDoc() map[string]string {
@@ -285,7 +286,7 @@ var map_DeviceRequestAllocationResult = map[string]string{
 	"device":             "Device references one device instance via its name in the driver's resource pool. It must be a DNS label.",
 	"adminAccess":        "AdminAccess indicates that this device was allocated for administrative access. See the corresponding request field for a definition of mode.\n\nThis is an alpha field and requires enabling the DRAAdminAccess feature gate. Admin access is disabled if this field is unset or set to false, otherwise it is enabled.",
 	"tolerations":        "A copy of all tolerations specified in the request at the time when the device got allocated.\n\nThe maximum number of tolerations is 16.\n\nThis is an alpha field and requires enabling the DRADeviceTaints feature gate.",
-	"shared":             "Shared indicates whether the allocated device can be shared by multiple claims.",
+	"shareUID":           "ShareUID indicates whether the allocated device can be shared by multiple claims.",
 	"consumedCapacities": "ConsumedCapacities is used for tracking the capacity consumed per device by the claim request. The total consumed capacity for each device must not exceed its corresponding available capacity.",
 }
 

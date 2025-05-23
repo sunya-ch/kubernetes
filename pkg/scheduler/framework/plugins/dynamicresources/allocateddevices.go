@@ -50,7 +50,7 @@ func foreachAllocatedDevice(claim *resourceapi.ResourceClaim, cb func(deviceID s
 			// Is not considered as allocated.
 			continue
 		}
-		if result.Shared != nil && *result.Shared {
+		if result.ShareUID != nil {
 			continue
 		}
 		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
@@ -83,7 +83,7 @@ func foreachAllocatedCapacity(claim *resourceapi.ResourceClaim, cb func(structur
 			// Is not considered as allocated.
 			continue
 		}
-		if result.Shared == nil || !*result.Shared || result.ConsumedCapacities == nil {
+		if result.ShareUID == nil || result.ConsumedCapacities == nil {
 			continue
 		}
 		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)

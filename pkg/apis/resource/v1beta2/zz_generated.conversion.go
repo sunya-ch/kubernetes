@@ -492,6 +492,7 @@ func autoConvert_v1beta2_AllocatedDeviceStatus_To_resource_AllocatedDeviceStatus
 	out.Conditions = *(*[]v1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.Data = (*runtime.RawExtension)(unsafe.Pointer(in.Data))
 	out.NetworkData = (*resource.NetworkDeviceData)(unsafe.Pointer(in.NetworkData))
+	out.ShareUID = (*types.UID)(unsafe.Pointer(in.ShareUID))
 	return nil
 }
 
@@ -507,6 +508,7 @@ func autoConvert_resource_AllocatedDeviceStatus_To_v1beta2_AllocatedDeviceStatus
 	out.Conditions = *(*[]v1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.Data = (*runtime.RawExtension)(unsafe.Pointer(in.Data))
 	out.NetworkData = (*resourcev1beta2.NetworkDeviceData)(unsafe.Pointer(in.NetworkData))
+	out.ShareUID = (*types.UID)(unsafe.Pointer(in.ShareUID))
 	return nil
 }
 
@@ -1066,7 +1068,7 @@ func autoConvert_v1beta2_DeviceRequestAllocationResult_To_resource_DeviceRequest
 	out.Device = in.Device
 	out.AdminAccess = (*bool)(unsafe.Pointer(in.AdminAccess))
 	out.Tolerations = *(*[]resource.DeviceToleration)(unsafe.Pointer(&in.Tolerations))
-	out.Shared = (*bool)(unsafe.Pointer(in.Shared))
+	out.ShareUID = (*types.UID)(unsafe.Pointer(in.ShareUID))
 	out.ConsumedCapacities = *(*map[resource.QualifiedName]apiresource.Quantity)(unsafe.Pointer(&in.ConsumedCapacities))
 	return nil
 }
@@ -1083,7 +1085,7 @@ func autoConvert_resource_DeviceRequestAllocationResult_To_v1beta2_DeviceRequest
 	out.Device = in.Device
 	out.AdminAccess = (*bool)(unsafe.Pointer(in.AdminAccess))
 	out.Tolerations = *(*[]resourcev1beta2.DeviceToleration)(unsafe.Pointer(&in.Tolerations))
-	out.Shared = (*bool)(unsafe.Pointer(in.Shared))
+	out.ShareUID = (*types.UID)(unsafe.Pointer(in.ShareUID))
 	out.ConsumedCapacities = *(*map[resourcev1beta2.QualifiedName]apiresource.Quantity)(unsafe.Pointer(&in.ConsumedCapacities))
 	return nil
 }

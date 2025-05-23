@@ -80,6 +80,12 @@ message AllocatedDeviceStatus {
   //
   // +optional
   optional NetworkDeviceData networkData = 6;
+
+  // ShareUID indicates whether the allocated device can be shared by multiple claims.
+  //
+  // +optional
+  // +featureGate=DRAConsumableCapacity
+  optional string shareUID = 7;
 }
 
 // AllocationResult contains attributes of an allocated resource.
@@ -708,11 +714,11 @@ message DeviceRequestAllocationResult {
   // +featureGate=DRADeviceTaints
   repeated DeviceToleration tolerations = 6;
 
-  // Shared indicates whether the allocated device can be shared by multiple claims.
+  // ShareUID indicates whether the allocated device can be shared by multiple claims.
   //
   // +optional
   // +featureGate=DRAConsumableCapacity
-  optional bool shared = 7;
+  optional string shareUID = 7;
 
   // ConsumedCapacities is used for tracking the capacity consumed per device by the claim request.
   // The total consumed capacity for each device must not exceed its corresponding available capacity.
@@ -1170,6 +1176,7 @@ message ResourceClaimStatus {
   // +listMapKey=driver
   // +listMapKey=device
   // +listMapKey=pool
+  // +listMapKey=shareUID
   // +featureGate=DRAResourceClaimDeviceStatus
   repeated AllocatedDeviceStatus devices = 4;
 }

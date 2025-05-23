@@ -21,6 +21,7 @@ package v1beta2
 import (
 	resourcev1beta2 "k8s.io/api/resource/v1beta2"
 	resource "k8s.io/apimachinery/pkg/api/resource"
+	types "k8s.io/apimachinery/pkg/types"
 )
 
 // DeviceRequestAllocationResultApplyConfiguration represents a declarative configuration of the DeviceRequestAllocationResult type for use
@@ -32,7 +33,7 @@ type DeviceRequestAllocationResultApplyConfiguration struct {
 	Device             *string                                             `json:"device,omitempty"`
 	AdminAccess        *bool                                               `json:"adminAccess,omitempty"`
 	Tolerations        []DeviceTolerationApplyConfiguration                `json:"tolerations,omitempty"`
-	Shared             *bool                                               `json:"shared,omitempty"`
+	ShareUID           *types.UID                                          `json:"shareUID,omitempty"`
 	ConsumedCapacities map[resourcev1beta2.QualifiedName]resource.Quantity `json:"consumedCapacities,omitempty"`
 }
 
@@ -95,11 +96,11 @@ func (b *DeviceRequestAllocationResultApplyConfiguration) WithTolerations(values
 	return b
 }
 
-// WithShared sets the Shared field in the declarative configuration to the given value
+// WithShareUID sets the ShareUID field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Shared field is set to the value of the last call.
-func (b *DeviceRequestAllocationResultApplyConfiguration) WithShared(value bool) *DeviceRequestAllocationResultApplyConfiguration {
-	b.Shared = &value
+// If called multiple times, the ShareUID field is set to the value of the last call.
+func (b *DeviceRequestAllocationResultApplyConfiguration) WithShareUID(value types.UID) *DeviceRequestAllocationResultApplyConfiguration {
+	b.ShareUID = &value
 	return b
 }
 

@@ -12602,6 +12602,9 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
+    - name: shareUID
+      type:
+        scalar: string
 - name: io.k8s.api.resource.v1alpha3.AllocationResult
   map:
     fields:
@@ -12905,9 +12908,9 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
-    - name: shared
+    - name: shareUID
       type:
-        scalar: boolean
+        scalar: string
     - name: tolerations
       type:
         list:
@@ -13123,6 +13126,7 @@ var schemaYAML = typed.YAMLObject(`types:
           - driver
           - device
           - pool
+          - shareUID
     - name: reservedFor
       type:
         list:
@@ -13255,6 +13259,9 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
+    - name: shareUID
+      type:
+        scalar: string
 - name: io.k8s.api.resource.v1beta1.AllocationResult
   map:
     fields:
@@ -13600,9 +13607,9 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
-    - name: shared
+    - name: shareUID
       type:
-        scalar: boolean
+        scalar: string
     - name: tolerations
       type:
         list:
@@ -13770,6 +13777,7 @@ var schemaYAML = typed.YAMLObject(`types:
           - driver
           - device
           - pool
+          - shareUID
     - name: reservedFor
       type:
         list:
@@ -13902,6 +13910,9 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
+    - name: shareUID
+      type:
+        scalar: string
 - name: io.k8s.api.resource.v1beta2.AllocationResult
   map:
     fields:
@@ -14216,9 +14227,9 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
-    - name: shared
+    - name: shareUID
       type:
-        scalar: boolean
+        scalar: string
     - name: tolerations
       type:
         list:
@@ -14417,6 +14428,7 @@ var schemaYAML = typed.YAMLObject(`types:
           - driver
           - device
           - pool
+          - shareUID
     - name: reservedFor
       type:
         list:

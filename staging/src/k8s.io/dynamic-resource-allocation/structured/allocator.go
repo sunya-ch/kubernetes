@@ -28,7 +28,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	draapi "k8s.io/dynamic-resource-allocation/api"
 	"k8s.io/dynamic-resource-allocation/cel"
 	"k8s.io/dynamic-resource-allocation/resourceclaim"
@@ -326,7 +328,7 @@ func (a *Allocator) Allocate(ctx context.Context, node *v1.Node) (finalResult []
 				Pool:               internal.id.Pool.String(),
 				Device:             internal.id.Device.String(),
 				AdminAccess:        internal.adminAccess,
-				Shared:             internal.shared,
+				ShareUID:           internal.shareUID,
 				ConsumedCapacities: consumedCapacities,
 			}
 		}
@@ -560,7 +562,7 @@ type internalDeviceResult struct {
 	parentRequest      string // name of the request which contains the subrequest, empty otherwise
 	id                 DeviceID
 	basic              *draapi.BasicDevice
-	shared             *bool
+	shareUID           *types.UID
 	slice              *draapi.ResourceSlice
 	consumedCapacities map[resourceapi.QualifiedName]resource.Quantity
 	adminAccess        *bool
@@ -1106,6 +1108,7 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 	}
 
 	var consumedCapacities map[resourceapi.QualifiedName]resource.Quantity
+	var shareUID *types.UID
 	if alloc.features.ConsumableCapacity {
 		var err error
 		convertedCapacity := make(map[resourceapi.QualifiedName]resourceapi.DeviceCapacity)
@@ -1123,6 +1126,8 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 			return false, nil, fmt.Errorf("failed to get requested capacity: %w", err)
 		}
 		if shared {
+			newUID := uuid.NewUUID()
+			shareUID = &newUID
 			alloc.logger.V(7).Info("Device capacity allocated", "device", device.id, "converted capacity", convertedCapacity, "consumed capacity", klog.Format(consumedCapacities))
 			alloc.allocatingCapacity.Insert(NewDeviceAllocatedCapacity(device.id, consumedCapacities))
 		}
@@ -1134,7 +1139,7 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 		basic:              device.basic,
 		slice:              device.slice,
 		consumedCapacities: consumedCapacities,
-		shared:             &shared,
+		shareUID:           shareUID,
 	}
 	if request.adminAccess() {
 		result.adminAccess = ptr.To(request.adminAccess())

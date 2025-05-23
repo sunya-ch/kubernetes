@@ -1190,6 +1190,7 @@ type ResourceClaimStatus struct {
 	// +listMapKey=driver
 	// +listMapKey=device
 	// +listMapKey=pool
+	// +listMapKey=shareUID
 	// +featureGate=DRAResourceClaimDeviceStatus
 	Devices []AllocatedDeviceStatus `json:"devices,omitempty" protobuf:"bytes,4,opt,name=devices"`
 }
@@ -1325,11 +1326,11 @@ type DeviceRequestAllocationResult struct {
 	// +featureGate=DRADeviceTaints
 	Tolerations []DeviceToleration `json:"tolerations,omitempty" protobuf:"bytes,6,opt,name=tolerations"`
 
-	// Shared indicates whether the allocated device can be shared by multiple claims.
+	// ShareUID indicates whether the allocated device can be shared by multiple claims.
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
-	Shared *bool `json:"shared,omitempty" protobuf:"bytes,7,opt,name=shared"`
+	ShareUID *types.UID `json:"shareUID,omitempty" protobuf:"bytes,7,opt,name=shareUID"`
 
 	// ConsumedCapacities is used for tracking the capacity consumed per device by the claim request.
 	// The total consumed capacity for each device must not exceed its corresponding available capacity.
@@ -1580,6 +1581,12 @@ type AllocatedDeviceStatus struct {
 	//
 	// +optional
 	NetworkData *NetworkDeviceData `json:"networkData,omitempty" protobuf:"bytes,6,opt,name=networkData"`
+
+	// ShareUID indicates whether the allocated device can be shared by multiple claims.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	ShareUID *types.UID `json:"shareUID,omitempty" protobuf:"bytes,7,opt,name=shareUID"`
 }
 
 // NetworkDeviceData provides network-related details for the allocated device.

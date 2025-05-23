@@ -89,7 +89,20 @@
         },
         "capacity": {
           "capacityKey": {
-            "value": "0"
+            "value": "0",
+            "claimPolicy": {
+              "set": {
+                "default": "0",
+                "options": [
+                  "0"
+                ]
+              },
+              "range": {
+                "minimum": "0",
+                "maximum": "0",
+                "step": "0"
+              }
+            }
           }
         },
         "consumesCounters": [
@@ -135,7 +148,8 @@
             "effect": "effectValue",
             "timeAdded": "2004-01-01T01:01:01Z"
           }
-        ]
+        ],
+        "shared": true
       }
     ],
     "perDeviceNodeSelection": true,

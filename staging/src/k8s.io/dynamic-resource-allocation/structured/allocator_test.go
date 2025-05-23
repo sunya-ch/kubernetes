@@ -34,7 +34,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/dynamic-resource-allocation/cel"
 	"k8s.io/klog/v2/ktesting"
 	"k8s.io/utils/ptr"
@@ -460,9 +462,14 @@ func deviceAllocationResult(request, driver, pool, device string, adminAccess bo
 
 func deviceAllocationResultWithConsumedCapacity(request, driver, pool, device string, adminAccess bool,
 	allocatedCapacity *resourceapi.CapacityRequirements, shared bool) resourceapi.DeviceRequestAllocationResult {
+	var shareUID *k8stypes.UID
+	if shared {
+		newUID := uuid.NewUUID()
+		shareUID = &newUID
+	}
 	result := deviceAllocationResult(request, driver, pool, device, adminAccess)
 	result.ConsumedCapacities = allocatedCapacity.Requests
-	result.Shared = &shared
+	result.ShareUID = shareUID
 	return result
 }
 

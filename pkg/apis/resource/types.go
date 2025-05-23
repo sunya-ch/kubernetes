@@ -1232,6 +1232,7 @@ type ResourceClaimStatus struct {
 	// +listMapKey=driver
 	// +listMapKey=device
 	// +listMapKey=pool
+	// +listMapKey=shareUID
 	// +featureGate=DRAResourceClaimDeviceStatus
 	Devices []AllocatedDeviceStatus
 }
@@ -1367,11 +1368,11 @@ type DeviceRequestAllocationResult struct {
 	// +featureGate=DRADeviceTaints
 	Tolerations []DeviceToleration
 
-	// Shared indicates whether the allocated device can be shared by multiple claims.
+	// ShareUID indicates whether the allocated device can be shared by multiple claims.
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
-	Shared *bool
+	ShareUID *types.UID
 
 	// ConsumedCapacities is used for tracking the capacity consumed per device by the claim request.
 	// The total consumed capacity for each device must not exceed its corresponding available capacity.
@@ -1609,6 +1610,12 @@ type AllocatedDeviceStatus struct {
 	//
 	// +optional
 	NetworkData *NetworkDeviceData
+
+	// ShareUID indicates whether the allocated device can be shared by multiple claims.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	ShareUID *types.UID
 }
 
 // NetworkDeviceData provides network-related details for the allocated device.
