@@ -20,7 +20,6 @@ package v1alpha3
 
 import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
-	types "k8s.io/apimachinery/pkg/types"
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
@@ -33,7 +32,6 @@ type AllocatedDeviceStatusApplyConfiguration struct {
 	Conditions  []v1.ConditionApplyConfiguration     `json:"conditions,omitempty"`
 	Data        *runtime.RawExtension                `json:"data,omitempty"`
 	NetworkData *NetworkDeviceDataApplyConfiguration `json:"networkData,omitempty"`
-	ShareUID    *types.UID                           `json:"shareUID,omitempty"`
 }
 
 // AllocatedDeviceStatusApplyConfiguration constructs a declarative configuration of the AllocatedDeviceStatus type for use with
@@ -92,13 +90,5 @@ func (b *AllocatedDeviceStatusApplyConfiguration) WithData(value runtime.RawExte
 // If called multiple times, the NetworkData field is set to the value of the last call.
 func (b *AllocatedDeviceStatusApplyConfiguration) WithNetworkData(value *NetworkDeviceDataApplyConfiguration) *AllocatedDeviceStatusApplyConfiguration {
 	b.NetworkData = value
-	return b
-}
-
-// WithShareUID sets the ShareUID field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ShareUID field is set to the value of the last call.
-func (b *AllocatedDeviceStatusApplyConfiguration) WithShareUID(value types.UID) *AllocatedDeviceStatusApplyConfiguration {
-	b.ShareUID = &value
 	return b
 }

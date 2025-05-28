@@ -1232,7 +1232,6 @@ type ResourceClaimStatus struct {
 	// +listMapKey=driver
 	// +listMapKey=device
 	// +listMapKey=pool
-	// +listMapKey=shareUID
 	// +featureGate=DRAResourceClaimDeviceStatus
 	Devices []AllocatedDeviceStatus
 }
@@ -1610,12 +1609,6 @@ type AllocatedDeviceStatus struct {
 	//
 	// +optional
 	NetworkData *NetworkDeviceData
-
-	// ShareUID indicates whether the allocated device can be shared by multiple claims.
-	//
-	// +optional
-	// +featureGate=DRAConsumableCapacity
-	ShareUID *types.UID
 }
 
 // NetworkDeviceData provides network-related details for the allocated device.

@@ -135,10 +135,6 @@
             "default": "",
             "description": "This name together with the driver name and the device name field identify which device was allocated (`<driver name>/<pool name>/<device name>`).\n\nMust not be longer than 253 characters and may contain one or more DNS sub-domains separated by slashes.",
             "type": "string"
-          },
-          "shareUID": {
-            "description": "ShareUID indicates whether the allocated device can be shared by multiple claims.",
-            "type": "string"
           }
         },
         "required": [
@@ -1308,8 +1304,7 @@
             "x-kubernetes-list-map-keys": [
               "driver",
               "device",
-              "pool",
-              "shareUID"
+              "pool"
             ],
             "x-kubernetes-list-type": "map"
           },

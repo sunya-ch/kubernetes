@@ -35,7 +35,6 @@ var map_AllocatedDeviceStatus = map[string]string{
 	"conditions":  "Conditions contains the latest observation of the device's state. If the device has been configured according to the class and claim config references, the `Ready` condition should be True.\n\nMust not contain more than 8 entries.",
 	"data":        "Data contains arbitrary driver-specific data.\n\nThe length of the raw data must be smaller or equal to 10 Ki.",
 	"networkData": "NetworkData contains network-related information specific to the device.",
-	"shareUID":    "ShareUID indicates whether the allocated device can be shared by multiple claims.",
 }
 
 func (AllocatedDeviceStatus) SwaggerDoc() map[string]string {

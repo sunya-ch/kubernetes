@@ -47264,13 +47264,6 @@ func schema_k8sio_api_resource_v1alpha3_AllocatedDeviceStatus(ref common.Referen
 							Ref:         ref("k8s.io/api/resource/v1alpha3.NetworkDeviceData"),
 						},
 					},
-					"shareUID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ShareUID indicates whether the allocated device can be shared by multiple claims.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
 				Required: []string{"driver", "pool", "device"},
 			},
@@ -48987,7 +48980,6 @@ func schema_k8sio_api_resource_v1alpha3_ResourceClaimStatus(ref common.Reference
 									"driver",
 									"device",
 									"pool",
-									"shareUID",
 								},
 								"x-kubernetes-list-type": "map",
 							},
@@ -49430,13 +49422,6 @@ func schema_k8sio_api_resource_v1beta1_AllocatedDeviceStatus(ref common.Referenc
 						SchemaProps: spec.SchemaProps{
 							Description: "NetworkData contains network-related information specific to the device.",
 							Ref:         ref("k8s.io/api/resource/v1beta1.NetworkDeviceData"),
-						},
-					},
-					"shareUID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ShareUID indicates whether the allocated device can be shared by multiple claims.",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 				},
@@ -51100,7 +51085,6 @@ func schema_k8sio_api_resource_v1beta1_ResourceClaimStatus(ref common.ReferenceC
 									"driver",
 									"device",
 									"pool",
-									"shareUID",
 								},
 								"x-kubernetes-list-type": "map",
 							},
@@ -51543,13 +51527,6 @@ func schema_k8sio_api_resource_v1beta2_AllocatedDeviceStatus(ref common.Referenc
 						SchemaProps: spec.SchemaProps{
 							Description: "NetworkData contains network-related information specific to the device.",
 							Ref:         ref("k8s.io/api/resource/v1beta2.NetworkDeviceData"),
-						},
-					},
-					"shareUID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ShareUID indicates whether the allocated device can be shared by multiple claims.",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 				},
@@ -53214,7 +53191,6 @@ func schema_k8sio_api_resource_v1beta2_ResourceClaimStatus(ref common.ReferenceC
 									"driver",
 									"device",
 									"pool",
-									"shareUID",
 								},
 								"x-kubernetes-list-type": "map",
 							},

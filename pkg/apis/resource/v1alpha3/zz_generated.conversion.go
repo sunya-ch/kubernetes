@@ -492,7 +492,6 @@ func autoConvert_v1alpha3_AllocatedDeviceStatus_To_resource_AllocatedDeviceStatu
 	out.Conditions = *(*[]v1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.Data = (*runtime.RawExtension)(unsafe.Pointer(in.Data))
 	out.NetworkData = (*resource.NetworkDeviceData)(unsafe.Pointer(in.NetworkData))
-	out.ShareUID = (*types.UID)(unsafe.Pointer(in.ShareUID))
 	return nil
 }
 
@@ -508,7 +507,6 @@ func autoConvert_resource_AllocatedDeviceStatus_To_v1alpha3_AllocatedDeviceStatu
 	out.Conditions = *(*[]v1.Condition)(unsafe.Pointer(&in.Conditions))
 	out.Data = (*runtime.RawExtension)(unsafe.Pointer(in.Data))
 	out.NetworkData = (*resourcev1alpha3.NetworkDeviceData)(unsafe.Pointer(in.NetworkData))
-	out.ShareUID = (*types.UID)(unsafe.Pointer(in.ShareUID))
 	return nil
 }
 

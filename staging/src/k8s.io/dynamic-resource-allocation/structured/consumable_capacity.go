@@ -18,9 +18,11 @@ package structured
 
 import (
 	"errors"
+	"fmt"
 
 	resourceapi "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // AllocatedCapacity define a quantity set which is updatable.
@@ -277,4 +279,11 @@ func GetConsumedCapacityFromRequest(requestedCapacity *resourceapi.CapacityRequi
 		}
 	}
 	return consumedCapacities
+}
+
+func GetAllocatedDeviceStatusDeviceName(deviceName string, sharedUID *types.UID) string {
+	if sharedUID != nil {
+		return fmt.Sprintf("%s-%s", deviceName, (*sharedUID)[:8])
+	}
+	return deviceName
 }

@@ -164,7 +164,8 @@ func gatherRequestNames(deviceClaim *resource.DeviceClaim) requestNames {
 func gatherAllocatedDevices(allocationResult *resource.DeviceAllocationResult) sets.Set[structured.DeviceID] {
 	allocatedDevices := sets.New[structured.DeviceID]()
 	for _, result := range allocationResult.Results {
-		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
+		deviceName := structured.GetAllocatedDeviceStatusDeviceName(result.Device, result.ShareUID)
+		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, deviceName)
 		allocatedDevices.Insert(deviceID)
 	}
 	return allocatedDevices

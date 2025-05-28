@@ -49,11 +49,6 @@ func (in *AllocatedDeviceStatus) DeepCopyInto(out *AllocatedDeviceStatus) {
 		*out = new(NetworkDeviceData)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.ShareUID != nil {
-		in, out := &in.ShareUID, &out.ShareUID
-		*out = new(types.UID)
-		**out = **in
-	}
 	return
 }
 

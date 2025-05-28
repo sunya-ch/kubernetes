@@ -80,12 +80,6 @@ message AllocatedDeviceStatus {
   //
   // +optional
   optional NetworkDeviceData networkData = 6;
-
-  // ShareUID indicates whether the allocated device can be shared by multiple claims.
-  //
-  // +optional
-  // +featureGate=DRAConsumableCapacity
-  optional string shareUID = 7;
 }
 
 // AllocationResult contains attributes of an allocated resource.
@@ -1215,7 +1209,6 @@ message ResourceClaimStatus {
   // +listMapKey=driver
   // +listMapKey=device
   // +listMapKey=pool
-  // +listMapKey=shareUID
   // +featureGate=DRAResourceClaimDeviceStatus
   repeated AllocatedDeviceStatus devices = 4;
 }
