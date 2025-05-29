@@ -1382,11 +1382,11 @@ type DeviceRequestAllocationResult struct {
 	// +featureGate=DRADeviceTaints
 	Tolerations []DeviceToleration `json:"tolerations,omitempty" protobuf:"bytes,6,opt,name=tolerations"`
 
-	// ShareUID indicates whether the allocated device can be shared by multiple claims.
+	// ShareUID
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
-	ShareUID *types.UID `json:"shareUID,omitempty" protobuf:"bytes,7,opt,name=shareUID"`
+	ShareUID *string `json:"shareUID,omitempty" protobuf:"bytes,7,opt,name=shareUID"`
 
 	// ConsumedCapacities is used for tracking the capacity consumed per device by the claim request.
 	// The total consumed capacity for each device must not exceed its corresponding available capacity.

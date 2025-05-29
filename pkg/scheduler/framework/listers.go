@@ -82,7 +82,7 @@ type ResourceClaimTracker interface {
 	Get(namespace, claimName string) (*resourceapi.ResourceClaim, error)
 	// ListAllAllocatedDevices lists all allocated Devices from allocated ResourceClaims. The result is guaranteed to immediately include
 	// any changes made via AssumeClaimAfterAPICall(), and SignalClaimPendingAllocation().
-	ListAllAllocatedDevices() (sets.Set[structured.DeviceID], error)
+	ListAllAllocatedDevices() (sets.Set[structured.DeviceID], structured.SharedDeviceIDList, error)
 	// ListAllAllocatedCapacity lists all allocated capacity of shared devices from allocated ResourceClaims.
 	// The result is guaranteed to immediately include
 	// any changes made via AssumeClaimAfterAPICall(), and SignalClaimPendingAllocation().

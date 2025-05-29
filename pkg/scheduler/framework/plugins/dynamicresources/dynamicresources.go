@@ -41,6 +41,7 @@ import (
 	"k8s.io/dynamic-resource-allocation/resourceclaim"
 	"k8s.io/dynamic-resource-allocation/structured"
 	"k8s.io/klog/v2"
+	resource "k8s.io/kubernetes/pkg/apis/resource"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/feature"
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/names"
@@ -450,16 +451,17 @@ func (pl *DynamicResources) PreFilter(ctx context.Context, state *framework.Cycl
 		// Claims (and thus their devices) are treated as "allocated" if they are in the assume cache
 		// or currently their allocation is in-flight. This does not change
 		// during filtering, so we can determine that once.
-		allAllocatedDevices, err := pl.draManager.ResourceClaims().ListAllAllocatedDevices()
+		allAllocatedDevices, usedShareIDs, err := pl.draManager.ResourceClaims().ListAllAllocatedDevices()
 		if err != nil {
 			return nil, statusError(logger, err)
 		}
+		shareUIDFactory := structured.NewUniqueHexStringFactory(resource.ShareUIDNBytes)
+		shareUIDFactory.SetUsedShareIDs(usedShareIDs)
 		allAllocatedCapacity, err := pl.draManager.ResourceClaims().ListAllAllocatedCapacity()
 		if err != nil {
 			return nil, statusError(logger, err)
 		}
 		slices, err := pl.draManager.ResourceSlices().ListWithDeviceTaintRules()
-
 		if err != nil {
 			return nil, statusError(logger, err)
 		}
@@ -470,7 +472,7 @@ func (pl *DynamicResources) PreFilter(ctx context.Context, state *framework.Cycl
 			DeviceTaints:         pl.enableDeviceTaints,
 			ConsumableCapacity:   pl.enableConsumableCapacity,
 		}
-		allocator, err := structured.NewAllocator(ctx, features, allocateClaims, allAllocatedDevices, allAllocatedCapacity, pl.draManager.DeviceClasses(), slices, pl.celCache)
+		allocator, err := structured.NewAllocator(ctx, features, allocateClaims, allAllocatedDevices, shareUIDFactory, allAllocatedCapacity, pl.draManager.DeviceClasses(), slices, pl.celCache)
 		if err != nil {
 			return nil, statusError(logger, err)
 		}

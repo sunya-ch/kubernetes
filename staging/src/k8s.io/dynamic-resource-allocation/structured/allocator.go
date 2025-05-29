@@ -28,14 +28,16 @@ import (
 	v1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	draapi "k8s.io/dynamic-resource-allocation/api"
 	"k8s.io/dynamic-resource-allocation/cel"
 	"k8s.io/dynamic-resource-allocation/resourceclaim"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
+)
+
+var (
+	maxTryOnGenerateShareUID = 100
 )
 
 type deviceClassLister interface {
@@ -56,6 +58,7 @@ type Allocator struct {
 	claimsToAllocate   []*resourceapi.ResourceClaim
 	allocatedDevices   sets.Set[DeviceID]
 	aggregatedCapacity AllocatedCapacityCollection
+	shareUIDFactory    *UniqueHexStringFactory
 	classLister        deviceClassLister
 	slices             []*resourceapi.ResourceSlice
 	celCache           *cel.Cache
@@ -77,6 +80,7 @@ func NewAllocator(ctx context.Context,
 	features Features,
 	claimsToAllocate []*resourceapi.ResourceClaim,
 	allocatedDevices sets.Set[DeviceID],
+	shareUIDFactory *UniqueHexStringFactory,
 	aggregatedCapacity AllocatedCapacityCollection,
 	classLister deviceClassLister,
 	slices []*resourceapi.ResourceSlice,
@@ -90,6 +94,7 @@ func NewAllocator(ctx context.Context,
 		classLister:        classLister,
 		slices:             slices,
 		celCache:           celCache,
+		shareUIDFactory:    shareUIDFactory,
 	}, nil
 }
 
@@ -562,7 +567,7 @@ type internalDeviceResult struct {
 	parentRequest      string // name of the request which contains the subrequest, empty otherwise
 	id                 DeviceID
 	basic              *draapi.BasicDevice
-	shareUID           *types.UID
+	shareUID           *string
 	slice              *draapi.ResourceSlice
 	consumedCapacities map[resourceapi.QualifiedName]resource.Quantity
 	adminAccess        *bool
@@ -1108,7 +1113,7 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 	}
 
 	var consumedCapacities map[resourceapi.QualifiedName]resource.Quantity
-	var shareUID *types.UID
+	var shareUID *string
 	if alloc.features.ConsumableCapacity {
 		var err error
 		convertedCapacity := make(map[resourceapi.QualifiedName]resourceapi.DeviceCapacity)
@@ -1126,7 +1131,10 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 			return false, nil, fmt.Errorf("failed to get requested capacity: %w", err)
 		}
 		if shared {
-			newUID := uuid.NewUUID()
+			newUID, err := alloc.shareUIDFactory.GenerateNewShareUID(device.id, maxTryOnGenerateShareUID)
+			if err != nil {
+				return false, nil, fmt.Errorf("failed to get unique share ID: %v", err)
+			}
 			shareUID = &newUID
 			alloc.logger.V(7).Info("Device capacity allocated", "device", device.id, "converted capacity", convertedCapacity, "consumed capacity", klog.Format(consumedCapacities))
 			alloc.allocatingCapacity.Insert(NewDeviceAllocatedCapacity(device.id, consumedCapacities))
@@ -1155,6 +1163,9 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 			if !shared {
 				alloc.allocatingDevices[device.id] = false
 			} else {
+				if shareUID != nil {
+					alloc.shareUIDFactory.DeleteShareUID(device.id, *shareUID)
+				}
 				requestedResource := alloc.result[r.claimIndex].devices[previousNumResults].consumedCapacities
 				if requestedResource != nil {
 					alloc.allocatingCapacity.Remove(NewDeviceAllocatedCapacity(device.id, requestedResource))

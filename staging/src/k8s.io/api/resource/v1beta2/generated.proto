@@ -708,7 +708,7 @@ message DeviceRequestAllocationResult {
   // +featureGate=DRADeviceTaints
   repeated DeviceToleration tolerations = 6;
 
-  // ShareUID indicates whether the allocated device can be shared by multiple claims.
+  // ShareUID
   //
   // +optional
   // +featureGate=DRAConsumableCapacity

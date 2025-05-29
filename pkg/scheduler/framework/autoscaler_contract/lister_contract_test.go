@@ -96,8 +96,8 @@ func (r *resourceClaimTrackerContract) Get(_, _ string) (*resourceapi.ResourceCl
 	return nil, nil
 }
 
-func (r *resourceClaimTrackerContract) ListAllAllocatedDevices() (sets.Set[structured.DeviceID], error) {
-	return nil, nil
+func (r *resourceClaimTrackerContract) ListAllAllocatedDevices() (sets.Set[structured.DeviceID], structured.SharedDeviceIDList, error) {
+	return nil, nil, nil
 }
 
 func (r *resourceClaimTrackerContract) ListAllAllocatedCapacity() (structured.AllocatedCapacityCollection, error) {

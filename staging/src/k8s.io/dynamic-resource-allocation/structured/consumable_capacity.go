@@ -283,7 +283,7 @@ func GetConsumedCapacityFromRequest(requestedCapacity *resourceapi.CapacityRequi
 
 func GetAllocatedDeviceStatusDeviceName(deviceName string, sharedUID *types.UID) string {
 	if sharedUID != nil {
-		return fmt.Sprintf("%s-%s", deviceName, (*sharedUID)[:8])
+		return fmt.Sprintf("share-%s/%s", deviceName, (*sharedUID)[:8])
 	}
 	return deviceName
 }

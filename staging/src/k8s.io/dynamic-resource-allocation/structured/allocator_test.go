@@ -34,9 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/dynamic-resource-allocation/cel"
 	"k8s.io/klog/v2/ktesting"
 	"k8s.io/utils/ptr"
@@ -82,6 +80,8 @@ const (
 var (
 	shared                = true
 	emptyConsumedCapacity = map[resourceapi.QualifiedName]resource.Quantity{}
+
+	uniqueHexStringFactory = NewUniqueHexStringFactory(3)
 )
 
 func init() {
@@ -462,10 +462,13 @@ func deviceAllocationResult(request, driver, pool, device string, adminAccess bo
 
 func deviceAllocationResultWithConsumedCapacity(request, driver, pool, device string, adminAccess bool,
 	allocatedCapacity *resourceapi.CapacityRequirements, shared bool) resourceapi.DeviceRequestAllocationResult {
-	var shareUID *k8stypes.UID
+	var shareUID *string
 	if shared {
-		newUID := uuid.NewUUID()
-		shareUID = &newUID
+		deviceID := MakeDeviceID(driver, pool, device)
+		shareUIDString, err := uniqueHexStringFactory.GenerateNewShareUID(deviceID, 100)
+		shareUID = &shareUIDString
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
 	}
 	result := deviceAllocationResult(request, driver, pool, device, adminAccess)
 	result.ConsumedCapacities = allocatedCapacity.Requests
@@ -958,7 +961,7 @@ func TestAllocatorShared(t *testing.T) {
 			if len(slices) > 0 && len(slices[0].Spec.Devices) > 0 {
 				fmt.Println("device basic", slices[0].Spec.Devices[0].Basic)
 			}
-			allocator, err := NewAllocator(ctx, tc.features, unwrap(claimsToAllocate...), sets.New(allocatedDevices...), allocatedShare, classLister, slices, cel.NewCache(1))
+			allocator, err := NewAllocator(ctx, tc.features, unwrap(claimsToAllocate...), sets.New(allocatedDevices...), uniqueHexStringFactory, allocatedShare, classLister, slices, cel.NewCache(1))
 			fmt.Println("error", err)
 			g.Expect(err).ToNot(gomega.HaveOccurred())
 			fmt.Println(name)
@@ -3464,7 +3467,7 @@ func TestAllocator(t *testing.T) {
 			if len(slices) > 0 && len(slices[0].Spec.Devices) > 0 {
 				fmt.Println("device basic", slices[0].Spec.Devices[0].Basic)
 			}
-			allocator, err := NewAllocator(ctx, tc.features, unwrap(claimsToAllocate...), sets.New(allocatedDevices...), allocatedShare, classLister, slices, cel.NewCache(1))
+			allocator, err := NewAllocator(ctx, tc.features, unwrap(claimsToAllocate...), sets.New(allocatedDevices...), uniqueHexStringFactory, allocatedShare, classLister, slices, cel.NewCache(1))
 			fmt.Println("error", err)
 			g.Expect(err).ToNot(gomega.HaveOccurred())
 			fmt.Println(name)

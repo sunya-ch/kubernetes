@@ -27,7 +27,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	resourcealphaapi "k8s.io/api/resource/v1alpha3"
-	resourceapi "k8s.io/api/resource/v1beta1"
+	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -38,6 +38,7 @@ import (
 	"k8s.io/dynamic-resource-allocation/cel"
 	resourceslicetracker "k8s.io/dynamic-resource-allocation/resourceslice/tracker"
 	"k8s.io/dynamic-resource-allocation/structured"
+	resourceapi "k8s.io/kubernetes/pkg/apis/resource"
 	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources"
 	"k8s.io/kubernetes/pkg/scheduler/util/assumecache"
@@ -96,7 +97,7 @@ func (op *createResourceClaimsOp) requiredNamespaces() []string {
 func (op *createResourceClaimsOp) run(tCtx ktesting.TContext) {
 	tCtx.Logf("creating %d claims in namespace %q", op.Count, op.Namespace)
 
-	var claimTemplate *resourceapi.ResourceClaim
+	var claimTemplate *resourcev1beta1.ResourceClaim
 	if err := getSpecFromFile(&op.TemplatePath, &claimTemplate); err != nil {
 		tCtx.Fatalf("parsing ResourceClaim %q: %v", op.TemplatePath, err)
 	}
@@ -199,22 +200,22 @@ func (op *createResourceDriverOp) run(tCtx ktesting.TContext) {
 	tCtx.CleanupCtx(func(tCtx ktesting.TContext) {
 		err := tCtx.Client().ResourceV1beta1().ResourceSlices().DeleteCollection(tCtx,
 			metav1.DeleteOptions{},
-			metav1.ListOptions{FieldSelector: resourceapi.ResourceSliceSelectorDriver + "=" + op.DriverName},
+			metav1.ListOptions{FieldSelector: resourcev1beta1.ResourceSliceSelectorDriver + "=" + op.DriverName},
 		)
 		tCtx.ExpectNoError(err, "delete node resource slices")
 	})
 }
 
-func resourceSlice(driverName, nodeName string, capacity int) *resourceapi.ResourceSlice {
-	slice := &resourceapi.ResourceSlice{
+func resourceSlice(driverName, nodeName string, capacity int) *resourcev1beta1.ResourceSlice {
+	slice := &resourcev1beta1.ResourceSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
 		},
 
-		Spec: resourceapi.ResourceSliceSpec{
+		Spec: resourcev1beta1.ResourceSliceSpec{
 			Driver:   driverName,
 			NodeName: nodeName,
-			Pool: resourceapi.ResourcePool{
+			Pool: resourcev1beta1.ResourcePool{
 				Name:               nodeName,
 				ResourceSliceCount: 1,
 			},
@@ -223,16 +224,16 @@ func resourceSlice(driverName, nodeName string, capacity int) *resourceapi.Resou
 
 	for i := 0; i < capacity; i++ {
 		slice.Spec.Devices = append(slice.Spec.Devices,
-			resourceapi.Device{
+			resourcev1beta1.Device{
 				Name: fmt.Sprintf("instance-%d", i),
-				Basic: &resourceapi.BasicDevice{
-					Attributes: map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
+				Basic: &resourcev1beta1.BasicDevice{
+					Attributes: map[resourcev1beta1.QualifiedName]resourcev1beta1.DeviceAttribute{
 						"model":                {StringValue: ptr.To("A100")},
 						"family":               {StringValue: ptr.To("GPU")},
 						"driverVersion":        {VersionValue: ptr.To("1.2.3")},
 						"dra.example.com/numa": {IntValue: ptr.To(int64(i))},
 					},
-					Capacity: map[resourceapi.QualifiedName]resourceapi.DeviceCapacity{
+					Capacity: map[resourcev1beta1.QualifiedName]resourcev1beta1.DeviceCapacity{
 						"memory": {Value: resource.MustParse("1Gi")},
 					},
 				},
@@ -298,10 +299,10 @@ func (op *allocResourceClaimsOp) run(tCtx ktesting.TContext) {
 	}()
 	syncedInformers := informerFactory.WaitForCacheSync(tCtx.Done())
 	expectSyncedInformers := map[reflect.Type]bool{
-		reflect.TypeOf(&resourceapi.DeviceClass{}):   true,
-		reflect.TypeOf(&resourceapi.ResourceClaim{}): true,
-		reflect.TypeOf(&resourceapi.ResourceSlice{}): true,
-		reflect.TypeOf(&v1.Node{}):                   true,
+		reflect.TypeOf(&resourcev1beta1.DeviceClass{}):   true,
+		reflect.TypeOf(&resourcev1beta1.ResourceClaim{}): true,
+		reflect.TypeOf(&resourcev1beta1.ResourceSlice{}): true,
+		reflect.TypeOf(&v1.Node{}):                       true,
 	}
 	if utilfeature.DefaultFeatureGate.Enabled(features.DRADeviceTaints) {
 		expectSyncedInformers[reflect.TypeOf(&resourcealphaapi.DeviceTaintRule{})] = true
@@ -330,12 +331,17 @@ claims:
 		tCtx.ExpectNoError(err, "list claims")
 		allocatedDevices := sets.New[structured.DeviceID]()
 		aggregatedCapacity := structured.NewAllocatedCapacityCollection()
+		usedShareIDs := make(structured.SharedDeviceIDList, 0)
 		for _, claim := range claims {
 			if claim.Status.Allocation == nil {
 				continue
 			}
 			for _, result := range claim.Status.Allocation.Devices.Results {
 				deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
+				if result.ShareUID != nil {
+					sharedDeviceID := structured.MakeSharedDeviceID(deviceID, *result.ShareUID)
+					usedShareIDs[sharedDeviceID] = struct{}{}
+				}
 				allocatedDevices.Insert(deviceID)
 				claimedCapacity := result.ConsumedCapacities
 				if claimedCapacity == nil {
@@ -350,13 +356,14 @@ claims:
 				}
 			}
 		}
-
+		shareUIDFactory := structured.NewUniqueHexStringFactory(resourceapi.ShareUIDNBytes)
+		shareUIDFactory.SetUsedShareIDs(usedShareIDs)
 		allocator, err := structured.NewAllocator(tCtx, structured.Features{
 			PrioritizedList:    utilfeature.DefaultFeatureGate.Enabled(features.DRAPrioritizedList),
 			AdminAccess:        utilfeature.DefaultFeatureGate.Enabled(features.DRAAdminAccess),
 			DeviceTaints:       utilfeature.DefaultFeatureGate.Enabled(features.DRADeviceTaints),
 			ConsumableCapacity: utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity),
-		}, []*resourceapi.ResourceClaim{claim}, allocatedDevices, aggregatedCapacity, draManager.DeviceClasses(), slices, celCache)
+		}, []*resourcev1beta1.ResourceClaim{claim}, allocatedDevices, shareUIDFactory, aggregatedCapacity, draManager.DeviceClasses(), slices, celCache)
 		tCtx.ExpectNoError(err, "create allocator")
 
 		rand.Shuffle(len(nodes), func(i, j int) {

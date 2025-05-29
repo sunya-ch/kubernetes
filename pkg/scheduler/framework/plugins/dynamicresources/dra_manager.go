@@ -201,22 +201,27 @@ func (c *claimTracker) List() ([]*resourceapi.ResourceClaim, error) {
 	return result, nil
 }
 
-func (c *claimTracker) ListAllAllocatedDevices() (sets.Set[structured.DeviceID], error) {
+func (c *claimTracker) ListAllAllocatedDevices() (sets.Set[structured.DeviceID], structured.SharedDeviceIDList, error) {
 	// Start with a fresh set that matches the current known state of the
 	// world according to the informers.
 	allocated := c.allocatedDevices.Get()
+	usedShareIDs := make(structured.SharedDeviceIDList)
 
 	// Whatever is in flight also has to be checked.
 	c.inFlightAllocations.Range(func(key, value any) bool {
 		claim := value.(*resourceapi.ResourceClaim)
-		foreachAllocatedDevice(claim, func(deviceID structured.DeviceID) {
+		foreachAllocatedDevice(claim, func(deviceID structured.DeviceID, shareUID *string) {
 			c.logger.V(6).Info("Device is in flight for allocation", "device", deviceID, "claim", klog.KObj(claim))
 			allocated.Insert(deviceID)
+			if shareUID != nil {
+				sharedDeviceID := structured.MakeSharedDeviceID(deviceID, *shareUID)
+				usedShareIDs[sharedDeviceID] = struct{}{}
+			}
 		})
 		return true
 	})
 	// There's no reason to return an error in this implementation, but the error might be helpful for other implementations.
-	return allocated, nil
+	return allocated, usedShareIDs, nil
 }
 
 func (c *claimTracker) ListAllAllocatedCapacity() (structured.AllocatedCapacityCollection, error) {

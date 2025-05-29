@@ -782,7 +782,7 @@
             "type": "string"
           },
           "shareUID": {
-            "description": "ShareUID indicates whether the allocated device can be shared by multiple claims.",
+            "description": "ShareUID",
             "type": "string"
           },
           "tolerations": {

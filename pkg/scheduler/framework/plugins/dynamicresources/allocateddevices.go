@@ -36,7 +36,7 @@ import (
 // claims and are skipped without invoking the callback.
 //
 // foreachAllocatedDevice does nothing if the claim is not allocated.
-func foreachAllocatedDevice(claim *resourceapi.ResourceClaim, cb func(deviceID structured.DeviceID)) {
+func foreachAllocatedDevice(claim *resourceapi.ResourceClaim, cb func(deviceID structured.DeviceID, shareUID *string)) {
 	if claim.Status.Allocation == nil {
 		return
 	}
@@ -57,7 +57,7 @@ func foreachAllocatedDevice(claim *resourceapi.ResourceClaim, cb func(deviceID s
 
 		// None of the users of this helper need to abort iterating,
 		// therefore it's not supported as it only would add overhead.
-		cb(deviceID)
+		cb(deviceID, result.ShareUID)
 	}
 }
 
@@ -105,6 +105,7 @@ type allocatedDevices struct {
 
 	mutex             sync.RWMutex
 	ids               sets.Set[structured.DeviceID]
+	shareIDs          structured.SharedDeviceIDList
 	allocatedCapacity structured.AllocatedCapacityCollection
 }
 
@@ -112,6 +113,7 @@ func newAllocatedDevices(logger klog.Logger) *allocatedDevices {
 	return &allocatedDevices{
 		logger:            logger,
 		ids:               sets.New[structured.DeviceID](),
+		shareIDs:          make(structured.SharedDeviceIDList),
 		allocatedCapacity: make(map[structured.DeviceID]structured.AllocatedCapacity),
 	}
 }
@@ -121,6 +123,13 @@ func (a *allocatedDevices) Get() sets.Set[structured.DeviceID] {
 	defer a.mutex.RUnlock()
 
 	return a.ids.Clone()
+}
+
+func (a *allocatedDevices) GetShareIDs() structured.SharedDeviceIDList {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+
+	return a.shareIDs.Clone()
 }
 
 func (a *allocatedDevices) GetAllocatedCapacityCollection() structured.AllocatedCapacityCollection {
@@ -188,9 +197,14 @@ func (a *allocatedDevices) addDevices(claim *resourceapi.ResourceClaim) {
 	// Locking of the mutex gets minimized by pre-computing what needs to be done
 	// without holding the lock.
 	deviceIDs := make([]structured.DeviceID, 0, 20)
-	foreachAllocatedDevice(claim, func(deviceID structured.DeviceID) {
+	shareIDs := make([]structured.SharedDeviceID, 0, 20)
+	foreachAllocatedDevice(claim, func(deviceID structured.DeviceID, shareUID *string) {
 		a.logger.V(6).Info("Observed device allocation", "device", deviceID, "claim", klog.KObj(claim))
 		deviceIDs = append(deviceIDs, deviceID)
+		if shareUID != nil {
+			sharedDeviceID := structured.MakeSharedDeviceID(deviceID, *shareUID)
+			shareIDs = append(shareIDs, sharedDeviceID)
+		}
 	})
 	results := make([]structured.DeviceAllocatedCapacity, 0, 20)
 	foreachAllocatedCapacity(claim, func(allocatedSharedDevice structured.DeviceAllocatedCapacity) {
@@ -202,6 +216,9 @@ func (a *allocatedDevices) addDevices(claim *resourceapi.ResourceClaim) {
 	defer a.mutex.Unlock()
 	for _, deviceID := range deviceIDs {
 		a.ids.Insert(deviceID)
+	}
+	for _, shareID := range shareIDs {
+		a.shareIDs[shareID] = struct{}{}
 	}
 	for _, result := range results {
 		deviceID := result.DeviceID
@@ -221,9 +238,14 @@ func (a *allocatedDevices) removeDevices(claim *resourceapi.ResourceClaim) {
 	// Locking of the mutex gets minimized by pre-computing what needs to be done
 	// without holding the lock.
 	deviceIDs := make([]structured.DeviceID, 0, 20)
-	foreachAllocatedDevice(claim, func(deviceID structured.DeviceID) {
+	shareIDs := make([]structured.SharedDeviceID, 0, 20)
+	foreachAllocatedDevice(claim, func(deviceID structured.DeviceID, shareUID *string) {
 		a.logger.V(6).Info("Observed device deallocation", "device", deviceID, "claim", klog.KObj(claim))
 		deviceIDs = append(deviceIDs, deviceID)
+		if shareUID != nil {
+			sharedDeviceID := structured.MakeSharedDeviceID(deviceID, *shareUID)
+			shareIDs = append(shareIDs, sharedDeviceID)
+		}
 	})
 	shares := make([]structured.DeviceAllocatedCapacity, 0, 20)
 	foreachAllocatedCapacity(claim, func(allocatedSharedDevice structured.DeviceAllocatedCapacity) {
@@ -235,6 +257,9 @@ func (a *allocatedDevices) removeDevices(claim *resourceapi.ResourceClaim) {
 	defer a.mutex.Unlock()
 	for _, deviceID := range deviceIDs {
 		a.ids.Delete(deviceID)
+	}
+	for _, shareID := range shareIDs {
+		delete(a.shareIDs, shareID)
 	}
 	for _, share := range shares {
 		deviceID := share.DeviceID

@@ -25,7 +25,6 @@ import (
 	apiresource "k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
-	types "k8s.io/apimachinery/pkg/types"
 	core "k8s.io/kubernetes/pkg/apis/core"
 )
 
@@ -700,7 +699,7 @@ func (in *DeviceRequestAllocationResult) DeepCopyInto(out *DeviceRequestAllocati
 	}
 	if in.ShareUID != nil {
 		in, out := &in.ShareUID, &out.ShareUID
-		*out = new(types.UID)
+		*out = new(string)
 		**out = **in
 	}
 	if in.ConsumedCapacities != nil {

@@ -17,6 +17,7 @@ limitations under the License.
 package validation
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -64,6 +65,49 @@ func validatePoolName(name string, fldPath *field.Path) field.ErrorList {
 		for _, part := range parts {
 			allErrs = append(allErrs, corevalidation.ValidateDNS1123Subdomain(part, fldPath)...)
 		}
+	}
+	return allErrs
+}
+
+// validateShareableDeviceName validates a shareable device.
+// The valid length must be subtracted by expecting share UID suffix
+func validateShareableDeviceName(name string, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	if len(name) > resource.SharedDeviceNameMaxLength {
+		allErrs = append(allErrs, field.TooLong(fldPath, "" /*unused*/, resource.SharedDeviceNameMaxLength))
+	}
+	allErrs = append(allErrs, validateDeviceName(name, fldPath)...)
+	return allErrs
+}
+
+// validateShareUID must be a valid hex string of length 2 * ShareUIDNBytes.
+func validateShareUID(shareUID string, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	if len(shareUID) != resource.ShareUIDLength {
+		allErrs = append(allErrs, field.Invalid(fldPath, shareUID, fmt.Sprintf("must have length: %d", resource.ShareUIDLength)))
+	}
+	_, err := hex.DecodeString(shareUID)
+	if err != nil {
+		allErrs = append(allErrs, field.Invalid(fldPath, shareUID, fmt.Sprintf("must be a hex string: %v", err)))
+	}
+	return allErrs
+}
+
+// AllocatedDeviceStatus validates a shared device name in allocated result.
+// The shared device name is a combination of a shareable device name with a share UID.
+func validateAllocatedDeviceStatusName(name string, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	parts := strings.Split(name, "/")
+	switch len(parts) {
+	case 0:
+		allErrs = append(allErrs, field.Required(fldPath, ""))
+	case 1:
+		allErrs = append(allErrs, validateDeviceName(parts[0], fldPath)...)
+	case 2:
+		allErrs = append(allErrs, validateShareUID(parts[1], fldPath)...)
+		allErrs = append(allErrs, validateShareableDeviceName(parts[0], fldPath)...)
+	default:
+		allErrs = append(allErrs, field.Invalid(fldPath, name, fmt.Sprintf("must have at most one `/`")))
 	}
 	return allErrs
 }
@@ -164,7 +208,10 @@ func gatherRequestNames(deviceClaim *resource.DeviceClaim) requestNames {
 func gatherAllocatedDevices(allocationResult *resource.DeviceAllocationResult) sets.Set[structured.DeviceID] {
 	allocatedDevices := sets.New[structured.DeviceID]()
 	for _, result := range allocationResult.Results {
-		deviceName := structured.GetAllocatedDeviceStatusDeviceName(result.Device, result.ShareUID)
+		deviceName := result.Device
+		if result.ShareUID != nil {
+			deviceName = structured.GetSharedDeviceName(deviceName, *result.ShareUID)
+		}
 		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, deviceName)
 		allocatedDevices.Insert(deviceID)
 	}
@@ -462,7 +509,11 @@ func validateDeviceRequestAllocationResult(result resource.DeviceRequestAllocati
 	allErrs = append(allErrs, validateRequestNameRef(result.Request, fldPath.Child("request"), requestNames)...)
 	allErrs = append(allErrs, validateDriverName(result.Driver, fldPath.Child("driver"))...)
 	allErrs = append(allErrs, validatePoolName(result.Pool, fldPath.Child("pool"))...)
-	allErrs = append(allErrs, validateDeviceName(result.Device, fldPath.Child("device"))...)
+	if result.ShareUID != nil {
+		allErrs = append(allErrs, validateShareableDeviceName(result.Device, fldPath.Child("device"))...)
+	} else {
+		allErrs = append(allErrs, validateDeviceName(result.Device, fldPath.Child("device"))...)
+	}
 	return allErrs
 }
 
@@ -717,7 +768,11 @@ func validateResourcePool(pool resource.ResourcePool, fldPath *field.Path) field
 
 func validateDevice(device resource.Device, fldPath *field.Path, sharedCounterToCounterNames map[string]sets.Set[string], perDeviceNodeSelection *bool) field.ErrorList {
 	var allErrs field.ErrorList
-	allErrs = append(allErrs, validateDeviceName(device.Name, fldPath.Child("name"))...)
+	if device.Shared != nil && *device.Shared {
+		allErrs = append(allErrs, validateShareableDeviceName(device.Name, fldPath.Child("name"))...)
+	} else {
+		allErrs = append(allErrs, validateDeviceName(device.Name, fldPath.Child("name"))...)
+	}
 	// Warn about exceeding the maximum length only once. If any individual
 	// field is too large, then so is the combination.
 	attributeAndCapacityLength := len(device.Attributes) + len(device.Capacity)
@@ -1015,7 +1070,8 @@ func validateDeviceStatus(device resource.AllocatedDeviceStatus, fldPath *field.
 	var allErrs field.ErrorList
 	allErrs = append(allErrs, validateDriverName(device.Driver, fldPath.Child("driver"))...)
 	allErrs = append(allErrs, validatePoolName(device.Pool, fldPath.Child("pool"))...)
-	allErrs = append(allErrs, validateDeviceName(device.Device, fldPath.Child("device"))...)
+	allErrs = append(allErrs, validateAllocatedDeviceStatusName(device.Device, fldPath.Child("device"))...)
+
 	deviceID := structured.MakeDeviceID(device.Driver, device.Pool, device.Device)
 	if !allocatedDevices.Has(deviceID) {
 		allErrs = append(allErrs, field.Invalid(fldPath, deviceID, "must be an allocated device in the claim"))

@@ -234,6 +234,14 @@ const ResourceSliceMaxSharedCapacity = 128
 const ResourceSliceMaxDevices = 128
 const PoolNameMaxLength = validation.DNS1123SubdomainMaxLength // Same as for a single node name.
 
+// Byte length of random ID for ShareUID; String length will be twice characters.
+const ShareUIDNBytes = 3
+const ShareUIDLength = ShareUIDNBytes * 2
+
+// Max length for shared device name, accounting for suffix format "-[ShareUID]",
+// where ShareUID is 2 * ShareUIDNBytes characters.
+const SharedDeviceNameMaxLength = validation.DNS1123SubdomainMaxLength - ShareUIDNBytes - 1
+
 // Defines the max number of shared counters that can be specified
 // in a ResourceSlice. The number is summed up across all sets.
 const ResourceSliceMaxSharedCounters = 32
@@ -1367,11 +1375,11 @@ type DeviceRequestAllocationResult struct {
 	// +featureGate=DRADeviceTaints
 	Tolerations []DeviceToleration
 
-	// ShareUID indicates whether the allocated device can be shared by multiple claims.
+	// ShareUID
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
-	ShareUID *types.UID
+	ShareUID *string
 
 	// ConsumedCapacities is used for tracking the capacity consumed per device by the claim request.
 	// The total consumed capacity for each device must not exceed its corresponding available capacity.

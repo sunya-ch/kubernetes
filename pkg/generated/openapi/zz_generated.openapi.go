@@ -48268,7 +48268,7 @@ func schema_k8sio_api_resource_v1alpha3_DeviceRequestAllocationResult(ref common
 					},
 					"shareUID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ShareUID indicates whether the allocated device can be shared by multiple claims.",
+							Description: "ShareUID",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -50559,7 +50559,7 @@ func schema_k8sio_api_resource_v1beta1_DeviceRequestAllocationResult(ref common.
 					},
 					"shareUID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ShareUID indicates whether the allocated device can be shared by multiple claims.",
+							Description: "ShareUID",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -52576,7 +52576,7 @@ func schema_k8sio_api_resource_v1beta2_DeviceRequestAllocationResult(ref common.
 					},
 					"shareUID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ShareUID indicates whether the allocated device can be shared by multiple claims.",
+							Description: "ShareUID",
 							Type:        []string{"string"},
 							Format:      "",
 						},
