@@ -1,0 +1,35 @@
+name: Build Kubernetes image
+
+on: [ pull_request ]
+#  push:
+
+env:
+  VERSION: "kep-5075"
+  IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: kindest/node
+      KUBE_GIT_VERSION: v1.34.0-alpha.0.2276+6f3400c755b5e1-dirty
+    steps:
+      - name: Install Kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64
+          chmod +x ./kind
+          mv ./kind /usr/local/bin
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v1
+      - name: Login to Docker
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GH_USERNAME }}
+          password: ${{ secrets.GH_TOKEN }}
+      - uses: actions/checkout@v3
+      - name: Build and Push custom KIND node image
+        run: |
+          hack/print-workspace-status.sh
+          kind build node-image --image ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }} .
+          docker push ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}
