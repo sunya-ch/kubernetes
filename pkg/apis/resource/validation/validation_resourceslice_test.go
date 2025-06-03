@@ -80,6 +80,7 @@ func testResourceSlice(name, nodeName, driverName string, numDevices int) *resou
 func TestValidateResourceSlice(t *testing.T) {
 	goodName := "foo"
 	badName := "!@#$%^"
+	longName := strings.Repeat("a", resourceapi.DeviceMaxDomainLength)
 	driverName := "test.example.com"
 	now := metav1.Now()
 	badValue := "spaces not allowed"
@@ -317,6 +318,24 @@ func TestValidateResourceSlice(t *testing.T) {
 			slice: func() *resourceapi.ResourceSlice {
 				slice := testResourceSlice(goodName, goodName, goodName, 3)
 				slice.Spec.Devices[1].Name = badName
+				return slice
+			}(),
+		},
+		"good-long-name-device": {
+			slice: func() *resourceapi.ResourceSlice {
+				slice := testResourceSlice(goodName, goodName, goodName, 3)
+				slice.Spec.Devices[1].Name = longName
+				return slice
+			}(),
+		},
+		"bad-multi-alloc-devices-too-long": {
+			wantFailures: field.ErrorList{
+				field.TooLong(field.NewPath("spec", "devices").Index(1).Child("name"), "", resourceapi.SharedDeviceNameMaxLength),
+			},
+			slice: func() *resourceapi.ResourceSlice {
+				slice := testResourceSlice(goodName, goodName, goodName, 3)
+				slice.Spec.Devices[1].Name = longName
+				slice.Spec.Devices[1].AllowMultipleAllocations = ptr.To(true)
 				return slice
 			}(),
 		},

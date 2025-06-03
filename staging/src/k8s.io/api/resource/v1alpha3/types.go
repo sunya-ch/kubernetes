@@ -341,6 +341,15 @@ type BasicDevice struct {
 	// +listType=atomic
 	// +featureGate=DRADeviceTaints
 	Taints []DeviceTaint `json:"taints,omitempty" protobuf:"bytes,7,rep,name=taints"`
+
+	// AllowMultipleAllocations marks whether the device is allowed to be allocated for mutliple times.
+	//
+	// A device with allowMultipleAllocations="true" can be allocated more than once.
+	// However, the CapacitySharingPolicy, which extends DeviceCapacity, is not available in this version.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	AllowMultipleAllocations *bool `json:"allowMultipleAllocations,omitempty" protobuf:"bytes,8,opt,name=allowMultipleAllocations"`
 }
 
 // DeviceCounterConsumption defines a set of counters that
@@ -986,6 +995,21 @@ type DeviceConstraint struct {
 	// criteria.
 	//
 	// MatchExpression string
+
+	// DistinctAttribute requires that all devices in question have this
+	// attribute and that its type and value are unique across those devices.
+	//
+	// This acts as the inverse of MatchAttribute.
+	//
+	// This constraint is used to avoid allocating multiple requests to the same shareable device
+	// by ensuring attribute-level differentiation.
+	//
+	// This is useful for scenarios where resource requests must be fulfilled by separate physical devices.
+	// For example, a container requests two network interfaces that must be allocated from two different physical NICs.
+	//
+	// +optional
+	// +oneOf=ConstraintType
+	DistinctAttribute *FullyQualifiedName `protobuf:"bytes,3,opt,name=distinctAttribute,casttype=FullyQualifiedName"`
 }
 
 // DeviceClaimConfiguration is used for configuration parameters in DeviceClaim.
@@ -1281,6 +1305,18 @@ type DeviceRequestAllocationResult struct {
 	// +listType=atomic
 	// +featureGate=DRADeviceTaints
 	Tolerations []DeviceToleration `json:"tolerations,omitempty" protobuf:"bytes,6,opt,name=tolerations"`
+
+	// ShareID uniquely identifies a specific allocation result for a shareable device
+	// when it is allowed for multiple allocations.
+	// This acts as an additional map key to distinguish different allocation shares from the same device.
+	//
+	// This id is randomly generated for each shared allocation.
+	// This id must be unique among all currently allocated shares of the device - i.e. not globally unique.
+	// It must be a DNS label.
+	//
+	// +optional
+	// +featureGate=DRAConsumableCapacity
+	ShareID *string `json:"shareID,omitempty" protobuf:"bytes,7,opt,name=shareID"`
 }
 
 // DeviceAllocationConfiguration gets embedded in an AllocationResult.
@@ -1498,6 +1534,9 @@ type AllocatedDeviceStatus struct {
 
 	// Device references one device instance via its name in the driver's
 	// resource pool. It must be a DNS label.
+	//
+	// If the allocation result includes a ShareID, the Device field is extended with the ShareID,
+	// formatted as `<device name>/<share id>`.
 	//
 	// +required
 	Device string `json:"device" protobuf:"bytes,3,rep,name=device"`
