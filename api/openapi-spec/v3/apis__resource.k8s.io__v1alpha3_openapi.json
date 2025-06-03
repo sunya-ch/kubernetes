@@ -115,7 +115,7 @@
           },
           "device": {
             "default": "",
-            "description": "Device references one device instance via its name in the driver's resource pool. It must be a DNS label.",
+            "description": "Device references one device instance via its name in the driver's resource pool. It must be a DNS label.\n\nIf the allocation result includes a ShareID, the Device field is extended with the ShareID, formatted as `<device name>/<share id>`.",
             "type": "string"
           },
           "driver": {
@@ -172,6 +172,10 @@
         "properties": {
           "allNodes": {
             "description": "AllNodes indicates that all nodes have access to the device.\n\nMust only be set if Spec.PerDeviceNodeSelection is set to true. At most one of NodeName, NodeSelector and AllNodes can be set.",
+            "type": "boolean"
+          },
+          "allowMultipleAllocations": {
+            "description": "AllowMultipleAllocations marks whether the device is allowed to be allocated for mutliple times.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once. However, the CapacitySharingPolicy, which extends DeviceCapacity, is not available in this version.",
             "type": "boolean"
           },
           "attributes": {
@@ -604,6 +608,10 @@
       "io.k8s.api.resource.v1alpha3.DeviceConstraint": {
         "description": "DeviceConstraint must have exactly one field set besides Requests.",
         "properties": {
+          "DistinctAttribute": {
+            "description": "DistinctAttribute requires that all devices in question have this attribute and that its type and value are unique across those devices.\n\nThis acts as the inverse of MatchAttribute.\n\nThis constraint is used to avoid allocating multiple requests to the same shareable device by ensuring attribute-level differentiation.\n\nThis is useful for scenarios where resource requests must be fulfilled by separate physical devices. For example, a container requests two network interfaces that must be allocated from two different physical NICs.",
+            "type": "string"
+          },
           "matchAttribute": {
             "description": "MatchAttribute requires that all devices in question have this attribute and that its type and value are the same across those devices.\n\nFor example, if you specified \"dra.example.com/numa\" (a hypothetical example!), then only devices in the same NUMA node will be chosen. A device which does not have that attribute will not be chosen. All devices should use a value of the same type for this attribute because that is part of its specification, but if one device doesn't, then it also will not be chosen.\n\nMust include the domain qualifier.",
             "type": "string"
@@ -743,6 +751,10 @@
           "request": {
             "default": "",
             "description": "Request is the name of the request in the claim which caused this device to be allocated. If it references a subrequest in the firstAvailable list on a DeviceRequest, this field must include both the name of the main request and the subrequest using the format <main request>/<subrequest>.\n\nMultiple devices may have been allocated per request.",
+            "type": "string"
+          },
+          "shareID": {
+            "description": "ShareID uniquely identifies a specific allocation result for a shareable device when it is allowed for multiple allocations. This acts as an additional map key to distinguish different allocation shares from the same device.\n\nThis id is randomly generated for each shared allocation. This id must be unique among all currently allocated shares of the device - i.e. not globally unique. It must be a DNS label.",
             "type": "string"
           },
           "tolerations": {

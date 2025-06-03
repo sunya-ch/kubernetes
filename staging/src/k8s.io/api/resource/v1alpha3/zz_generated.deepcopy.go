@@ -129,6 +129,11 @@ func (in *BasicDevice) DeepCopyInto(out *BasicDevice) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.AllowMultipleAllocations != nil {
+		in, out := &in.AllowMultipleAllocations, &out.AllowMultipleAllocations
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
@@ -507,6 +512,11 @@ func (in *DeviceConstraint) DeepCopyInto(out *DeviceConstraint) {
 		*out = new(FullyQualifiedName)
 		**out = **in
 	}
+	if in.DistinctAttribute != nil {
+		in, out := &in.DistinctAttribute, &out.DistinctAttribute
+		*out = new(FullyQualifiedName)
+		**out = **in
+	}
 	return
 }
 
@@ -599,6 +609,11 @@ func (in *DeviceRequestAllocationResult) DeepCopyInto(out *DeviceRequestAllocati
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.ShareID != nil {
+		in, out := &in.ShareID, &out.ShareID
+		*out = new(string)
+		**out = **in
 	}
 	return
 }

@@ -80,7 +80,8 @@ spec:
         requests:
         - requestsValue
       constraints:
-      - matchAttribute: matchAttributeValue
+      - DistinctAttribute: <no json tag> DistinctAttributeValue
+        matchAttribute: matchAttributeValue
         requests:
         - requestsValue
       requests:

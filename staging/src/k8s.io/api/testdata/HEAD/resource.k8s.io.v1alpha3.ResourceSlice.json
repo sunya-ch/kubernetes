@@ -134,7 +134,8 @@
               "effect": "effectValue",
               "timeAdded": "2004-01-01T01:01:01Z"
             }
-          ]
+          ],
+          "allowMultipleAllocations": true
         }
       }
     ],

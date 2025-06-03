@@ -47,7 +47,8 @@ spec:
       requests:
       - requestsValue
     constraints:
-    - matchAttribute: matchAttributeValue
+    - DistinctAttribute: <no json tag> DistinctAttributeValue
+      matchAttribute: matchAttributeValue
       requests:
       - requestsValue
     requests:
@@ -101,6 +102,7 @@ status:
         driver: driverValue
         pool: poolValue
         request: requestValue
+        shareID: shareIDValue
         tolerations:
         - effect: effectValue
           key: keyValue

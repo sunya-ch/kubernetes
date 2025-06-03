@@ -19,13 +19,15 @@ limitations under the License.
 package v1beta1
 
 import (
+	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	resource "k8s.io/apimachinery/pkg/api/resource"
 )
 
 // DeviceCapacityApplyConfiguration represents a declarative configuration of the DeviceCapacity type for use
 // with apply.
 type DeviceCapacityApplyConfiguration struct {
-	Value *resource.Quantity `json:"value,omitempty"`
+	Value         *resource.Quantity                     `json:"value,omitempty"`
+	SharingPolicy *resourcev1beta1.CapacitySharingPolicy `json:"sharingPolicy,omitempty"`
 }
 
 // DeviceCapacityApplyConfiguration constructs a declarative configuration of the DeviceCapacity type for use with
@@ -39,5 +41,13 @@ func DeviceCapacity() *DeviceCapacityApplyConfiguration {
 // If called multiple times, the Value field is set to the value of the last call.
 func (b *DeviceCapacityApplyConfiguration) WithValue(value resource.Quantity) *DeviceCapacityApplyConfiguration {
 	b.Value = &value
+	return b
+}
+
+// WithSharingPolicy sets the SharingPolicy field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the SharingPolicy field is set to the value of the last call.
+func (b *DeviceCapacityApplyConfiguration) WithSharingPolicy(value resourcev1beta1.CapacitySharingPolicy) *DeviceCapacityApplyConfiguration {
+	b.SharingPolicy = &value
 	return b
 }

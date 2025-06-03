@@ -27,6 +27,7 @@ type DeviceRequestAllocationResultApplyConfiguration struct {
 	Device      *string                              `json:"device,omitempty"`
 	AdminAccess *bool                                `json:"adminAccess,omitempty"`
 	Tolerations []DeviceTolerationApplyConfiguration `json:"tolerations,omitempty"`
+	ShareID     *string                              `json:"shareID,omitempty"`
 }
 
 // DeviceRequestAllocationResultApplyConfiguration constructs a declarative configuration of the DeviceRequestAllocationResult type for use with
@@ -85,5 +86,13 @@ func (b *DeviceRequestAllocationResultApplyConfiguration) WithTolerations(values
 		}
 		b.Tolerations = append(b.Tolerations, *values[i])
 	}
+	return b
+}
+
+// WithShareID sets the ShareID field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ShareID field is set to the value of the last call.
+func (b *DeviceRequestAllocationResultApplyConfiguration) WithShareID(value string) *DeviceRequestAllocationResultApplyConfiguration {
+	b.ShareID = &value
 	return b
 }
