@@ -24,8 +24,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	featuregatetesting "k8s.io/component-base/featuregate/testing"
 	"k8s.io/kubernetes/pkg/apis/core"
 	resourceapi "k8s.io/kubernetes/pkg/apis/resource"
+	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/utils/ptr"
 
 	_ "k8s.io/kubernetes/pkg/apis/resource/install"
@@ -86,8 +89,9 @@ func TestValidateResourceSlice(t *testing.T) {
 	badValue := "spaces not allowed"
 
 	scenarios := map[string]struct {
-		slice        *resourceapi.ResourceSlice
-		wantFailures field.ErrorList
+		slice                         *resourceapi.ResourceSlice
+		wantFailures                  field.ErrorList
+		consumableCapacityFeatureGate bool
 	}{
 		"good": {
 			slice: testResourceSlice(goodName, goodName, driverName, resourceapi.ResourceSliceMaxDevices),
@@ -338,6 +342,7 @@ func TestValidateResourceSlice(t *testing.T) {
 				slice.Spec.Devices[1].AllowMultipleAllocations = ptr.To(true)
 				return slice
 			}(),
+			consumableCapacityFeatureGate: true,
 		},
 		"bad-attribute": {
 			wantFailures: field.ErrorList{
@@ -802,6 +807,8 @@ func TestValidateResourceSlice(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
+			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.DRAConsumableCapacity, scenario.consumableCapacityFeatureGate)
+
 			errs := ValidateResourceSlice(scenario.slice)
 			assertFailures(t, scenario.wantFailures, errs)
 		})

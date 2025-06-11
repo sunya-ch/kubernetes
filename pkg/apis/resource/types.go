@@ -397,8 +397,7 @@ type CapacitySharingPolicy struct {
 }
 
 // CapacitySharingPolicyDiscreteMaxOptions limits the number of discrete capacity values allowed in a sharing policy.
-// The limit corresponds to using all powers of 2 up to int64, which totals 64 values.
-const CapacitySharingPolicyDiscreteMaxOptions = 64
+const CapacitySharingPolicyDiscreteMaxOptions = 10
 
 // CapacitySharingPolicyDiscrete defines a set of discrete allowed capacity values.
 //   - If the requested amount is not listed in the options, it is rounded up to the next higher valid value.

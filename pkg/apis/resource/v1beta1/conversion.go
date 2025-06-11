@@ -124,7 +124,9 @@ func Convert_resource_DeviceRequest_To_v1beta1_DeviceRequest(in *resource.Device
 		}
 		out.Tolerations = tolerations
 	}
-	out.CapacityRequests = (*resourcev1beta1.CapacityRequirements)(unsafe.Pointer(in.Exactly.CapacityRequests))
+	if in.Exactly != nil && in.Exactly.CapacityRequests != nil {
+		out.CapacityRequests = (*resourcev1beta1.CapacityRequirements)(unsafe.Pointer(in.Exactly.CapacityRequests))
+	}
 	return nil
 }
 

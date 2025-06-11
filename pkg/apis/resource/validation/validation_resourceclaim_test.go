@@ -1928,7 +1928,7 @@ func TestValidateClaimStatusUpdate(t *testing.T) {
 			consumableCapacityFeatureGate: true,
 			deviceStatusFeatureGate:       true,
 		},
-		"ignore-add-bad-share-id-disabled-feature-gate": {
+		"valid-add-allocated-status-with-share-id-disabled-feature-gate": {
 			oldClaim: testClaim(goodName, goodNS, validClaimSpec),
 			update: func(claim *resource.ResourceClaim) *resource.ResourceClaim {
 				claim.Status.Allocation = &resource.AllocationResult{
@@ -1939,32 +1939,7 @@ func TestValidateClaimStatusUpdate(t *testing.T) {
 								Driver:      goodName,
 								Pool:        goodName,
 								Device:      goodName,
-								ShareID:     ptr.To(badShareID), // this field should be ignored when consumable capacity feature gate is disabled
-								AdminAccess: ptr.To(false),
-							},
-						},
-					},
-				}
-				return claim
-			},
-			consumableCapacityFeatureGate: false,
-		},
-		"invalid-add-allocated-status-with-share-id-disabled-feature-gate": {
-			wantFailures: field.ErrorList{
-				field.Invalid(field.NewPath("status", "devices").Index(0).Child("device"), "foo/000001", "a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"),
-				field.Invalid(field.NewPath("status", "devices").Index(0), structured.MakeDeviceID(goodName, goodName, "foo/000001"), "must be an allocated device in the claim"),
-			},
-			oldClaim: testClaim(goodName, goodNS, validClaimSpec),
-			update: func(claim *resource.ResourceClaim) *resource.ResourceClaim {
-				claim.Status.Allocation = &resource.AllocationResult{
-					Devices: resource.DeviceAllocationResult{
-						Results: []resource.DeviceRequestAllocationResult{
-							{
-								Request:     goodName,
-								Driver:      goodName,
-								Pool:        goodName,
-								Device:      goodName,
-								ShareID:     ptr.To(goodShareID), // this field should be ignored when consumable capacity feature gate is disabled
+								ShareID:     ptr.To(goodShareID),
 								AdminAccess: ptr.To(false),
 							},
 						},
@@ -1980,7 +1955,7 @@ func TestValidateClaimStatusUpdate(t *testing.T) {
 				return claim
 			},
 			consumableCapacityFeatureGate: false,
-			deviceStatusFeatureGate:       false,
+			deviceStatusFeatureGate:       true,
 		},
 	}
 

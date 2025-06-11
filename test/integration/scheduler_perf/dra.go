@@ -342,11 +342,12 @@ claims:
 				if result.ShareID != nil {
 					sharedDeviceID := structured.MakeSharedDeviceID(deviceID, *result.ShareID)
 					allocatedSharedDeviceIDs[sharedDeviceID] = struct{}{}
+				} else {
+					allocatedDevices.Insert(deviceID)
+					continue
 				}
 				claimedCapacity := result.ConsumedCapacities
-				if claimedCapacity == nil {
-					allocatedDevices.Insert(deviceID)
-				} else {
+				if claimedCapacity != nil {
 					allocatedCapacity := structured.NewDeviceConsumedCapacity(deviceID, claimedCapacity)
 					if _, found := aggregatedCapacity[deviceID]; found {
 						aggregatedCapacity[deviceID].Add(allocatedCapacity.ConsumedCapacity)

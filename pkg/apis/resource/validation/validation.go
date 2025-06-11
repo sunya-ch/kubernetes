@@ -180,7 +180,7 @@ func gatherAllocatedDevices(allocationResult *resource.DeviceAllocationResult) s
 	allocatedDevices := sets.New[structured.DeviceID]()
 	for _, result := range allocationResult.Results {
 		deviceName := result.Device
-		if utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity) && result.ShareID != nil {
+		if result.ShareID != nil {
 			deviceName = structured.GetSharedDeviceName(deviceName, *result.ShareID)
 		}
 		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, deviceName)
@@ -484,7 +484,7 @@ func validateDeviceRequestAllocationResult(result resource.DeviceRequestAllocati
 	allErrs = append(allErrs, validateRequestNameRef(result.Request, fldPath.Child("request"), requestNames)...)
 	allErrs = append(allErrs, validateDriverName(result.Driver, fldPath.Child("driver"))...)
 	allErrs = append(allErrs, validatePoolName(result.Pool, fldPath.Child("pool"))...)
-	if utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity) && result.ShareID != nil {
+	if result.ShareID != nil {
 		allErrs = append(allErrs, validateMultiAllocDeviceName(result.Device, fldPath.Child("device"))...)
 		allErrs = append(allErrs, validateShareID(*result.ShareID, fldPath.Child("shareID"))...)
 	} else {
@@ -1155,19 +1155,16 @@ func validateDeviceStatus(device resource.AllocatedDeviceStatus, fldPath *field.
 // validateAllocatedDeviceStatusName validates a shared device name in allocated result.
 // The shared device name is a combination of a shareable device name with a share UID.
 func validateAllocatedDeviceStatusName(name string, fldPath *field.Path) field.ErrorList {
-	if !utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity) {
-		return validateDeviceName(name, fldPath)
-	}
 	var allErrs field.ErrorList
-	parts := strings.Split(name, "/")
-	switch len(parts) {
+	segments := strings.Split(name, "/")
+	switch len(segments) {
 	case 0:
 		allErrs = append(allErrs, field.Required(fldPath, ""))
 	case 1:
-		allErrs = append(allErrs, validateDeviceName(parts[0], fldPath)...)
+		allErrs = append(allErrs, validateDeviceName(segments[0], fldPath)...)
 	case 2:
-		allErrs = append(allErrs, validateShareID(parts[1], fldPath)...)
-		allErrs = append(allErrs, validateMultiAllocDeviceName(parts[0], fldPath)...)
+		allErrs = append(allErrs, validateShareID(segments[1], fldPath)...)
+		allErrs = append(allErrs, validateMultiAllocDeviceName(segments[0], fldPath)...)
 	default:
 		allErrs = append(allErrs, field.Invalid(fldPath, name, fmt.Sprintf("must have at most one `/`")))
 	}

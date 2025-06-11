@@ -64,7 +64,7 @@ func TestConsumedCapacityCollection(t *testing.T) {
 	g.Expect(allocatedCapacity[capacity0].Cmp(one)).To(BeZero())
 }
 
-func TestViolateConstraints(t *testing.T) {
+func TestViolateCapacitySharingPolicy(t *testing.T) {
 	testcases := map[string]struct {
 		requestedVal resource.Quantity
 		consumable   *resourceapi.CapacitySharingPolicy
