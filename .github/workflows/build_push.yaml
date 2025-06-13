@@ -1,6 +1,6 @@
 name: Build Kubernetes image
 
-on: [ pull_request ]
+on: [ push ]
 #  push:
 
 env:
