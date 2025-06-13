@@ -90,7 +90,20 @@
           },
           "capacity": {
             "capacityKey": {
-              "value": "0"
+              "value": "0",
+              "sharingPolicy": {
+                "Default": "0",
+                "DiscreteValues": {
+                  "Options": [
+                    "0"
+                  ]
+                },
+                "ValueRange": {
+                  "Minimum": "0",
+                  "Maximum": "0",
+                  "ChunkSize": "0"
+                }
+              }
             }
           },
           "consumesCounters": [
@@ -136,7 +149,8 @@
               "effect": "effectValue",
               "timeAdded": "2004-01-01T01:01:01Z"
             }
-          ]
+          ],
+          "allowMultipleAllocations": true
         }
       }
     ],

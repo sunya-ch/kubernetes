@@ -381,19 +381,19 @@ type CapacitySharingPolicy struct {
 	// Default specifies the default capacity to be used for a consumption request
 	//
 	// +required
-	Default resource.Quantity `protobuf:"bytes,1,opt,name=default"`
+	Default resource.Quantity `json:"default" protobuf:"bytes,1,opt,name=default"`
 
 	// DiscreteValues defines a set of acceptable quantity values in consuming requests.
 	//
 	// +optional
 	// +oneOf=ValidSharingValues
-	DiscreteValues *CapacitySharingPolicyDiscrete `protobuf:"bytes,2,opt,name=discreteValues"`
+	DiscreteValues *CapacitySharingPolicyDiscrete `json:"discreteValues" protobuf:"bytes,2,opt,name=discreteValues"`
 
 	// ValueRange defines an acceptable quantity value range in consuming requests.
 	//
 	// +optional
 	// +oneOf=ValidSharingValues
-	ValueRange *CapacitySharingPolicyRange `protobuf:"bytes,3,opt,name=valueRange"`
+	ValueRange *CapacitySharingPolicyRange `json:"valueRange" protobuf:"bytes,3,opt,name=valueRange"`
 
 	// Potential extension: allow defining a `strategy` on a specific capacity
 	// to specify default scheduling behavior when it is not explicitly requested.
@@ -409,7 +409,7 @@ type CapacitySharingPolicyDiscrete struct {
 	//
 	// +optional
 	// +listType=atomic
-	Options []resource.Quantity `protobuf:"bytes,1,rep,name=options"`
+	Options []resource.Quantity `json:"options" protobuf:"bytes,1,rep,name=options"`
 }
 
 // CapacitySharingPolicyRange defines a valid range for consumable capacity values.
@@ -426,19 +426,19 @@ type CapacitySharingPolicyRange struct {
 	// Minimum specifies the minimum capacity allowed for a consumption request.
 	//
 	// +required
-	Minimum resource.Quantity `protobuf:"bytes,1,opt,name=minimum"`
+	Minimum resource.Quantity `json:"minimum" protobuf:"bytes,1,opt,name=minimum"`
 
 	// Maximum defines the upper limit for capacity that can be requested.
 	//
 	// +optional
-	Maximum *resource.Quantity `protobuf:"bytes,2,opt,name=maximum"`
+	Maximum *resource.Quantity `json:"maximum" protobuf:"bytes,2,opt,name=maximum"`
 
 	// ChunkSize defines the step size between valid capacity amounts within the range.
 	// If set, requested amounts are rounded up to the nearest multiple of ChunkSize from the Minimum.
 	// Maximum and Minimum must be a multiple of ChunkSize.
 	//
 	// +optional
-	ChunkSize *resource.Quantity `protobuf:"bytes,3,opt,name=chunkSize"`
+	ChunkSize *resource.Quantity `json:"chunkSize" protobuf:"bytes,3,opt,name=chunkSize"`
 }
 
 // Counter describes a quantity associated with a device.
@@ -1112,7 +1112,7 @@ type DeviceConstraint struct {
 	//
 	// +optional
 	// +oneOf=ConstraintType
-	DistinctAttribute *FullyQualifiedName `protobuf:"bytes,3,opt,name=distinctAttribute,casttype=FullyQualifiedName"`
+	DistinctAttribute *FullyQualifiedName `json:"distinctAttribute,omitempty" protobuf:"bytes,3,opt,name=distinctAttribute,casttype=FullyQualifiedName"`
 }
 
 // DeviceClaimConfiguration is used for configuration parameters in DeviceClaim.
