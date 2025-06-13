@@ -1,7 +1,7 @@
 name: Build Kubernetes image
 
-on:
-  push:
+on: [ pull_reqeuest ]
+#  push:
 
 env:
   VERSION: "kep-5075"
