@@ -11,8 +11,9 @@ jobs:
     - name: Set up for integration test
       run: |
         ./hack/install-etcd.sh
-        echo "PATH=$(pwd)/third_party/etcd:$PATH" >> $GITHUB_ENV
+        ./hack/install-protoc.sh
+        echo "PATH=$(pwd)/third_party/etcd:$(pwd)/third_party/protoc:$PATH" >> $GITHUB_ENV
         ulimit -n 1200
     - name: Integration test
       run: |
-        make test-integration WHAT=./test/integration/scheduler_perf/... KUBE_TEST_ARGS=-use-testing-log GOFLAGS=-v KUBE_COVER=y
+        make test-integration WHAT=./test/integration/scheduler_perf/dra GOFLAGS=-v KUBE_COVER=y
