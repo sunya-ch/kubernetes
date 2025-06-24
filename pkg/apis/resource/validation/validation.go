@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	apiresource "k8s.io/apimachinery/pkg/api/resource"
 	apimachineryvalidation "k8s.io/apimachinery/pkg/api/validation"
 	metav1validation "k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,10 +34,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/cel"
 	"k8s.io/apiserver/pkg/cel/environment"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	dracel "k8s.io/dynamic-resource-allocation/cel"
 	"k8s.io/dynamic-resource-allocation/structured"
 	corevalidation "k8s.io/kubernetes/pkg/apis/core/validation"
 	"k8s.io/kubernetes/pkg/apis/resource"
+	"k8s.io/kubernetes/pkg/features"
 )
 
 var (
@@ -161,11 +164,14 @@ func gatherRequestNames(deviceClaim *resource.DeviceClaim) requestNames {
 	return requestNames
 }
 
-func gatherAllocatedDevices(allocationResult *resource.DeviceAllocationResult) sets.Set[structured.DeviceID] {
-	allocatedDevices := sets.New[structured.DeviceID]()
+func gatherAllocatedDevices(allocationResult *resource.DeviceAllocationResult) sets.Set[structured.SharedDeviceID] {
+	allocatedDevices := sets.New[structured.SharedDeviceID]()
 	for _, result := range allocationResult.Results {
-		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
-		allocatedDevices.Insert(deviceID)
+		deviceName := result.Device
+		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, deviceName)
+		sharedDeviceID := structured.MakeSharedDeviceID(deviceID,
+			structured.ConvertShareIDToStringPointer(result.ShareID))
+		allocatedDevices.Insert(sharedDeviceID)
 	}
 	return allocatedDevices
 }
@@ -312,10 +318,14 @@ func validateDeviceConstraint(constraint resource.DeviceConstraint, fldPath *fie
 			return validateRequestNameRef(name, fldPath, requestNames)
 		},
 		stringKey, fldPath.Child("requests"))...)
-	if constraint.MatchAttribute == nil {
-		allErrs = append(allErrs, field.Required(fldPath.Child("matchAttribute"), ""))
-	} else {
+	if constraint.MatchAttribute != nil {
 		allErrs = append(allErrs, validateFullyQualifiedName(*constraint.MatchAttribute, fldPath.Child("matchAttribute"))...)
+	} else if constraint.DistinctAttribute != nil {
+		allErrs = append(allErrs, validateFullyQualifiedName(*constraint.DistinctAttribute, fldPath.Child("distinctAttribute"))...)
+	} else if utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity) {
+		allErrs = append(allErrs, field.Required(fldPath, `exactly one of "matchAttribute" or "distinctAttribute" is required, but multiple fields are set`))
+	} else {
+		allErrs = append(allErrs, field.Required(fldPath.Child("matchAttribute"), ""))
 	}
 	return allErrs
 }
@@ -372,7 +382,7 @@ func validateResourceClaimStatusUpdate(status, oldStatus *resource.ResourceClaim
 		func(consumer resource.ResourceClaimConsumerReference) (types.UID, string) { return consumer.UID, "uid" },
 		fldPath.Child("reservedFor"))...)
 
-	var allocatedDevices sets.Set[structured.DeviceID]
+	var allocatedDevices sets.Set[structured.SharedDeviceID]
 	if status.Allocation != nil {
 		allocatedDevices = gatherAllocatedDevices(&status.Allocation.Devices)
 	}
@@ -716,6 +726,7 @@ func validateResourcePool(pool resource.ResourcePool, fldPath *field.Path) field
 
 func validateDevice(device resource.Device, fldPath *field.Path, sharedCounterToCounterNames map[string]sets.Set[string], perDeviceNodeSelection *bool) field.ErrorList {
 	var allErrs field.ErrorList
+	allowMultipleAllocations := device.AllowMultipleAllocations != nil && *device.AllowMultipleAllocations
 	allErrs = append(allErrs, validateDeviceName(device.Name, fldPath.Child("name"))...)
 	// Warn about exceeding the maximum length only once. If any individual
 	// field is too large, then so is the combination.
@@ -725,7 +736,11 @@ func validateDevice(device resource.Device, fldPath *field.Path, sharedCounterTo
 	}
 
 	allErrs = append(allErrs, validateMap(device.Attributes, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateDeviceAttribute, fldPath.Child("attributes"))...)
-	allErrs = append(allErrs, validateMap(device.Capacity, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateDeviceCapacity, fldPath.Child("capacity"))...)
+	if allowMultipleAllocations {
+		allErrs = append(allErrs, validateMap(device.Capacity, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateMultiAllocatableDeviceCapacity, fldPath.Child("capacity"))...)
+	} else {
+		allErrs = append(allErrs, validateMap(device.Capacity, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateSingleAllocatableDeviceCapacity, fldPath.Child("capacity"))...)
+	}
 	allErrs = append(allErrs, validateSlice(device.Taints, resource.DeviceTaintsMaxLength, validateDeviceTaint, fldPath.Child("taints"))...)
 
 	allErrs = append(allErrs, validateSet(device.ConsumesCounters, -1,
@@ -875,9 +890,113 @@ func validateDeviceAttributeVersionValue(value *string, fldPath *field.Path) fie
 	return allErrs
 }
 
-func validateDeviceCapacity(capacity resource.DeviceCapacity, fldPath *field.Path) field.ErrorList {
-	// Any parsed quantity is valid.
-	return nil
+// validateMultiAllocatableDeviceCapacity must check sharing policy in consumable capacity.
+func validateMultiAllocatableDeviceCapacity(capacity resource.DeviceCapacity, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	if capacity.SharingPolicy != nil {
+		allErrs = append(allErrs,
+			validateSharingPolicy(capacity.Value, capacity.SharingPolicy, fldPath.Child("sharingPolicy"))...)
+	}
+	return allErrs
+}
+
+// validateSingleAllocatableDeviceCapacity must not allow consumable capacity.
+func validateSingleAllocatableDeviceCapacity(capacity resource.DeviceCapacity, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	if capacity.SharingPolicy != nil {
+		allErrs = append(allErrs,
+			field.Forbidden(fldPath.Child("sharingPolicy"), "allowMultipleAllocations must be true"))
+	}
+	return allErrs
+}
+
+// validateSharingPolicy validates at most one of ValidSharingValues can be defined.
+// If any ValidSharingValues are defined, Default must also be defined and valid.
+func validateSharingPolicy(maxCapacity apiresource.Quantity, policy *resource.CapacitySharingPolicy, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	switch {
+	case len(policy.ValidValues) > 0 && policy.ValidRange != nil:
+		allErrs = append(allErrs, field.Forbidden(fldPath, "exactly one policy can be specified, cannot specify `validValues` and `validRange` at the same time"))
+	case len(policy.ValidValues) > 0:
+		allErrs = append(allErrs, validateSharingPolicyValidValues(policy.Default, maxCapacity, policy.ValidValues, fldPath.Child("validValues"))...)
+	case policy.ValidRange != nil:
+		allErrs = append(allErrs, validateSharingPolicyRange(policy.Default, maxCapacity, *policy.ValidRange, fldPath.Child("validRange"))...)
+	}
+	return allErrs
+}
+
+func validateSharingPolicyValidValues(defaultValue *apiresource.Quantity, maxCapacity apiresource.Quantity, validValues []apiresource.Quantity, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	foundDefault := false
+	hasDefault := defaultValue != nil
+	allErrs = append(allErrs, validateSet(validValues, resource.CapacitySharingPolicyDiscreteMaxOptions,
+		func(option apiresource.Quantity, fldPath *field.Path) field.ErrorList {
+			var allErrs field.ErrorList
+			if option.Cmp(maxCapacity) > 0 {
+				allErrs = append(allErrs, field.Invalid(fldPath, option.String(), fmt.Sprintf("option is larger than capacity value: %s", maxCapacity.String())))
+			}
+			if hasDefault && option.Cmp(*defaultValue) == 0 {
+				foundDefault = true
+			}
+			return allErrs
+		}, quantityKey, fldPath)...)
+	if !hasDefault {
+		allErrs = append(allErrs, field.Required(fldPath, "default required when valid values are defined"))
+	} else if !foundDefault {
+		allErrs = append(allErrs, field.Invalid(fldPath, defaultValue.String(), "default value is not valid according to the sharing policy"))
+	}
+	return allErrs
+}
+
+func validateSharingPolicyRange(defaultValue *apiresource.Quantity, maxCapacity apiresource.Quantity, valueRange resource.CapacitySharingPolicyRange, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	hasDefault := defaultValue != nil
+	if valueRange.Min.Cmp(maxCapacity) > 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("minimum"), valueRange.Min.String(), fmt.Sprintf("minimum is larger than capacity value: %s", maxCapacity.String())))
+	}
+	if hasDefault && defaultValue.Cmp(valueRange.Min) < 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("minimum"), defaultValue.String(), fmt.Sprintf("default is less than minimum: %s", valueRange.Min.String())))
+	}
+	if valueRange.Max != nil {
+		if valueRange.Min.Cmp(*valueRange.Max) > 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("maximum"), valueRange.Min.String(), fmt.Sprintf("minimum is larger than maximum: %s", valueRange.Max.String())))
+		}
+		if valueRange.Max.Cmp(maxCapacity) > 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("maximum"), valueRange.Max.String(), fmt.Sprintf("maximum is larger than capacity value: %s", maxCapacity.String())))
+		}
+		if hasDefault && defaultValue.Cmp(*valueRange.Max) > 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("maximum"), defaultValue.String(), fmt.Sprintf("default is more than maximum: %s", valueRange.Max.String())))
+		}
+	}
+	if valueRange.Step != nil {
+		added := valueRange.Min.DeepCopy()
+		added.Add(*valueRange.Step)
+		if added.Cmp(maxCapacity) > 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("step"), valueRange.Step.String(), fmt.Sprintf("one step %s is larger than capacity value: %s", added.String(), maxCapacity.String())))
+		}
+		if hasDefault {
+			allErrs = append(allErrs, validateSharingPolicyRangeStep(*defaultValue, valueRange.Min, *valueRange.Step, fldPath.Child("step"))...)
+		}
+		if valueRange.Max != nil {
+			allErrs = append(allErrs, validateSharingPolicyRangeStep(*valueRange.Max, valueRange.Min, *valueRange.Step, fldPath.Child("step"))...)
+		}
+	}
+	if !hasDefault {
+		allErrs = append(allErrs, field.Required(fldPath, "default required when valid range is defined"))
+	}
+	return allErrs
+}
+
+func validateSharingPolicyRangeStep(value, min, step apiresource.Quantity, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	stepVal := step.Value()
+	minVal := min.Value()
+	val := value.Value()
+	added := (val - minVal)
+	if added%stepVal != 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath, value.String(), fmt.Sprintf("value is not a multiple of a given step (%s) from (%s)", step.String(), min.String())))
+	}
+	return allErrs
 }
 
 func validateDeviceCounter(counter resource.Counter, fldPath *field.Path) field.ErrorList {
@@ -976,6 +1095,11 @@ func stringKey(item string) (string, string) {
 	return item, ""
 }
 
+// quantityKey uses the item itself as a key for validateSet.
+func quantityKey(item apiresource.Quantity) (string, string) {
+	return item.String(), ""
+}
+
 // validateMap validates keys, items and the maximum length of a map.
 // A negative maxSize disables the length check.
 //
@@ -1010,14 +1134,15 @@ func truncateIfTooLong(str string, maxLen int) string {
 	return str[0:(remaining+1)/2] + ellipsis + str[len(str)-remaining/2:]
 }
 
-func validateDeviceStatus(device resource.AllocatedDeviceStatus, fldPath *field.Path, allocatedDevices sets.Set[structured.DeviceID]) field.ErrorList {
+func validateDeviceStatus(device resource.AllocatedDeviceStatus, fldPath *field.Path, allocatedDevices sets.Set[structured.SharedDeviceID]) field.ErrorList {
 	var allErrs field.ErrorList
 	allErrs = append(allErrs, validateDriverName(device.Driver, fldPath.Child("driver"))...)
 	allErrs = append(allErrs, validatePoolName(device.Pool, fldPath.Child("pool"))...)
 	allErrs = append(allErrs, validateDeviceName(device.Device, fldPath.Child("device"))...)
 	deviceID := structured.MakeDeviceID(device.Driver, device.Pool, device.Device)
-	if !allocatedDevices.Has(deviceID) {
-		allErrs = append(allErrs, field.Invalid(fldPath, deviceID, "must be an allocated device in the claim"))
+	sharedDeviceID := structured.MakeSharedDeviceID(deviceID, device.ShareID)
+	if !allocatedDevices.Has(sharedDeviceID) {
+		allErrs = append(allErrs, field.Invalid(fldPath, sharedDeviceID, "must be an allocated device in the claim"))
 	}
 	if len(device.Conditions) > resource.AllocatedDeviceStatusMaxConditions {
 		allErrs = append(allErrs, field.TooMany(fldPath.Child("conditions"), len(device.Conditions), resource.AllocatedDeviceStatusMaxConditions))
