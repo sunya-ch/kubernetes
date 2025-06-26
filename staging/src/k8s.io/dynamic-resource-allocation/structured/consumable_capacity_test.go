@@ -48,7 +48,7 @@ func TestConsumedCapacity(t *testing.T) {
 	allocatedCapacity.Add(oneAllocated)
 	g.Expect(allocatedCapacity.Empty()).To(BeFalseBecause("capacity is added"))
 	allocatedCapacity.Sub(oneAllocated)
-	g.Expect(allocatedCapacity.Empty()).To(BeTrueBecause("capacity is substracted to zero"))
+	g.Expect(allocatedCapacity.Empty()).To(BeTrueBecause("capacity is subtracted to zero"))
 }
 
 func TestConsumedCapacityCollection(t *testing.T) {

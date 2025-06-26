@@ -64,8 +64,8 @@ func (s ConsumedCapacity) Add(addedCapacity ConsumedCapacity) {
 
 // Sub subtracts quantity,
 // and ignore if no capacity entry found.
-func (s ConsumedCapacity) Sub(substractedCapacity ConsumedCapacity) {
-	for name, quantity := range substractedCapacity {
+func (s ConsumedCapacity) Sub(subtractedCapacity ConsumedCapacity) {
+	for name, quantity := range subtractedCapacity {
 		if _, found := s[name]; found {
 			s[name].Sub(*quantity)
 		}
