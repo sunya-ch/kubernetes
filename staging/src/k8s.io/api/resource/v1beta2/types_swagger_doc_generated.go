@@ -70,7 +70,7 @@ func (CapacityRequirements) SwaggerDoc() map[string]string {
 }
 
 var map_CapacitySharingPolicy = map[string]string{
-	"":            "CapacitySharingPolicy defines how requests consume the available capacity. A policy must have a default value to be applied when no value is explicitly provided. It can either specify a range of valid values or a discrete set of them. Exactly one of them must be defined. The default value must be a valid value.",
+	"":            "CapacitySharingPolicy defines how requests consume the available capacity. A policy must have a default value to be applied when no value is explicitly provided. Optionally, valid sharing values may additionally be defined as either a discrete set or a continuous range. If valid values are specified, the default must be included within them.",
 	"default":     "Default specifies the default capacity to be used for a consumption request.",
 	"validValues": "ValidValues defines a set of acceptable quantity values in consuming requests.",
 	"validRange":  "ValidRange defines an acceptable quantity value range in consuming requests.",
@@ -277,7 +277,7 @@ var map_DeviceRequestAllocationResult = map[string]string{
 	"adminAccess":        "AdminAccess indicates that this device was allocated for administrative access. See the corresponding request field for a definition of mode.\n\nThis is an alpha field and requires enabling the DRAAdminAccess feature gate. Admin access is disabled if this field is unset or set to false, otherwise it is enabled.",
 	"tolerations":        "A copy of all tolerations specified in the request at the time when the device got allocated.\n\nThe maximum number of tolerations is 16.\n\nThis is an alpha field and requires enabling the DRADeviceTaints feature gate.",
 	"shareID":            "ShareID uniquely identifies an individual allocation share of a device, used when the device supports multiple simultaneous allocations. It serves as an additional map key to differentiate concurrent shares of the same device.\n\nThe ID is randomly generated as a hexadecimal (hex) string for each allocation share. It must be unique among all currently allocated shares for the same device (i.e., uniqueness is required only at the device level, not globally).\n\nHex is chosen for its compact representation, ease of generation from binary, and suitability for identifiers in logs, APIs, and storage.",
-	"consumedCapacities": "ConsumedCapacities tracks the amount of capacity consumed per device as part of the claim request. The consumed amount may differ from the requested amount: it is rounded up to the nearest valid value based on the device’s sharing policy if applicable.\n\nThe total consumed capacity for each device must not exceed its available capacity.\n\nThis field references only consumable capacities of a device and is empty when there are none.",
+	"consumedCapacities": "ConsumedCapacities tracks the amount of capacity consumed per device as part of the claim request. The consumed amount may differ from the requested amount: it is rounded up to the nearest valid value based on the device’s sharing policy if applicable (i.e., may not be less than the requested amount).\n\nThe total consumed capacity for each device must not exceed its available capacity.\n\nThis field references only consumable capacities of a device and is empty when there are none.",
 }
 
 func (DeviceRequestAllocationResult) SwaggerDoc() map[string]string {

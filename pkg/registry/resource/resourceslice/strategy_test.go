@@ -120,7 +120,7 @@ var sliceWithPartitionableDevices = &resource.ResourceSlice{
 var sliceWithCapacity = func() *resource.ResourceSlice {
 	obj := slice.DeepCopy()
 	obj.Spec.Devices[0].Capacity = map[resource.QualifiedName]resource.DeviceCapacity{
-		"memory": resource.DeviceCapacity{
+		"memory": {
 			Value: k8sresource.MustParse("40Gi"),
 		},
 	}

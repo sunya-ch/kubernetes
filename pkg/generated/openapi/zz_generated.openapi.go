@@ -47370,7 +47370,7 @@ func schema_k8sio_api_resource_v1beta1_CapacitySharingPolicy(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CapacitySharingPolicy defines how requests consume the available capacity. A policy must have a default value to be applied when no value is explicitly provided. It can either specify a range of valid values or a discrete set of them. Exactly one of them must be defined. The default value must be a valid value.",
+				Description: "CapacitySharingPolicy defines how requests consume the available capacity. A policy must have a default value to be applied when no value is explicitly provided. Optionally, valid sharing values may additionally be defined as either a discrete set or a continuous range. If valid values are specified, the default must be included within them.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"default": {
@@ -48288,7 +48288,7 @@ func schema_k8sio_api_resource_v1beta1_DeviceRequestAllocationResult(ref common.
 					},
 					"consumedCapacities": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ConsumedCapacities tracks the amount of capacity consumed per device as part of the claim request. The consumed amount may differ from the requested amount: it is rounded up to the nearest valid value based on the device’s sharing policy if applicable.\n\nThe total consumed capacity for each device must not exceed its available capacity.\n\nThis field references only consumable capacities of a device and is empty when there are none.",
+							Description: "ConsumedCapacities tracks the amount of capacity consumed per device as part of the claim request. The consumed amount may differ from the requested amount: it is rounded up to the nearest valid value based on the device’s sharing policy if applicable (i.e., may not be less than the requested amount).\n\nThe total consumed capacity for each device must not exceed its available capacity.\n\nThis field references only consumable capacities of a device and is empty when there are none.",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -49343,7 +49343,7 @@ func schema_k8sio_api_resource_v1beta2_CapacitySharingPolicy(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CapacitySharingPolicy defines how requests consume the available capacity. A policy must have a default value to be applied when no value is explicitly provided. It can either specify a range of valid values or a discrete set of them. Exactly one of them must be defined. The default value must be a valid value.",
+				Description: "CapacitySharingPolicy defines how requests consume the available capacity. A policy must have a default value to be applied when no value is explicitly provided. Optionally, valid sharing values may additionally be defined as either a discrete set or a continuous range. If valid values are specified, the default must be included within them.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"default": {
@@ -50283,7 +50283,7 @@ func schema_k8sio_api_resource_v1beta2_DeviceRequestAllocationResult(ref common.
 					},
 					"consumedCapacities": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ConsumedCapacities tracks the amount of capacity consumed per device as part of the claim request. The consumed amount may differ from the requested amount: it is rounded up to the nearest valid value based on the device’s sharing policy if applicable.\n\nThe total consumed capacity for each device must not exceed its available capacity.\n\nThis field references only consumable capacities of a device and is empty when there are none.",
+							Description: "ConsumedCapacities tracks the amount of capacity consumed per device as part of the claim request. The consumed amount may differ from the requested amount: it is rounded up to the nearest valid value based on the device’s sharing policy if applicable (i.e., may not be less than the requested amount).\n\nThe total consumed capacity for each device must not exceed its available capacity.\n\nThis field references only consumable capacities of a device and is empty when there are none.",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
