@@ -124,7 +124,7 @@ func TestValidateDeviceCapacity(t *testing.T) {
 				field.Invalid(validRangeField.Child("maximum"), "20Gi", "maximum is larger than capacity value: 10Gi"),
 			},
 		},
-		"invalid-range-mutliple-of-chunksize": {
+		"invalid-range-multiple-of-chunksize": {
 			capacity: testDeviceCapacity(maxCapacity, testCapacitySharingPolicy(two, nil, testValidRange(one, ptr.To(maxCapacity), ptr.To(two)))),
 			wantFailures: field.ErrorList{
 				field.Invalid(validRangeField.Child("chunkSize"), "2Gi", "value is not a multiple of a given chunk size (2Gi) from (1Gi)"),

@@ -299,18 +299,6 @@ func isDRAResourceClaimDeviceStatusInUse(claim *resource.ResourceClaim) bool {
 	return claim != nil && len(claim.Status.Devices) > 0
 }
 
-func isDRAResourceClaimSharedDeviceInUse(claim *resource.ResourceClaim) bool {
-	if claim == nil || claim.Status.Allocation == nil {
-		return false
-	}
-	for _, result := range claim.Status.Allocation.Devices.Results {
-		if result.ShareID != nil {
-			return true
-		}
-	}
-	return false
-}
-
 func dropDisabledDRAResourceClaimDeviceStatusFields(newClaim, oldClaim *resource.ResourceClaim) {
 	// drop resourceClaim.Status.Devices field if feature gate is not enabled and it was not in use
 	if !utilfeature.DefaultFeatureGate.Enabled(features.DRAResourceClaimDeviceStatus) && !isDRAResourceClaimDeviceStatusInUse(oldClaim) {

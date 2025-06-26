@@ -1164,7 +1164,7 @@ func validateAllocatedDeviceStatusName(name string, fldPath *field.Path) field.E
 		allErrs = append(allErrs, validateShareID(segments[1], fldPath)...)
 		allErrs = append(allErrs, validateMultiAllocDeviceName(segments[0], fldPath)...)
 	default:
-		allErrs = append(allErrs, field.Invalid(fldPath, name, fmt.Sprintf("must have at most one `/`")))
+		allErrs = append(allErrs, field.Invalid(fldPath, name, "must have at most one `/`"))
 	}
 	return allErrs
 }

@@ -78,7 +78,6 @@ const (
 )
 
 var (
-	emptyConsumedCapacity  = map[resourceapi.QualifiedName]resource.Quantity{}
 	uniqueHexStringFactory = NewUniqueHexStringFactory(3)
 	fixedShareID           = "000000"
 )
@@ -655,38 +654,10 @@ func counterSet(name string, counters map[string]resource.Quantity) resourceapi.
 	}
 }
 
-func sliceWithCapacityPools(name string, nodeSelection any, pool, driver string, sharedCounters []resourceapi.CounterSet, devices ...resourceapi.Device) wrapResourceSlice {
-	slice := slice(name, nodeSelection, pool, driver)
-	slice.Spec.SharedCounters = sharedCounters
-	slice.Spec.Devices = devices
-	return slice
-}
-
-// generate a ResourceSlice object with the given parameters and one specific device name
-func sliceWithDeviceName(name string, nodeSelection any, pool, driver, deviceName string) wrapResourceSlice {
-	return slice(name, nodeSelection, pool, driver, device(deviceName, nil, nil))
-}
-
 func toDeviceCapacity(capacity map[resourceapi.QualifiedName]resource.Quantity) map[resourceapi.QualifiedName]resourceapi.DeviceCapacity {
 	out := make(map[resourceapi.QualifiedName]resourceapi.DeviceCapacity, len(capacity))
 	for name, quantity := range capacity {
 		out[name] = resourceapi.DeviceCapacity{Value: quantity}
-	}
-	return out
-}
-
-func toConsumableDeviceCapacity(capacity map[resourceapi.QualifiedName]resource.Quantity) map[resourceapi.QualifiedName]resourceapi.DeviceCapacity {
-	out := make(map[resourceapi.QualifiedName]resourceapi.DeviceCapacity, len(capacity))
-	for name, quantity := range capacity {
-		out[name] = resourceapi.DeviceCapacity{
-			Value: quantity,
-			SharingPolicy: &resourceapi.CapacitySharingPolicy{
-				Default: one,
-				ValidRange: &resourceapi.CapacitySharingPolicyRange{
-					Minimum: one,
-				},
-			},
-		}
 	}
 	return out
 }

@@ -41,14 +41,14 @@ func deviceConsumedCapacity(deviceID DeviceID) DeviceConsumedCapacity {
 func TestConsumedCapacity(t *testing.T) {
 	g := NewWithT(t)
 	allocatedCapacity := NewConsumedCapacity()
-	g.Expect(allocatedCapacity.Empty()).To(BeTrue())
+	g.Expect(allocatedCapacity.Empty()).To(BeTrueBecause("allocated capacity should start from zero"))
 	oneAllocated := ConsumedCapacity{
 		capacity0: &one,
 	}
 	allocatedCapacity.Add(oneAllocated)
-	g.Expect(allocatedCapacity.Empty()).To(BeFalse())
+	g.Expect(allocatedCapacity.Empty()).To(BeFalseBecause("capacity is added"))
 	allocatedCapacity.Sub(oneAllocated)
-	g.Expect(allocatedCapacity.Empty()).To(BeTrue())
+	g.Expect(allocatedCapacity.Empty()).To(BeTrueBecause("capacity is substracted to zero"))
 }
 
 func TestConsumedCapacityCollection(t *testing.T) {
@@ -58,7 +58,7 @@ func TestConsumedCapacityCollection(t *testing.T) {
 	aggregatedCapacity.Insert(deviceConsumedCapacity(deviceID))
 	aggregatedCapacity.Insert(deviceConsumedCapacity(deviceID))
 	allocatedCapacity, found := aggregatedCapacity[deviceID]
-	g.Expect(found).To(BeTrue())
+	g.Expect(found).To(BeTrueBecause("expected deviceID to be found"))
 	g.Expect(allocatedCapacity[capacity0].Cmp(two)).To(BeZero())
 	aggregatedCapacity.Remove(deviceConsumedCapacity(deviceID))
 	g.Expect(allocatedCapacity[capacity0].Cmp(one)).To(BeZero())

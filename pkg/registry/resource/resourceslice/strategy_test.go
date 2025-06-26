@@ -242,7 +242,7 @@ func TestResourceSliceStrategyCreate(t *testing.T) {
 			consumableCapacity: true,
 			expectObj: func() *resource.ResourceSlice {
 				obj := sliceWithConsumableCapacity.DeepCopy()
-				obj.ObjectMeta.Generation = 1
+				obj.Generation = 1
 				return obj
 			}(),
 		},
@@ -251,7 +251,7 @@ func TestResourceSliceStrategyCreate(t *testing.T) {
 			consumableCapacity: false,
 			expectObj: func() *resource.ResourceSlice {
 				obj := sliceWithCapacity.DeepCopy()
-				obj.ObjectMeta.Generation = 1
+				obj.Generation = 1
 				return obj
 			}(),
 		},

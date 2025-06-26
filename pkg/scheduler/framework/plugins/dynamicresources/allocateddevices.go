@@ -71,40 +71,6 @@ func foreachAllocatedDevice(claim *resourceapi.ResourceClaim,
 	}
 }
 
-// foreachMultiAllocatedDevices invokes the provided callback for each
-// device in the claim's shared allocation result which was allocated
-// exclusively for the claim.
-//
-// Devices allocated with admin access can be shared with other
-// claims and are skipped without invoking the callback.
-//
-// foreachMultiAllocatedDevices does nothing if the claim is not allocated.
-func foreachMultiAllocatedDevices(claim *resourceapi.ResourceClaim, cb func(structured.DeviceConsumedCapacity, structured.SharedDeviceID)) {
-	if claim.Status.Allocation == nil {
-		return
-	}
-	for _, result := range claim.Status.Allocation.Devices.Results {
-		// Kubernetes 1.31 did not set this, 1.32 always does.
-		// Supporting 1.31 is not worth the additional code that
-		// would have to be written (= looking up in request) because
-		// it is extremely unlikely that there really is a result
-		// that still exists in a cluster from 1.31 where this matters.
-		if ptr.Deref(result.AdminAccess, false) {
-			// Is not considered as allocated.
-			continue
-		}
-		if result.ShareID == nil || result.ConsumedCapacities == nil {
-			continue
-		}
-		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
-		deviceConsumedCapacity := structured.NewDeviceConsumedCapacity(deviceID, result.ConsumedCapacities)
-		sharedDeviceID := structured.MakeSharedDeviceID(deviceID, *result.ShareID)
-		// None of the users of this helper need to abort iterating,
-		// therefore it's not supported as it only would add overhead.
-		cb(deviceConsumedCapacity, sharedDeviceID)
-	}
-}
-
 // allocatedDevices reacts to events in a cache and maintains a set of all allocated devices.
 // This is cheaper than repeatedly calling List, making strings unique, and building the set
 // each time PreFilter is called.

@@ -87,7 +87,7 @@ func (s ConsumedCapacity) Empty() bool {
 func (s ConsumedCapacity) CmpRequestOverCapacity(request *resourceapi.DeviceRequest,
 	capacity map[resourceapi.QualifiedName]resourceapi.DeviceCapacity, allocatingCapacity *ConsumedCapacity) (bool, error) {
 	if requestsContainNonExistCapacity(request, capacity) {
-		return false, errors.New("some requested capacity has not been defined.")
+		return false, errors.New("some requested capacity has not been defined")
 	}
 	clone := s.Clone()
 	for name, cap := range capacity {
