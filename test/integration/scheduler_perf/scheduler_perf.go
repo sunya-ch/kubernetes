@@ -1095,8 +1095,10 @@ func setupTestCase(t testing.TB, tc *testCase, featureGates map[featuregate.Feat
 
 	// We need to set emulation version for QueueingHints feature gate, which is locked at 1.34.
 	// Only emulate v1.33 when QueueingHints is explicitly disabled.
-	if !featureGates[features.SchedulerQueueingHints] {
+	if _, found := featureGates[features.SchedulerQueueingHints]; found {
 		featuregatetesting.SetFeatureGateEmulationVersionDuringTest(t, utilfeature.DefaultFeatureGate, version.MustParse("1.33"))
+	} else {
+		featuregatetesting.SetFeatureGateEmulationVersionDuringTest(t, utilfeature.DefaultFeatureGate, version.MustParse("1.34"))
 	}
 	for feature, flag := range featureGates {
 		featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, feature, flag)
