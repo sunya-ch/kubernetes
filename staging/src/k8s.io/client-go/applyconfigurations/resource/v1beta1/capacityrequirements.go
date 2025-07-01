@@ -34,7 +34,6 @@ type CapacityRequirementsApplyConfiguration struct {
 func CapacityRequirements() *CapacityRequirementsApplyConfiguration {
 	return &CapacityRequirementsApplyConfiguration{}
 }
-func (b CapacityRequirementsApplyConfiguration) IsApplyConfiguration() {}
 
 // WithMinimum puts the entries into the Minimum field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
