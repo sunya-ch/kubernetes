@@ -2,6 +2,9 @@ name: Run unit tests
 
 on: [ push ]
 
+env:
+  TERM: xterm
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -15,7 +18,7 @@ jobs:
     - name: Verify
       run: |
         rm -rf /opt/hostedtoolcache
-        make verify
+        make verify BRANCH=${{ github.ref_name }}
     - name: API/Strategy unit test
       run: |
         make test WHAT=./pkg/apis/resource/...  GOFLAGS=-v KUBE_COVER=y
