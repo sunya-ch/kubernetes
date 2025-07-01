@@ -13,7 +13,9 @@ jobs:
       with:
         go-version: 1.24.4
     - name: Verify
-      run: make verify
+      run: |
+        rm -rf /opt/hostedtoolcache
+        make verify
     - name: API/Strategy unit test
       run: |
         make test WHAT=./pkg/apis/resource/...  GOFLAGS=-v KUBE_COVER=y
