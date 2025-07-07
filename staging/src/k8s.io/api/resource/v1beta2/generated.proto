@@ -185,6 +185,8 @@ message CapacitySharingPolicy {
 
   // ValidValues defines a set of acceptable quantity values in consuming requests.
   //
+  // Must not contain more than 10 entries.
+  //
   // +optional
   // +listType=atomic
   // +oneOf=ValidSharingValues
@@ -350,7 +352,7 @@ message Device {
   // +featureGate=DRADeviceTaints
   repeated DeviceTaint taints = 8;
 
-  // AllowMultipleAllocations marks whether the device is allowed to be allocated for multiple times.
+  // AllowMultipleAllocations marks whether the device can be allocated by multiple ResourceClaims.
   //
   // A device with allowMultipleAllocations="true" can be allocated more than once,
   // and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.
@@ -442,6 +444,9 @@ message DeviceCapacity {
   // SharingPolicy specifies that this device capacity must be consumed
   // by each resource claim according to the defined sharing policy.
   // The Device must allow multiple allocations.
+  //
+  // If this field is unset, capacity sharing is unconstrained.
+  // All ResourceClaims or requests share the same capacity pool.
   //
   // +optional
   // +featureGate=DRAConsumableCapacity
@@ -604,6 +609,7 @@ message DeviceConstraint {
   //
   // +optional
   // +oneOf=ConstraintType
+  // +featureGate=DRAConsumableCapacity
   optional string distinctAttribute = 3;
 }
 
@@ -1046,6 +1052,9 @@ message ExactDeviceRequest {
   repeated DeviceToleration tolerations = 6;
 
   // CapacityRequests define resource requirements against each capacity.
+  //
+  // If this field is unset and the device supports multiple allocations,
+  // the default value will be applied to each capacity with a defined sharing policy.
   //
   // +optional
   // +featureGate=DRAConsumableCapacity
