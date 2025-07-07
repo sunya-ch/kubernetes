@@ -908,7 +908,9 @@ func (alloc *allocator) allocateOne(r deviceIndices, allocateSubRequest bool) (b
 					// Next validate whether resource request over capacity
 					success, err := alloc.CmpRequestOverCapacity(requestData.request, slice, deviceIndex)
 					if err != nil {
-						return false, err
+						alloc.logger.V(7).Info("Skip comparing device capacity request",
+							"device", deviceID, "request", requestData.request.name(), "err", err)
+						continue
 					}
 					if !success {
 						alloc.logger.V(7).Info("Device capacity not enough", "device", deviceID)
