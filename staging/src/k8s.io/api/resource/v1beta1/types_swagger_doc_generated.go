@@ -60,7 +60,7 @@ var map_BasicDevice = map[string]string{
 	"nodeSelector":             "NodeSelector defines the nodes where the device is available.\n\nMust use exactly one term.\n\nMust only be set if Spec.PerDeviceNodeSelection is set to true. At most one of NodeName, NodeSelector and AllNodes can be set.",
 	"allNodes":                 "AllNodes indicates that all nodes have access to the device.\n\nMust only be set if Spec.PerDeviceNodeSelection is set to true. At most one of NodeName, NodeSelector and AllNodes can be set.",
 	"taints":                   "If specified, these are the driver-defined taints.\n\nThe maximum number of taints is 4.\n\nThis is an alpha field and requires enabling the DRADeviceTaints feature gate.",
-	"allowMultipleAllocations": "AllowMultipleAllocations marks whether the device is allowed to be allocated for multiple times.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
+	"allowMultipleAllocations": "AllowMultipleAllocations marks whether the device can be allocated by multiple ResourceClaims.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
 }
 
 func (BasicDevice) SwaggerDoc() map[string]string {
@@ -88,7 +88,7 @@ func (CapacityRequirements) SwaggerDoc() map[string]string {
 var map_CapacitySharingPolicy = map[string]string{
 	"":            "CapacitySharingPolicy defines how requests consume the available capacity. A policy must have a default value to be applied when no value is explicitly provided. Optionally, valid sharing values may additionally be defined as either a discrete set or a continuous range. If valid values are specified, the default must be included within them.",
 	"default":     "Default specifies the default capacity to be used for a consumption request.",
-	"validValues": "ValidValues defines a set of acceptable quantity values in consuming requests.",
+	"validValues": "ValidValues defines a set of acceptable quantity values in consuming requests.\n\nMust not contain more than 10 entries.",
 	"validRange":  "ValidRange defines an acceptable quantity value range in consuming requests.",
 }
 
@@ -171,7 +171,7 @@ func (DeviceAttribute) SwaggerDoc() map[string]string {
 var map_DeviceCapacity = map[string]string{
 	"":              "DeviceCapacity describes a quantity associated with a device.",
 	"value":         "Value defines how much of a certain device capacity is available.",
-	"sharingPolicy": "SharingPolicy specifies that this device capacity must be consumed by each resource claim according to the defined sharing policy. The Device must allow multiple allocations.",
+	"sharingPolicy": "SharingPolicy specifies that this device capacity must be consumed by each resource claim according to the defined sharing policy. The Device must allow multiple allocations.\n\nIf this field is unset, capacity sharing is unconstrained. All ResourceClaims or requests share the same capacity pool.",
 }
 
 func (DeviceCapacity) SwaggerDoc() map[string]string {
@@ -276,7 +276,7 @@ var map_DeviceRequest = map[string]string{
 	"adminAccess":      "AdminAccess indicates that this is a claim for administrative access to the device(s). Claims with AdminAccess are expected to be used for monitoring or other management services for a device.  They ignore all ordinary claims to the device with respect to access modes and any resource allocations.\n\nThis field can only be set when deviceClassName is set and no subrequests are specified in the firstAvailable list.\n\nThis is an alpha field and requires enabling the DRAAdminAccess feature gate. Admin access is disabled if this field is unset or set to false, otherwise it is enabled.",
 	"firstAvailable":   "FirstAvailable contains subrequests, of which exactly one will be satisfied by the scheduler to satisfy this request. It tries to satisfy them in the order in which they are listed here. So if there are two entries in the list, the scheduler will only check the second one if it determines that the first one cannot be used.\n\nThis field may only be set in the entries of DeviceClaim.Requests.\n\nDRA does not yet implement scoring, so the scheduler will select the first set of devices that satisfies all the requests in the claim. And if the requirements can be satisfied on more than one node, other scheduling features will determine which node is chosen. This means that the set of devices allocated to a claim might not be the optimal set available to the cluster. Scoring will be implemented later.",
 	"tolerations":      "If specified, the request's tolerations.\n\nTolerations for NoSchedule are required to allocate a device which has a taint with that effect. The same applies to NoExecute.\n\nIn addition, should any of the allocated devices get tainted with NoExecute after allocation and that effect is not tolerated, then all pods consuming the ResourceClaim get deleted to evict them. The scheduler will not let new pods reserve the claim while it has these tainted devices. Once all pods are evicted, the claim will get deallocated.\n\nThe maximum number of tolerations is 16.\n\nThis field can only be set when deviceClassName is set and no subrequests are specified in the firstAvailable list.\n\nThis is an alpha field and requires enabling the DRADeviceTaints feature gate.",
-	"capacityRequests": "CapacityRequests define resource requirements against each capacity.",
+	"capacityRequests": "CapacityRequests define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity with a defined sharing policy.",
 }
 
 func (DeviceRequest) SwaggerDoc() map[string]string {

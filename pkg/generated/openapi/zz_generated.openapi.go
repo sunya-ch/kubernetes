@@ -47302,7 +47302,7 @@ func schema_k8sio_api_resource_v1beta1_BasicDevice(ref common.ReferenceCallback)
 					},
 					"allowMultipleAllocations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "AllowMultipleAllocations marks whether the device is allowed to be allocated for multiple times.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
+							Description: "AllowMultipleAllocations marks whether the device can be allocated by multiple ResourceClaims.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -47386,7 +47386,7 @@ func schema_k8sio_api_resource_v1beta1_CapacitySharingPolicy(ref common.Referenc
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "ValidValues defines a set of acceptable quantity values in consuming requests.",
+							Description: "ValidValues defines a set of acceptable quantity values in consuming requests.\n\nMust not contain more than 10 entries.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -47696,7 +47696,7 @@ func schema_k8sio_api_resource_v1beta1_DeviceCapacity(ref common.ReferenceCallba
 					},
 					"sharingPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SharingPolicy specifies that this device capacity must be consumed by each resource claim according to the defined sharing policy. The Device must allow multiple allocations.",
+							Description: "SharingPolicy specifies that this device capacity must be consumed by each resource claim according to the defined sharing policy. The Device must allow multiple allocations.\n\nIf this field is unset, capacity sharing is unconstrained. All ResourceClaims or requests share the same capacity pool.",
 							Ref:         ref("k8s.io/api/resource/v1beta1.CapacitySharingPolicy"),
 						},
 					},
@@ -48201,7 +48201,7 @@ func schema_k8sio_api_resource_v1beta1_DeviceRequest(ref common.ReferenceCallbac
 					},
 					"capacityRequests": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CapacityRequests define resource requirements against each capacity.",
+							Description: "CapacityRequests define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity with a defined sharing policy.",
 							Ref:         ref("k8s.io/api/resource/v1beta1.CapacityRequirements"),
 						},
 					},
@@ -49359,7 +49359,7 @@ func schema_k8sio_api_resource_v1beta2_CapacitySharingPolicy(ref common.Referenc
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "ValidValues defines a set of acceptable quantity values in consuming requests.",
+							Description: "ValidValues defines a set of acceptable quantity values in consuming requests.\n\nMust not contain more than 10 entries.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -49585,7 +49585,7 @@ func schema_k8sio_api_resource_v1beta2_Device(ref common.ReferenceCallback) comm
 					},
 					"allowMultipleAllocations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "AllowMultipleAllocations marks whether the device is allowed to be allocated for multiple times.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
+							Description: "AllowMultipleAllocations marks whether the device can be allocated by multiple ResourceClaims.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -49758,7 +49758,7 @@ func schema_k8sio_api_resource_v1beta2_DeviceCapacity(ref common.ReferenceCallba
 					},
 					"sharingPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SharingPolicy specifies that this device capacity must be consumed by each resource claim according to the defined sharing policy. The Device must allow multiple allocations.",
+							Description: "SharingPolicy specifies that this device capacity must be consumed by each resource claim according to the defined sharing policy. The Device must allow multiple allocations.\n\nIf this field is unset, capacity sharing is unconstrained. All ResourceClaims or requests share the same capacity pool.",
 							Ref:         ref("k8s.io/api/resource/v1beta2.CapacitySharingPolicy"),
 						},
 					},
@@ -50588,7 +50588,7 @@ func schema_k8sio_api_resource_v1beta2_ExactDeviceRequest(ref common.ReferenceCa
 					},
 					"capacityRequests": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CapacityRequests define resource requirements against each capacity.",
+							Description: "CapacityRequests define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity with a defined sharing policy.",
 							Ref:         ref("k8s.io/api/resource/v1beta2.CapacityRequirements"),
 						},
 					},

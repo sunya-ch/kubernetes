@@ -72,7 +72,7 @@ func (CapacityRequirements) SwaggerDoc() map[string]string {
 var map_CapacitySharingPolicy = map[string]string{
 	"":            "CapacitySharingPolicy defines how requests consume the available capacity. A policy must have a default value to be applied when no value is explicitly provided. Optionally, valid sharing values may additionally be defined as either a discrete set or a continuous range. If valid values are specified, the default must be included within them.",
 	"default":     "Default specifies the default capacity to be used for a consumption request.",
-	"validValues": "ValidValues defines a set of acceptable quantity values in consuming requests.",
+	"validValues": "ValidValues defines a set of acceptable quantity values in consuming requests.\n\nMust not contain more than 10 entries.",
 	"validRange":  "ValidRange defines an acceptable quantity value range in consuming requests.",
 }
 
@@ -120,7 +120,7 @@ var map_Device = map[string]string{
 	"nodeSelector":             "NodeSelector defines the nodes where the device is available.\n\nMust use exactly one term.\n\nMust only be set if Spec.PerDeviceNodeSelection is set to true. At most one of NodeName, NodeSelector and AllNodes can be set.",
 	"allNodes":                 "AllNodes indicates that all nodes have access to the device.\n\nMust only be set if Spec.PerDeviceNodeSelection is set to true. At most one of NodeName, NodeSelector and AllNodes can be set.",
 	"taints":                   "If specified, these are the driver-defined taints.\n\nThe maximum number of taints is 4.\n\nThis is an alpha field and requires enabling the DRADeviceTaints feature gate.",
-	"allowMultipleAllocations": "AllowMultipleAllocations marks whether the device is allowed to be allocated for multiple times.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
+	"allowMultipleAllocations": "AllowMultipleAllocations marks whether the device can be allocated by multiple ResourceClaims.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
 }
 
 func (Device) SwaggerDoc() map[string]string {
@@ -162,7 +162,7 @@ func (DeviceAttribute) SwaggerDoc() map[string]string {
 var map_DeviceCapacity = map[string]string{
 	"":              "DeviceCapacity describes a quantity associated with a device.",
 	"value":         "Value defines how much of a certain device capacity is available.",
-	"sharingPolicy": "SharingPolicy specifies that this device capacity must be consumed by each resource claim according to the defined sharing policy. The Device must allow multiple allocations.",
+	"sharingPolicy": "SharingPolicy specifies that this device capacity must be consumed by each resource claim according to the defined sharing policy. The Device must allow multiple allocations.\n\nIf this field is unset, capacity sharing is unconstrained. All ResourceClaims or requests share the same capacity pool.",
 }
 
 func (DeviceCapacity) SwaggerDoc() map[string]string {
@@ -341,7 +341,7 @@ var map_ExactDeviceRequest = map[string]string{
 	"count":            "Count is used only when the count mode is \"ExactCount\". Must be greater than zero. If AllocationMode is ExactCount and this field is not specified, the default is one.",
 	"adminAccess":      "AdminAccess indicates that this is a claim for administrative access to the device(s). Claims with AdminAccess are expected to be used for monitoring or other management services for a device.  They ignore all ordinary claims to the device with respect to access modes and any resource allocations.\n\nThis is an alpha field and requires enabling the DRAAdminAccess feature gate. Admin access is disabled if this field is unset or set to false, otherwise it is enabled.",
 	"tolerations":      "If specified, the request's tolerations.\n\nTolerations for NoSchedule are required to allocate a device which has a taint with that effect. The same applies to NoExecute.\n\nIn addition, should any of the allocated devices get tainted with NoExecute after allocation and that effect is not tolerated, then all pods consuming the ResourceClaim get deleted to evict them. The scheduler will not let new pods reserve the claim while it has these tainted devices. Once all pods are evicted, the claim will get deallocated.\n\nThe maximum number of tolerations is 16.\n\nThis is an alpha field and requires enabling the DRADeviceTaints feature gate.",
-	"capacityRequests": "CapacityRequests define resource requirements against each capacity.",
+	"capacityRequests": "CapacityRequests define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity with a defined sharing policy.",
 }
 
 func (ExactDeviceRequest) SwaggerDoc() map[string]string {
