@@ -547,7 +547,7 @@ type allocator struct {
 	// Claims are identified by their index in claimsToAllocate.
 	allocatingDevices map[DeviceID]sets.Set[int]
 	// allocatingCapacity tracks the amount of device capacity that will be newly allocated
-	// for a particular attemps to find a solution.
+	// for a particular attempt to find a solution.
 	// The map is indexed by device ID, and each value represents the accumulated capacity
 	// requested by all allocations targeting that device.
 	allocatingCapacity ConsumedCapacityCollection
