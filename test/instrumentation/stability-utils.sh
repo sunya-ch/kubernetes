@@ -58,37 +58,37 @@ reset=$(tput sgr0)
 
 function kube::validate::stablemetrics() {
   echo -e "${green}\nSKIP metrics stability verification ${reset}"
-  return 0
-  stability_check_setup
-  temp_file=$(mktemp)
-  temp_file2=$(mktemp)
-  doValidate=$(find_files_to_check -z \
-      | sort -z \
-      | KUBE_ROOT=${KUBE_ROOT} xargs -0 -L 200 \
-        go run \
-            "test/instrumentation/main.go" \
-            "test/instrumentation/decode_metric.go" \
-            "test/instrumentation/find_stable_metric.go" \
-            "test/instrumentation/error.go" \
-            "test/instrumentation/metric.go" \
-            -- \
-            1>"${temp_file}")
+  # return 0
+  # stability_check_setup
+  # temp_file=$(mktemp)
+  # temp_file2=$(mktemp)
+  # doValidate=$(find_files_to_check -z \
+  #     | sort -z \
+  #     | KUBE_ROOT=${KUBE_ROOT} xargs -0 -L 200 \
+  #       go run \
+  #           "test/instrumentation/main.go" \
+  #           "test/instrumentation/decode_metric.go" \
+  #           "test/instrumentation/find_stable_metric.go" \
+  #           "test/instrumentation/error.go" \
+  #           "test/instrumentation/metric.go" \
+  #           -- \
+  #           1>"${temp_file}")
 
-  if $doValidate; then
-    echo -e "${green}Diffing test/instrumentation/testdata/stable-metrics-list.yaml\n${reset}"
-  fi
-  doSort=$(KUBE_ROOT=${KUBE_ROOT} go run "test/instrumentation/sort/main.go" --sort-file="${temp_file}" 1>"${temp_file2}")
-  if ! $doSort; then
-    echo "${red}!!! sorting metrics has failed! ${reset}" >&2
-    exit 1
-  fi
-  if diff -u "$KUBE_ROOT/test/instrumentation/testdata/stable-metrics-list.yaml" "$temp_file2"; then
-    echo -e "${green}\nPASS metrics stability verification ${reset}"
-    return 0
-  fi
-  echo "${red}!!! Metrics Stability static analysis has failed!${reset}" >&2
-  echo "${red}!!! Please run ./hack/update-generated-stable-metrics.sh to update the golden list.${reset}" >&2
-  exit 1
+  # if $doValidate; then
+  #   echo -e "${green}Diffing test/instrumentation/testdata/stable-metrics-list.yaml\n${reset}"
+  # fi
+  # doSort=$(KUBE_ROOT=${KUBE_ROOT} go run "test/instrumentation/sort/main.go" --sort-file="${temp_file}" 1>"${temp_file2}")
+  # if ! $doSort; then
+  #   echo "${red}!!! sorting metrics has failed! ${reset}" >&2
+  #   exit 1
+  # fi
+  # if diff -u "$KUBE_ROOT/test/instrumentation/testdata/stable-metrics-list.yaml" "$temp_file2"; then
+  #   echo -e "${green}\nPASS metrics stability verification ${reset}"
+  #   return 0
+  # fi
+  # echo "${red}!!! Metrics Stability static analysis has failed!${reset}" >&2
+  # echo "${red}!!! Please run ./hack/update-generated-stable-metrics.sh to update the golden list.${reset}" >&2
+  # exit 1
 }
 
 function kube::validate::test::stablemetrics() {
