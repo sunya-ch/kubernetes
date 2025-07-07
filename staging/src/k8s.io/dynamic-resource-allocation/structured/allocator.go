@@ -86,7 +86,7 @@ type Features struct {
 // AllocatedState packs information of allocated devices which is gathered from allocated resource claims.
 type AllocatedState struct {
 	AllocatedDevices         sets.Set[DeviceID]
-	AllocatedSharedDeviceIDs SharedDeviceIDList
+	AllocatedSharedDeviceIDs sets.Set[SharedDeviceID]
 	AggregatedCapacity       ConsumedCapacityCollection
 }
 
@@ -212,6 +212,13 @@ func (a *Allocator) Allocate(ctx context.Context, node *v1.Node) (finalResult []
 				return nil, fmt.Errorf("claim %s, request %s: has subrequests, but the DRAPrioritizedList feature is disabled", klog.KObj(claim), request.Name)
 			}
 
+			// Error out if the consumableCapacity feature is not enabled
+			// and the request contains capacity requests.
+			if !a.features.ConsumableCapacity && request.CapacityRequests != nil {
+				return nil, fmt.Errorf("claim %s, request %s: has capacity requests, but the DRAConsumableCapacity feature is disabled",
+					klog.KObj(claim), request.Name)
+			}
+
 			if hasSubRequests {
 				// We need to find the minimum number of devices that can be allocated
 				// for the request, so setting this to a high number so we can do the
@@ -222,6 +229,12 @@ func (a *Allocator) Allocate(ctx context.Context, node *v1.Node) (finalResult []
 				// We can only predict a lower number of devices because it depends on which
 				// subrequest gets chosen.
 				for i, subReq := range request.FirstAvailable {
+					// Error out if the consumableCapacity feature is not enabled
+					// and the subrequest contains capacity requests.
+					if !a.features.ConsumableCapacity && subReq.CapacityRequests != nil {
+						return nil, fmt.Errorf("claim %s, subrequest %s: has capacity requests, but the DRAConsumableCapacity feature is disabled",
+							klog.KObj(claim), subReq.Name)
+					}
 					reqData, err := alloc.validateDeviceRequest(&deviceSubRequestAccessor{subRequest: &subReq},
 						&deviceRequestAccessor{request: request}, requestKey, pools)
 					if err != nil {
@@ -532,7 +545,11 @@ type allocator struct {
 	// and its values represent for which of a pod's claims the device will
 	// be allocated.
 	// Claims are identified by their index in claimsToAllocate.
-	allocatingDevices  map[DeviceID]sets.Set[int]
+	allocatingDevices map[DeviceID]sets.Set[int]
+	// allocatingCapacity tracks the amount of device capacity that will be newly allocated
+	// for a particular attemps to find a solution.
+	// The map is indexed by device ID, and each value represents the accumulated capacity
+	// requested by all allocations targeting that device.
 	allocatingCapacity ConsumedCapacityCollection
 	result             []internalAllocationResult
 }
@@ -642,7 +659,6 @@ type matchAttributeConstraint struct {
 func (m *matchAttributeConstraint) add(requestName, subRequestName string, device *draapi.BasicDevice, deviceID DeviceID) bool {
 	if m.requestNames.Len() > 0 && !m.matches(requestName, subRequestName) {
 		// Device not affected by constraint.
-		m.logger.V(7).Info("Constraint does not apply to request", "request", requestName)
 		return true
 	}
 
@@ -890,15 +906,16 @@ func (alloc *allocator) allocateOne(r deviceIndices, allocateSubRequest bool) (b
 				}
 				if alloc.features.ConsumableCapacity {
 					// Next validate whether resource request over capacity
-					success, err := alloc.CmpRequestOverCapacity(requestIndices{claimIndex: r.claimIndex, requestIndex: r.requestIndex}, slice, deviceIndex)
+					success, err := alloc.CmpRequestOverCapacity(requestData.request, slice, deviceIndex)
 					if err != nil {
 						return false, err
 					}
 					if !success {
-						alloc.logger.V(7).Info("Device has no enough capacity", "device", deviceID)
+						alloc.logger.V(7).Info("Device capacity not enough", "device", deviceID)
 						continue
 					}
 				}
+
 				// Finally treat as allocated and move on to the next device.
 				device := deviceWithID{
 					id:    deviceID,
@@ -1002,9 +1019,8 @@ func (alloc *allocator) isSelectable(r requestIndices, requestData requestData, 
 }
 
 // isConsumable checks whether a device with remaining resources is consumable by the request.
-func (alloc *allocator) CmpRequestOverCapacity(r requestIndices, slice *draapi.ResourceSlice, deviceIndex int) (bool, error) {
+func (alloc *allocator) CmpRequestOverCapacity(request requestAccessor, slice *draapi.ResourceSlice, deviceIndex int) (bool, error) {
 	deviceID := DeviceID{Driver: slice.Spec.Driver, Pool: slice.Spec.Pool.Name, Device: slice.Spec.Devices[deviceIndex].Name}
-	request := &alloc.claimsToAllocate[r.claimIndex].Spec.Devices.Requests[r.requestIndex]
 	var allocatingCapacityPtr *ConsumedCapacity
 	if allocatingCapacity, found := alloc.allocatingCapacity[deviceID]; found {
 		allocatingCapacityPtr = &allocatingCapacity
@@ -1013,10 +1029,11 @@ func (alloc *allocator) CmpRequestOverCapacity(r requestIndices, slice *draapi.R
 	var err error
 	convertedCapacity := *(*map[resourceapi.QualifiedName]resourceapi.DeviceCapacity)(unsafe.Pointer(&slice.Spec.Devices[deviceIndex].Basic.Capacity))
 	if allocatedCapacity, found := alloc.allocatedState.AggregatedCapacity[deviceID]; found {
-		valid, err = allocatedCapacity.CmpRequestOverCapacity(request, convertedCapacity, allocatingCapacityPtr)
+		valid, err = allocatedCapacity.CmpRequestOverCapacity(request.capacities(), convertedCapacity, allocatingCapacityPtr)
 	} else {
-		valid, err = NewConsumedCapacity().CmpRequestOverCapacity(request, convertedCapacity, allocatingCapacityPtr)
+		valid, err = NewConsumedCapacity().CmpRequestOverCapacity(request.capacities(), convertedCapacity, allocatingCapacityPtr)
 	}
+
 	return valid, err
 }
 
@@ -1079,9 +1096,6 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 	allowMultipleAllocations := false
 	if alloc.features.ConsumableCapacity {
 		allowMultipleAllocations = device.basic != nil && device.basic.AllowMultipleAllocations != nil && *device.basic.AllowMultipleAllocations
-		if allowMultipleAllocations {
-			alloc.logger.V(7).Info("Device is sharable", "device", device.id)
-		}
 	}
 	if !allowMultipleAllocations && request.adminAccess() && alloc.allocatingDeviceForClaim(device.id, r.claimIndex) {
 		alloc.logger.V(7).Info("Device in use in same claim", "device", device.id)
@@ -1163,18 +1177,17 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 	var shareID *string
 	if alloc.features.ConsumableCapacity {
 		var err error
-		convertedCapacity := make(map[resourceapi.QualifiedName]resourceapi.DeviceCapacity)
+		convertedCapacities := make(map[resourceapi.QualifiedName]resourceapi.DeviceCapacity)
 		for key, value := range device.basic.Capacity {
-			if value.SharingPolicy != nil {
-				copiedPolicy := value.SharingPolicy.ConvertToResourceAPI()
-				convertedCapacity[resourceapi.QualifiedName(key)] = resourceapi.DeviceCapacity{
-					Value:         value.Value.DeepCopy(),
-					SharingPolicy: copiedPolicy,
-				}
+			var convertedCapacity resourceapi.DeviceCapacity
+			err := draapi.Convert_api_DeviceCapacity_To_v1beta1_DeviceCapacity(&value, &convertedCapacity, nil)
+			if err != nil {
+				return false, nil, fmt.Errorf("convert DeviceCapacity: %w", err)
 			}
+			convertedCapacities[resourceapi.QualifiedName(key)] = convertedCapacity
 		}
 		if allowMultipleAllocations {
-			consumedCapacities = GetConsumedCapacityFromRequest(request.capacities(), convertedCapacity)
+			consumedCapacities = GetConsumedCapacityFromRequest(request.capacities(), convertedCapacities)
 			if err != nil {
 				return false, nil, fmt.Errorf("failed to get requested capacity: %w", err)
 			}
@@ -1183,7 +1196,7 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 				return false, nil, fmt.Errorf("failed to get unique share ID: %w", err)
 			}
 			shareID = &newUID
-			alloc.logger.V(7).Info("Device capacity allocated", "device", device.id, "converted capacity", convertedCapacity, "consumed capacity", klog.Format(consumedCapacities))
+			alloc.logger.V(7).Info("Device capacity allocated", "device", device.id, "converted capacity", convertedCapacities, "consumed capacity", klog.Format(consumedCapacities))
 			alloc.allocatingCapacity.Insert(NewDeviceConsumedCapacity(device.id, consumedCapacities))
 		}
 	}

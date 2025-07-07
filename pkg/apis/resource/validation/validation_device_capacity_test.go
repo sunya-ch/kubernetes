@@ -100,7 +100,7 @@ func TestValidateDeviceCapacity(t *testing.T) {
 			capacity: testDeviceCapacity(maxCapacity, testCapacitySharingPolicy(one, []apiresource.Quantity{overCapacity}, nil)),
 			wantFailures: field.ErrorList{
 				field.Invalid(validValuesField.Index(0), "20Gi", "option is larger than capacity value: 10Gi"),
-				field.NotFound(validValuesField, "1Gi"),
+				field.Invalid(validValuesField, "1Gi", "default value is not valid according to the sharing policy"),
 			},
 		},
 		"invalid-options-duplicate": {
@@ -140,7 +140,7 @@ func TestValidateDeviceCapacity(t *testing.T) {
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			errs := validateDeviceCapacity(scenario.capacity, capacityField)
+			errs := validateMultiAllocatableDeviceCapacity(scenario.capacity, capacityField)
 			assertFailures(t, scenario.wantFailures, errs)
 		})
 	}

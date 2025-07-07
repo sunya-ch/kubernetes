@@ -24,6 +24,7 @@ import (
 	resourceapi "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	resourcelisters "k8s.io/client-go/listers/resource/v1beta1"
 	resourceslicetracker "k8s.io/dynamic-resource-allocation/resourceslice/tracker"
@@ -204,7 +205,7 @@ func (c *claimTracker) GatherAllocatedState() (*structured.AllocatedState, error
 	// Start with a fresh set that matches the current known state of the
 	// world according to the informers.
 	allocated := c.allocatedDevices.Get()
-	allocatedSharedDeviceIDs := make(structured.SharedDeviceIDList)
+	allocatedSharedDeviceIDs := sets.New[structured.SharedDeviceID]()
 	aggregatedCapacity := c.allocatedDevices.GetConsumedCapacityCollection()
 
 	// Whatever is in flight also has to be checked.

@@ -212,6 +212,8 @@ type CapacitySharingPolicy struct {
 
 	// ValidValues defines a set of acceptable quantity values in consuming requests.
 	//
+	// Must not contain more than 10 entries.
+	//
 	// +optional
 	// +listType=atomic
 	// +oneOf=ValidSharingValues
@@ -222,6 +224,8 @@ type CapacitySharingPolicy struct {
 	// +optional
 	// +oneOf=ValidSharingValues
 	ValidRange *CapacitySharingPolicyRange `json:"validRange,omitempty" protobuf:"bytes,3,opt,name=validRange"`
+
+	// Alternatively, the range can be defined and validated using a LimitRange match.
 
 	// Potential extension: allow defining a `strategy` on a specific capacity
 	// to specify default scheduling behavior when it is not explicitly requested.
@@ -253,8 +257,6 @@ type CapacitySharingPolicyRange struct {
 	//
 	// +optional
 	Maximum *resource.Quantity `json:"maximum,omitempty" protobuf:"bytes,2,opt,name=maximum"`
-
-	// Alternatively, use LimitRange match
 
 	// ChunkSize defines the step size between valid capacity amounts within the range.
 	//
@@ -405,7 +407,7 @@ type BasicDevice struct {
 	// +featureGate=DRADeviceTaints
 	Taints []DeviceTaint `json:"taints,omitempty" protobuf:"bytes,7,rep,name=taints"`
 
-	// AllowMultipleAllocations marks whether the device is allowed to be allocated for multiple times.
+	// AllowMultipleAllocations marks whether the device can be allocated by multiple ResourceClaims.
 	//
 	// A device with allowMultipleAllocations="true" can be allocated more than once,
 	// and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.
@@ -445,6 +447,9 @@ type DeviceCapacity struct {
 	// SharingPolicy specifies that this device capacity must be consumed
 	// by each resource claim according to the defined sharing policy.
 	// The Device must allow multiple allocations.
+	//
+	// If this field is unset, capacity sharing is unconstrained.
+	// All ResourceClaims or requests share the same capacity pool.
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
@@ -830,6 +835,9 @@ type DeviceRequest struct {
 
 	// CapacityRequests define resource requirements against each capacity.
 	//
+	// If this field is unset and the device supports multiple allocations,
+	// the default value will be applied to each capacity with a defined sharing policy.
+	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
 	CapacityRequests *CapacityRequirements `json:"capacityRequests,omitempty" protobuf:"bytes,9,opt,name=capacityRequests"`
@@ -951,6 +959,11 @@ type CapacityRequirements struct {
 	//
 	// +optional
 	Minimum map[QualifiedName]resource.Quantity `json:"minimum,omitempty" protobuf:"bytes,1,rep,name=minimum,castkey=QualifiedName"`
+
+	// The alternative names proposed were: Required, Reservation, Consumption, and Requests.
+	// "Requests" was dropped since it's already used in the DRA API for device requests.
+	// "Minimum" was selected because the actual consumed capacity may be rounded up
+	// based on the sharing policy — for example, to match a defined chunk size or meet a minimum requirement.
 }
 
 const (
@@ -1117,6 +1130,7 @@ type DeviceConstraint struct {
 	//
 	// +optional
 	// +oneOf=ConstraintType
+	// +featureGate=DRAConsumableCapacity
 	DistinctAttribute *FullyQualifiedName `json:"distinctAttribute,omitempty" protobuf:"bytes,3,opt,name=distinctAttribute"`
 }
 

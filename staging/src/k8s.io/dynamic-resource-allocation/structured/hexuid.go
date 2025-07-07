@@ -22,21 +22,12 @@ import (
 	"fmt"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	draapi "k8s.io/dynamic-resource-allocation/api"
 )
 
-type SharedDeviceIDList map[SharedDeviceID]struct{}
-
 type SharedDeviceID struct {
 	Driver, Pool, Device, ShareID draapi.UniqueString
-}
-
-func (s SharedDeviceIDList) Clone() SharedDeviceIDList {
-	cloneList := make(SharedDeviceIDList, len(s))
-	for k, v := range s {
-		cloneList[k] = v
-	}
-	return cloneList
 }
 
 func MakeSharedDeviceID(deviceID DeviceID, shareID string) SharedDeviceID {
@@ -58,18 +49,18 @@ func GetSharedDeviceName(device, shareID string) string {
 
 type UniqueHexStringFactory struct {
 	mu      sync.Mutex
-	usedIDs SharedDeviceIDList
+	usedIDs sets.Set[SharedDeviceID]
 	nBytes  int
 }
 
 func NewUniqueHexStringFactory(nBytes int) *UniqueHexStringFactory {
 	return &UniqueHexStringFactory{
-		usedIDs: make(SharedDeviceIDList, 0),
+		usedIDs: sets.New[SharedDeviceID](),
 		nBytes:  nBytes,
 	}
 }
 
-func (f *UniqueHexStringFactory) SetUsedShareIDs(usedIDs SharedDeviceIDList) {
+func (f *UniqueHexStringFactory) SetUsedShareIDs(usedIDs sets.Set[SharedDeviceID]) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if usedIDs != nil {

@@ -82,18 +82,18 @@ func (s ConsumedCapacity) Empty() bool {
 	return true
 }
 
-// CmpRequestOverCapacity checks whether the new request can be added within the given capacity,
+// CmpRequestOverCapacity checks whether the new capacity request can be added within the given capacity,
 // and checks whether the requested value is against the capacity sharing policy.
-func (s ConsumedCapacity) CmpRequestOverCapacity(request *resourceapi.DeviceRequest,
+func (s ConsumedCapacity) CmpRequestOverCapacity(capacityRequests *resourceapi.CapacityRequirements,
 	capacity map[resourceapi.QualifiedName]resourceapi.DeviceCapacity, allocatingCapacity *ConsumedCapacity) (bool, error) {
-	if requestsContainNonExistCapacity(request, capacity) {
+	if requestsContainNonExistCapacity(capacityRequests, capacity) {
 		return false, errors.New("some requested capacity has not been defined")
 	}
 	clone := s.Clone()
 	for name, cap := range capacity {
 		var requestedValPtr *resource.Quantity
-		if request.CapacityRequests != nil && request.CapacityRequests.Minimum != nil {
-			if requestedVal, requestedFound := request.CapacityRequests.Minimum[name]; requestedFound {
+		if capacityRequests != nil && capacityRequests.Minimum != nil {
+			if requestedVal, requestedFound := capacityRequests.Minimum[name]; requestedFound {
 				requestedValPtr = &requestedVal
 			}
 		}
@@ -155,12 +155,12 @@ func (c ConsumedCapacityCollection) Remove(cap DeviceConsumedCapacity) {
 }
 
 // requestsNonExistCapacity returns true if requests contain non-exist capacity.
-func requestsContainNonExistCapacity(request *resourceapi.DeviceRequest,
+func requestsContainNonExistCapacity(capacityRequests *resourceapi.CapacityRequirements,
 	capacity map[resourceapi.QualifiedName]resourceapi.DeviceCapacity) bool {
-	if request.CapacityRequests == nil || request.CapacityRequests.Minimum == nil {
+	if capacityRequests == nil || capacityRequests.Minimum == nil {
 		return false
 	}
-	for name := range request.CapacityRequests.Minimum {
+	for name := range capacityRequests.Minimum {
 		if _, found := capacity[name]; !found {
 			return true
 		}
@@ -205,6 +205,7 @@ func isConsumableCapacity(cap resourceapi.DeviceCapacity) bool {
 }
 
 // calculateConsumedCapacity returns valid capacity to be consumed regarding the requested capacity and consumable spec.
+// The default consumable capacity is used if requestedValPtr is nil.
 func calculateConsumedCapacity(requestedVal *resource.Quantity, consumable resourceapi.CapacitySharingPolicy) *resource.Quantity {
 	if consumable.ValidRange != nil {
 		if requestedVal == nil {

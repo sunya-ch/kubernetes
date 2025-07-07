@@ -744,8 +744,9 @@ func validateResourcePool(pool resource.ResourcePool, fldPath *field.Path) field
 
 func validateDevice(device resource.Device, fldPath *field.Path, sharedCounterToCounterNames map[string]sets.Set[string], perDeviceNodeSelection *bool) field.ErrorList {
 	var allErrs field.ErrorList
+	allowMultipleAllocations := device.AllowMultipleAllocations != nil && *device.AllowMultipleAllocations
 	if utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity) &&
-		device.AllowMultipleAllocations != nil && *device.AllowMultipleAllocations {
+		allowMultipleAllocations {
 		allErrs = append(allErrs, validateMultiAllocDeviceName(device.Name, fldPath.Child("name"))...)
 	} else {
 		allErrs = append(allErrs, validateDeviceName(device.Name, fldPath.Child("name"))...)
@@ -758,7 +759,12 @@ func validateDevice(device resource.Device, fldPath *field.Path, sharedCounterTo
 	}
 
 	allErrs = append(allErrs, validateMap(device.Attributes, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateDeviceAttribute, fldPath.Child("attributes"))...)
-	allErrs = append(allErrs, validateMap(device.Capacity, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateDeviceCapacity, fldPath.Child("capacity"))...)
+	if utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity) &&
+		allowMultipleAllocations {
+		allErrs = append(allErrs, validateMap(device.Capacity, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateMultiAllocatableDeviceCapacity, fldPath.Child("capacity"))...)
+	} else {
+		allErrs = append(allErrs, validateMap(device.Capacity, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateSingleAllocatableDeviceCapacity, fldPath.Child("capacity"))...)
+	}
 	allErrs = append(allErrs, validateSlice(device.Taints, resource.DeviceTaintsMaxLength, validateDeviceTaint, fldPath.Child("taints"))...)
 
 	allErrs = append(allErrs, validateSet(device.ConsumesCounters, -1,
@@ -908,11 +914,22 @@ func validateDeviceAttributeVersionValue(value *string, fldPath *field.Path) fie
 	return allErrs
 }
 
-func validateDeviceCapacity(capacity resource.DeviceCapacity, fldPath *field.Path) field.ErrorList {
+// validateMultiAllocatableDeviceCapacity must check sharing policy in consumable capacity.
+func validateMultiAllocatableDeviceCapacity(capacity resource.DeviceCapacity, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 	if capacity.SharingPolicy != nil {
 		allErrs = append(allErrs,
 			validateSharingPolicy(capacity.Value, capacity.SharingPolicy, fldPath.Child("sharingPolicy"))...)
+	}
+	return allErrs
+}
+
+// validateSingleAllocatableDeviceCapacity must not allow consumable capacity.
+func validateSingleAllocatableDeviceCapacity(capacity resource.DeviceCapacity, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	if capacity.SharingPolicy != nil {
+		allErrs = append(allErrs,
+			field.Forbidden(fldPath.Child("sharingPolicy"), "allowMultipleAllocations must be true"))
 	}
 	return allErrs
 }
@@ -945,7 +962,7 @@ func validateSharingPolicyValidValues(defaultValue, maxCapacity apiresource.Quan
 			return allErrs
 		}, quantityKey, fldPath)...)
 	if !foundDefault {
-		allErrs = append(allErrs, field.NotFound(fldPath, defaultValue.String()))
+		allErrs = append(allErrs, field.Invalid(fldPath, defaultValue.String(), "default value is not valid according to the sharing policy"))
 	}
 	return allErrs
 }

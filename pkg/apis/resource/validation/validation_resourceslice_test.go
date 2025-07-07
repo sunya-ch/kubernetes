@@ -459,6 +459,28 @@ func TestValidateResourceSlice(t *testing.T) {
 				return slice
 			}(),
 		},
+		"forbidden-sharing-policy-on-single-allocatable-capacity": {
+			wantFailures: field.ErrorList{
+				field.Forbidden(field.NewPath("spec", "devices").Index(1).Child("capacity").Key("cap").Child("sharingPolicy"), "allowMultipleAllocations must be true"),
+			},
+			slice: func() *resourceapi.ResourceSlice {
+				slice := testResourceSlice(goodName, goodName, goodName, 2)
+				capacity := resourceapi.DeviceCapacity{
+					Value: resource.MustParse("1Gi"),
+					SharingPolicy: &resourceapi.CapacitySharingPolicy{
+						Default: resource.MustParse("1Mi"),
+						ValidRange: &resourceapi.CapacitySharingPolicyRange{
+							Minimum: resource.MustParse("1Mi"),
+						},
+					},
+				}
+				slice.Spec.Devices[1].Capacity = map[resourceapi.QualifiedName]resourceapi.DeviceCapacity{
+					"cap": capacity,
+				}
+				return slice
+			}(),
+			consumableCapacityFeatureGate: true,
+		},
 		"invalid-node-selecor-label-value": {
 			wantFailures: field.ErrorList{field.Invalid(field.NewPath("spec", "nodeSelector", "nodeSelectorTerms").Index(0).Child("matchExpressions").Index(0).Child("values").Index(0), "-1", "a valid label must be an empty string or consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345', regex used for validation is '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?')")},
 			slice: func() *resourceapi.ResourceSlice {

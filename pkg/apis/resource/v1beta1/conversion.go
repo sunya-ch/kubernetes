@@ -123,7 +123,7 @@ func Convert_resource_DeviceRequest_To_v1beta1_DeviceRequest(in *resource.Device
 			tolerations = append(tolerations, toleration)
 		}
 		out.Tolerations = tolerations
-		if in.Exactly != nil && in.Exactly.CapacityRequests != nil {
+		if in.Exactly.CapacityRequests != nil {
 			out.CapacityRequests = (*resourcev1beta1.CapacityRequirements)(unsafe.Pointer(in.Exactly.CapacityRequests))
 		}
 	}
@@ -291,7 +291,7 @@ func convert_v1beta1_Attributes_To_resource_Attributes(in map[resourcev1beta1.Qu
 func convert_v1beta1_Capacity_To_resource_Capacity(in map[resourcev1beta1.QualifiedName]resourcev1beta1.DeviceCapacity, out map[resource.QualifiedName]resource.DeviceCapacity, s conversion.Scope) error {
 	for k, v := range in {
 		var c resource.DeviceCapacity
-		if err := autoConvert_v1beta1_DeviceCapacity_To_resource_DeviceCapacity(&v, &c, s); err != nil {
+		if err := Convert_v1beta1_DeviceCapacity_To_resource_DeviceCapacity(&v, &c, s); err != nil {
 			return err
 		}
 		out[resource.QualifiedName(k)] = c

@@ -64,6 +64,9 @@ var (
 	idType     = withMaxElements(apiservercel.StringType, resourceapi.DeviceMaxIDLength)
 	driverType = withMaxElements(apiservercel.StringType, resourceapi.DriverNameMaxLength)
 
+	// A variant of BoolType with a known maximum size.
+	allowMultipleAllocationsType = withMaxElements(apiservercel.BoolType, 1)
+
 	// Each map is bound by the maximum number of different attributes.
 	innerAttributesMapType = apiservercel.NewMapType(idType, attributeType, resourceapi.ResourceSliceMaxAttributesAndCapacitiesPerDevice)
 	outerAttributesMapType = apiservercel.NewMapType(domainType, innerAttributesMapType, resourceapi.ResourceSliceMaxAttributesAndCapacitiesPerDevice)
@@ -296,7 +299,7 @@ func newCompiler() *compiler {
 
 	deviceType := apiservercel.NewObjectType("kubernetes.DRADevice", fields(
 		field(driverVar, driverType, true),
-		field(multiAllocVar, apiservercel.BoolType, true),
+		field(multiAllocVar, allowMultipleAllocationsType, true),
 		field(attributesVar, outerAttributesMapType, true),
 		field(capacityVar, outerCapacityMapType, true),
 	))

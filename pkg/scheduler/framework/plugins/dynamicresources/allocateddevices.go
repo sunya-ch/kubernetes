@@ -81,7 +81,7 @@ type allocatedDevices struct {
 
 	mutex      sync.RWMutex
 	ids        sets.Set[structured.DeviceID]
-	shareIDs   structured.SharedDeviceIDList
+	shareIDs   sets.Set[structured.SharedDeviceID]
 	capacities structured.ConsumedCapacityCollection
 }
 
@@ -89,7 +89,7 @@ func newAllocatedDevices(logger klog.Logger) *allocatedDevices {
 	return &allocatedDevices{
 		logger:     logger,
 		ids:        sets.New[structured.DeviceID](),
-		shareIDs:   make(structured.SharedDeviceIDList),
+		shareIDs:   sets.New[structured.SharedDeviceID](),
 		capacities: make(map[structured.DeviceID]structured.ConsumedCapacity),
 	}
 }
@@ -101,7 +101,7 @@ func (a *allocatedDevices) Get() sets.Set[structured.DeviceID] {
 	return a.ids.Clone()
 }
 
-func (a *allocatedDevices) GetSharedDeviceIDList() structured.SharedDeviceIDList {
+func (a *allocatedDevices) GetSharedDeviceIDList() sets.Set[structured.SharedDeviceID] {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 
@@ -196,7 +196,7 @@ func (a *allocatedDevices) addDevices(claim *resourceapi.ResourceClaim) {
 		a.ids.Insert(deviceID)
 	}
 	for _, shareID := range shareIDs {
-		a.shareIDs[shareID] = struct{}{}
+		a.shareIDs.Insert(shareID)
 	}
 	for _, capacity := range deviceCapacities {
 		deviceID := capacity.DeviceID
@@ -237,7 +237,7 @@ func (a *allocatedDevices) removeDevices(claim *resourceapi.ResourceClaim) {
 		a.ids.Delete(deviceID)
 	}
 	for _, shareID := range shareIDs {
-		delete(a.shareIDs, shareID)
+		a.shareIDs.Delete(shareID)
 	}
 	for _, capacity := range deviceCapacities {
 		deviceID := capacity.DeviceID
