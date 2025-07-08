@@ -47302,7 +47302,7 @@ func schema_k8sio_api_resource_v1beta1_BasicDevice(ref common.ReferenceCallback)
 					},
 					"allowMultipleAllocations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "AllowMultipleAllocations marks whether the device can be allocated by multiple ResourceClaims.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
+							Description: "AllowMultipleAllocations marks whether the device is allowed to be allocated multiple times.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -49585,7 +49585,7 @@ func schema_k8sio_api_resource_v1beta2_Device(ref common.ReferenceCallback) comm
 					},
 					"allowMultipleAllocations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "AllowMultipleAllocations marks whether the device can be allocated by multiple ResourceClaims.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
+							Description: "AllowMultipleAllocations marks whether the device is allowed to be allocated multiple times.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

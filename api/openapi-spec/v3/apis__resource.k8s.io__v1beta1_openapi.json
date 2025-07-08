@@ -175,7 +175,7 @@
             "type": "boolean"
           },
           "allowMultipleAllocations": {
-            "description": "AllowMultipleAllocations marks whether the device can be allocated by multiple ResourceClaims.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
+            "description": "AllowMultipleAllocations marks whether the device is allowed to be allocated multiple times.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
             "type": "boolean"
           },
           "attributes": {
