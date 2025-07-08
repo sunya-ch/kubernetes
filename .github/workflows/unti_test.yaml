@@ -16,6 +16,7 @@ jobs:
       run: |
         make test WHAT=./pkg/apis/resource/...  GOFLAGS=-v KUBE_COVER=y
         make test WHAT=./pkg/registry/resource/... GOFLAGS=-v KUBE_COVER=y
+        make test WHAT=./pkg/kubelet/cm/dra/... GOFLAGS=-v KUBE_COVER=y
     - name: Validation test
       run: |
         go test -timeout 30s k8s.io/kubernetes/pkg/apis/resource/validation
