@@ -225,10 +225,27 @@ type CapacitySharingPolicy struct {
 	// +oneOf=ValidSharingValues
 	ValidRange *CapacitySharingPolicyRange `json:"validRange,omitempty" protobuf:"bytes,3,opt,name=validRange"`
 
+	// ^^^
 	// Alternatively, the range can be defined and validated using a LimitRange match.
+	// Enforcing min/max/default values via LimitRange is a generally useful mechanism.
 
 	// Potential extension: allow defining a `strategy` on a specific capacity
 	// to specify default scheduling behavior when it is not explicitly requested.
+	// Here are some strategies those were discussed:
+	//
+	// - AlwaysConsumed:
+	//   The default behavior. If no capacity is requested, a default value is always applied.
+	//
+	// - ConsumedOrNever:
+	//   If the first consumer specifies a capacity request, the capacity is marked as consumable.
+	//   If no request is made, the capacity remains non-consumable until the first consumer releases it.
+	//   This strategy is useful in network contexts, where the device is assumed to be shared by default.
+	//
+	// - BlockOrShare:
+	//   The inverse of ConsumedOrNever. If the first consumer does not request this capacity,
+	//   it exclusively occupies the entire device (i.e., the full capacity is blocked).
+	//   If a request is made, the device can be shared up to the guaranteed amount.
+	//   This strategy is useful in accelerator contexts, where devices are typically assumed to be dedicated.
 }
 
 // CapacitySharingPolicyRange defines a valid range for consumable capacity values.
@@ -266,7 +283,8 @@ type CapacitySharingPolicyRange struct {
 	// +optional
 	ChunkSize *resource.Quantity `json:"chunkSize,omitempty" protobuf:"bytes,3,opt,name=chunkSize"`
 
-	// Alternative words: StepSize, UnitSize
+	// ^^^
+	// The alternative names proposed were: `StepSize`, `UnitSize`.
 }
 
 // DriverNameMaxLength is the maximum valid length of a driver name in the
@@ -407,7 +425,7 @@ type BasicDevice struct {
 	// +featureGate=DRADeviceTaints
 	Taints []DeviceTaint `json:"taints,omitempty" protobuf:"bytes,7,rep,name=taints"`
 
-	// AllowMultipleAllocations marks whether the device can be allocated by multiple ResourceClaims.
+	// AllowMultipleAllocations marks whether the device is allowed to be allocated multiple times.
 	//
 	// A device with allowMultipleAllocations="true" can be allocated more than once,
 	// and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.
@@ -415,6 +433,15 @@ type BasicDevice struct {
 	// +optional
 	// +featureGate=DRAConsumableCapacity
 	AllowMultipleAllocations *bool `json:"allowMultipleAllocations,omitempty" protobuf:"bytes,8,opt,name=allowMultipleAllocations"`
+
+	// ^^^
+	// The alternative names proposed were: `Shareable`, `Shared`, and `AllowShared`.
+	// Using an enum like `ClaimMode` or `Allocatable` with values such as `Once` and `MultipleTimes`
+	// was also discussed, following API conventions.
+	// There were also suggestions to distinguish between `Unlimited` and `CapacityControlled` variants
+	// of the `MultipleTimes` mode.
+	// However, because such strategy or mode variations can be introduced at the capacity level
+	// for finer-grained control, the flexibility of an enum is less relevant at the device level.
 }
 
 // DeviceCounterConsumption defines a set of counters that
@@ -960,10 +987,16 @@ type CapacityRequirements struct {
 	// +optional
 	Minimum map[QualifiedName]resource.Quantity `json:"minimum,omitempty" protobuf:"bytes,1,rep,name=minimum,castkey=QualifiedName"`
 
-	// The alternative names proposed were: Required, Reservation, Consumption, and Requests.
-	// "Requests" was dropped since it's already used in the DRA API for device requests.
-	// "Minimum" was selected because the actual consumed capacity may be rounded up
+	// ^^^
+	// The alternative names proposed were: `Required`, `Reservation`, `Consumption`, and `Requests`.
+	// `Requests` was dropped since it's already used in the DRA API for device requests.
+	// `Minimum` was selected because the actual consumed capacity may be rounded up
 	// based on the sharing policy — for example, to match a defined chunk size or meet a minimum requirement.
+
+	// Potential extension:
+	// A `Maximum` or `Limit` field to describe burstable consumption.
+	// Handling burstability would be the responsibility of the individual device driver,
+	// similar to how the CPU manager handles CPU burst behavior.
 }
 
 const (
@@ -1448,9 +1481,16 @@ type DeviceRequestAllocationResult struct {
 	// +featureGate=DRAConsumableCapacity
 	ShareID *string `json:"shareID,omitempty" protobuf:"bytes,7,opt,name=shareID"`
 
+	// ^^^
 	// Alternatively, SharedAllocationIndex could have been used as a reference to the allocation result.
 	// However, the index may become outdated if the allocation is reallocated (should that ever be supported),
 	// making it less reliable than ShareID.
+	// A UID-based approach was also considered to leverage the UID module’s format and integrity checks.
+	// This was used because the concatenated device name and share identifier would be too long,
+	// and shortening it is not acceptable.
+	// Please refer to https://github.com/kubernetes/kubernetes/issues/132524 for the need for concatenation.
+	// Also, note that ShareID must be unique only among currently allocated shares on the same device;
+	// it does not need to be globally unique.
 
 	// ConsumedCapacities tracks the amount of capacity consumed per device as part of the claim request.
 	// The consumed amount may differ from the requested amount: it is rounded up to the nearest valid
@@ -1681,6 +1721,14 @@ type AllocatedDeviceStatus struct {
 	//
 	// +required
 	Device string `json:"device" protobuf:"bytes,3,rep,name=device"`
+
+	// ^^^
+	// ShareID cannot be added here in the same way as in DeviceRequestAllocationResult,
+	// because it is intended to serve as part of a composite key for identifying devices.
+	// Making ShareID required is not an option, as the API feature gate should not introduce required fields.
+	// However, due to limitations with using `listType=map` in ResourceClaimStatus.Devices,
+	// fields used as map keys must be required.
+	// Reference issue: https://github.com/kubernetes/kubernetes/issues/132524
 
 	// Conditions contains the latest observation of the device's state.
 	// If the device has been configured according to the class and claim

@@ -352,7 +352,7 @@ message Device {
   // +featureGate=DRADeviceTaints
   repeated DeviceTaint taints = 8;
 
-  // AllowMultipleAllocations marks whether the device can be allocated by multiple ResourceClaims.
+  // AllowMultipleAllocations marks whether the device is allowed to be allocated multiple times.
   //
   // A device with allowMultipleAllocations="true" can be allocated more than once,
   // and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.
