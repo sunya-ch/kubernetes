@@ -759,11 +759,14 @@ func validateDevice(device resource.Device, fldPath *field.Path, sharedCounterTo
 	}
 
 	allErrs = append(allErrs, validateMap(device.Attributes, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateDeviceAttribute, fldPath.Child("attributes"))...)
-	if utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity) &&
-		allowMultipleAllocations {
-		allErrs = append(allErrs, validateMap(device.Capacity, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateMultiAllocatableDeviceCapacity, fldPath.Child("capacity"))...)
+	if utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity) {
+		if allowMultipleAllocations {
+			allErrs = append(allErrs, validateMap(device.Capacity, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateMultiAllocatableDeviceCapacity, fldPath.Child("capacity"))...)
+		} else {
+			allErrs = append(allErrs, validateMap(device.Capacity, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateSingleAllocatableDeviceCapacity, fldPath.Child("capacity"))...)
+		}
 	} else {
-		allErrs = append(allErrs, validateMap(device.Capacity, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateSingleAllocatableDeviceCapacity, fldPath.Child("capacity"))...)
+		allErrs = append(allErrs, validateMap(device.Capacity, -1, attributeAndCapacityMaxKeyLength, validateQualifiedName, validateDeviceCapacity, fldPath.Child("capacity"))...)
 	}
 	allErrs = append(allErrs, validateSlice(device.Taints, resource.DeviceTaintsMaxLength, validateDeviceTaint, fldPath.Child("taints"))...)
 
@@ -932,6 +935,11 @@ func validateSingleAllocatableDeviceCapacity(capacity resource.DeviceCapacity, f
 			field.Forbidden(fldPath.Child("sharingPolicy"), "allowMultipleAllocations must be true"))
 	}
 	return allErrs
+}
+
+func validateDeviceCapacity(capacity resource.DeviceCapacity, fldPath *field.Path) field.ErrorList {
+	// Any parsed quantity is valid.
+	return nil
 }
 
 func validateSharingPolicy(maxCapacity apiresource.Quantity, policy *resource.CapacitySharingPolicy, fldPath *field.Path) field.ErrorList {

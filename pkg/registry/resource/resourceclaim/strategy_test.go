@@ -17,6 +17,7 @@ limitations under the License.
 package resourceclaim
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -313,7 +314,7 @@ var testCapacity = map[resource.QualifiedName]apiresource.Quantity{
 
 var objWithCapacityRequests = func() *resource.ResourceClaim {
 	obj := obj.DeepCopy()
-	addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity)
+	addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity, false)
 	return obj
 }()
 
@@ -453,7 +454,7 @@ func TestStrategyCreate(t *testing.T) {
 			consumableCapacity: false,
 			expectObj: func() *resource.ResourceClaim {
 				obj := obj.DeepCopy()
-				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, nil)
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, nil, false)
 				return obj
 			}(),
 			verify: func(t *testing.T, as []testclient.Action) {
@@ -468,7 +469,7 @@ func TestStrategyCreate(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			fakeClient := fake.NewSimpleClientset(ns1, ns2)
 			mockNSClient := fakeClient.CoreV1().Namespaces()
-
+			fmt.Println(name)
 			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.DRAAdminAccess, tc.adminAccess)
 			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.DRAPrioritizedList, tc.prioritizedList)
 			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.DRAConsumableCapacity, tc.consumableCapacity)
@@ -477,6 +478,7 @@ func TestStrategyCreate(t *testing.T) {
 			obj := tc.obj.DeepCopy()
 			strategy.PrepareForCreate(ctx, obj)
 			if errs := strategy.Validate(ctx, obj); len(errs) != 0 {
+				fmt.Println(errs)
 				assert.ErrorContains(t, errs[0], tc.expectValidationError, "the error message should have contained the expected error message")
 				return
 			}
@@ -640,12 +642,32 @@ func TestStrategyUpdate(t *testing.T) {
 			},
 		},
 		"drop-consumable-capacity-fields-disabled-feature": {
-			oldObj:             objWithCapacityRequests,
+			oldObj:             obj,
 			newObj:             objWithCapacityRequests,
 			consumableCapacity: false,
 			expectObj: func() *resource.ResourceClaim {
 				obj := obj.DeepCopy()
-				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, nil)
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, nil, false)
+				return obj
+			}(),
+			verify: func(t *testing.T, as []testclient.Action) {
+				if len(as) != 0 {
+					t.Errorf("expected no action to be taken")
+				}
+			},
+		},
+		"drop-consumable-capacity-fields-disabled-feature-with-prioritized-list": {
+			oldObj: func() *resource.ResourceClaim {
+				obj := obj.DeepCopy()
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, nil, true)
+				return obj
+			}(),
+			newObj:             objWithCapacityRequests,
+			consumableCapacity: false,
+			prioritizedList:    true,
+			expectObj: func() *resource.ResourceClaim {
+				obj := obj.DeepCopy()
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, nil, true)
 				return obj
 			}(),
 			verify: func(t *testing.T, as []testclient.Action) {
@@ -662,9 +684,10 @@ func TestStrategyUpdate(t *testing.T) {
 			mockNSClient := fakeClient.CoreV1().Namespaces()
 
 			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.DRAAdminAccess, tc.adminAccess)
-			strategy := NewStrategy(mockNSClient)
 			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.DRAPrioritizedList, tc.prioritizedList)
 			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.DRAConsumableCapacity, tc.consumableCapacity)
+
+			strategy := NewStrategy(mockNSClient)
 
 			oldObj := tc.oldObj.DeepCopy()
 			newObj := tc.newObj.DeepCopy()
@@ -698,6 +721,7 @@ func TestStatusStrategyUpdate(t *testing.T) {
 		adminAccess                   bool
 		deviceStatusFeatureGate       bool
 		consumableCapacityFeatureGate bool
+		prioritizedListFeatureGate    bool
 		expectValidationError         string
 		expectObj                     *resource.ResourceClaim
 		verify                        func(*testing.T, []testclient.Action)
@@ -968,13 +992,13 @@ func TestStatusStrategyUpdate(t *testing.T) {
 		"keep-consumable-capacity-fields": {
 			oldObj: func() *resource.ResourceClaim {
 				obj := obj.DeepCopy()
-				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity)
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity, false)
 				addStatusAllocationDevicesResults(obj, testDriver, testPool, testDevice, testRequest, ptr.To(testShareID), testCapacity)
 				return obj
 			}(),
 			newObj: func() *resource.ResourceClaim { // Status is added with share id and consumed capacities
 				obj := obj.DeepCopy()
-				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity)
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity, false)
 				addStatusAllocationDevicesResults(obj, testDriver, testPool, testDevice, testRequest, ptr.To(testShareID), testCapacity)
 				addStatusDevices(obj, testDriver, testPool, testSharedDevice)
 				return obj
@@ -983,7 +1007,7 @@ func TestStatusStrategyUpdate(t *testing.T) {
 			consumableCapacityFeatureGate: true,
 			expectObj: func() *resource.ResourceClaim { // Keep share id and consumed capacities
 				obj := obj.DeepCopy()
-				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity)
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity, false)
 				addStatusAllocationDevicesResults(obj, testDriver, testPool, testDevice, testRequest, ptr.To(testShareID), testCapacity)
 				addStatusDevices(obj, testDriver, testPool, testSharedDevice)
 				return obj
@@ -994,25 +1018,25 @@ func TestStatusStrategyUpdate(t *testing.T) {
 				}
 			},
 		},
-		"drop-consumable-capacity-keep-results-disable-feature-gate": {
+		"keep-consumable-capacity-fields-with-device-status-disable-feature-gate": {
 			oldObj: func() *resource.ResourceClaim {
 				obj := obj.DeepCopy()
-				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity)
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity, false)
 				addStatusAllocationDevicesResults(obj, testDriver, testPool, testDevice, testRequest, ptr.To(testShareID), testCapacity)
 				return obj
 			}(),
 			newObj: func() *resource.ResourceClaim { // Status is added with share id and consumed capacities
 				obj := obj.DeepCopy()
-				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity)
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity, false)
 				addStatusAllocationDevicesResults(obj, testDriver, testPool, testDevice, testRequest, ptr.To(testShareID), testCapacity)
 				addStatusDevices(obj, testDriver, testPool, testSharedDevice)
 				return obj
 			}(),
 			deviceStatusFeatureGate:       true,
 			consumableCapacityFeatureGate: false,
-			expectObj: func() *resource.ResourceClaim { // Keep share id and drop consumed capacities
+			expectObj: func() *resource.ResourceClaim {
 				obj := obj.DeepCopy()
-				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, nil)
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity, false)
 				addStatusAllocationDevicesResults(obj, testDriver, testPool, testDevice, testRequest, ptr.To(testShareID), testCapacity)
 				addStatusDevices(obj, testDriver, testPool, testSharedDevice)
 				return obj
@@ -1023,26 +1047,75 @@ func TestStatusStrategyUpdate(t *testing.T) {
 				}
 			},
 		},
-		"drop-status-keep-share-id-disable-status-feature-gate": {
+		"keep-consumable-capacity-fields-disable-status-feature-gate": {
 			oldObj: func() *resource.ResourceClaim {
 				obj := obj.DeepCopy()
-				addSpecDevicesRequest(obj, testRequest)
-				addStatusAllocationDevicesResults(obj, testDriver, testPool, testDevice, testRequest, ptr.To(testShareID), nil)
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity, false)
+				addStatusAllocationDevicesResults(obj, testDriver, testPool, testDevice, testRequest, ptr.To(testShareID), testCapacity)
 				return obj
 			}(),
-			newObj: func() *resource.ResourceClaim { // Status is added with share id and consumed capacities
+			newObj: func() *resource.ResourceClaim {
 				obj := obj.DeepCopy()
-				addSpecDevicesRequest(obj, testRequest)
-				addStatusAllocationDevicesResults(obj, testDriver, testPool, testDevice, testRequest, ptr.To(testShareID), nil)
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity, false)
+				addStatusAllocationDevicesResults(obj, testDriver, testPool, testDevice, testRequest, ptr.To(testShareID), testCapacity)
 				addStatusDevices(obj, testDriver, testPool, testSharedDevice)
 				return obj
 			}(),
 			deviceStatusFeatureGate:       false,
 			consumableCapacityFeatureGate: true,
-			expectObj: func() *resource.ResourceClaim { // Status should not be added and share id remains
+			expectObj: func() *resource.ResourceClaim {
+				obj := obj.DeepCopy()
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity, false)
+				addStatusAllocationDevicesResults(obj, testDriver, testPool, testDevice, testRequest, ptr.To(testShareID), testCapacity)
+				return obj
+			}(),
+			verify: func(t *testing.T, as []testclient.Action) {
+				if len(as) != 0 {
+					t.Errorf("expected no action to be taken")
+				}
+			},
+		},
+		"drop-consumable-capacity-fields-disable-feature-gate": {
+			oldObj: func() *resource.ResourceClaim {
 				obj := obj.DeepCopy()
 				addSpecDevicesRequest(obj, testRequest)
-				addStatusAllocationDevicesResults(obj, testDriver, testPool, testDevice, testRequest, ptr.To(testShareID), nil)
+				return obj
+			}(),
+			newObj: func() *resource.ResourceClaim {
+				obj := obj.DeepCopy()
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity, false)
+				return obj
+			}(),
+			deviceStatusFeatureGate:       false,
+			consumableCapacityFeatureGate: true,
+			expectObj: func() *resource.ResourceClaim {
+				obj := obj.DeepCopy()
+				addSpecDevicesRequest(obj, testRequest)
+				return obj
+			}(),
+			verify: func(t *testing.T, as []testclient.Action) {
+				if len(as) != 0 {
+					t.Errorf("expected no action to be taken")
+				}
+			},
+		},
+		"drop-consumable-capacity-fields-disable-feature-gate-with-prioritized-list": {
+			oldObj: func() *resource.ResourceClaim {
+				obj := obj.DeepCopy()
+				addSpecDevicesRequest(obj, testRequest)
+				return obj
+			}(),
+			newObj: func() *resource.ResourceClaim {
+				obj := obj.DeepCopy()
+				addSpecDeviceRequestWithCapacityRequests(obj, testRequest, testClass, testCapacity, true)
+				return obj
+			}(),
+			deviceStatusFeatureGate:       false,
+			prioritizedListFeatureGate:    false,
+			consumableCapacityFeatureGate: true,
+			expectObj: func() *resource.ResourceClaim {
+				obj := obj.DeepCopy()
+				addSpecDevicesRequest(obj, testRequest)
 				return obj
 			}(),
 			verify: func(t *testing.T, as []testclient.Action) {
@@ -1062,6 +1135,7 @@ func TestStatusStrategyUpdate(t *testing.T) {
 			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.DRAAdminAccess, tc.adminAccess)
 			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.DRAResourceClaimDeviceStatus, tc.deviceStatusFeatureGate)
 			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.DRAConsumableCapacity, tc.consumableCapacityFeatureGate)
+			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.DRAPrioritizedList, tc.prioritizedListFeatureGate)
 			statusStrategy := NewStatusStrategy(strategy)
 
 			oldObj := tc.oldObj.DeepCopy()
@@ -1095,25 +1169,33 @@ func addSpecDevicesRequest(resourceClaim *resource.ResourceClaim, request string
 	})
 }
 
-func addSpecDeviceRequestWithCapacityRequests(resourceClaim *resource.ResourceClaim, request, class string, capacity map[resource.QualifiedName]apiresource.Quantity) {
+func addSpecDeviceRequestWithCapacityRequests(resourceClaim *resource.ResourceClaim,
+	request, class string, capacity map[resource.QualifiedName]apiresource.Quantity, prioritizedListFeature bool) {
 	r := resource.DeviceRequest{
 		Name: request,
 		Exactly: &resource.ExactDeviceRequest{
 			DeviceClassName: class,
+			AllocationMode:  resource.DeviceAllocationModeAll,
 		},
-		FirstAvailable: []resource.DeviceSubRequest{
+	}
+	if prioritizedListFeature {
+		r.FirstAvailable = []resource.DeviceSubRequest{
 			{
 				Name:            testRequest,
 				DeviceClassName: class,
+				AllocationMode:  resource.DeviceAllocationModeExactCount,
+				Count:           1,
 			},
-		},
+		}
 	}
 	if capacity != nil {
 		r.Exactly.CapacityRequests = &resource.CapacityRequirements{
 			Minimum: capacity,
 		}
-		r.FirstAvailable[0].CapacityRequests = &resource.CapacityRequirements{
-			Minimum: capacity,
+		if prioritizedListFeature {
+			r.FirstAvailable[0].CapacityRequests = &resource.CapacityRequirements{
+				Minimum: capacity,
+			}
 		}
 	}
 	resourceClaim.Spec.Devices.Requests = append(resourceClaim.Spec.Devices.Requests, r)

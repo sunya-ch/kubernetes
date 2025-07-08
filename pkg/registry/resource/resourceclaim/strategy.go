@@ -214,7 +214,7 @@ func dropDisabledFields(newClaim, oldClaim *resource.ResourceClaim) {
 	dropDisabledDRAPrioritizedListFields(newClaim, oldClaim)
 	dropDisabledDRAAdminAccessFields(newClaim, oldClaim)
 	dropDisabledDRAResourceClaimDeviceStatusFields(newClaim, oldClaim)
-	dropDisabledDRAResourceClaimConsumableCapacity(newClaim, oldClaim)
+	dropDisabledDRAResourceClaimConsumableCapacityFields(newClaim, oldClaim)
 }
 
 func dropDisabledDRAPrioritizedListFields(newClaim, oldClaim *resource.ResourceClaim) {
@@ -359,18 +359,54 @@ func dropDeallocatedStatusDevices(newClaim, oldClaim *resource.ResourceClaim) {
 
 // TODO: add tests after partitionable devices is merged (code conflict!)
 
-// dropDisabledDRAResourceClaimConsumableCapacity drops capacity request.
-// However, shareID and consumed capacity result are kept.
-func dropDisabledDRAResourceClaimConsumableCapacity(newClaim, oldClaim *resource.ResourceClaim) {
-	if utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity) || newClaim == nil {
+func draConsumableCapacityFeatureInUse(claim *resource.ResourceClaim) bool {
+	if claim == nil {
+		return false
+	}
+
+	for _, request := range claim.Spec.Devices.Requests {
+		if request.Exactly != nil && request.Exactly.CapacityRequests != nil {
+			return true
+		}
+		if len(request.FirstAvailable) > 0 {
+			for _, subRequest := range request.FirstAvailable {
+				if subRequest.CapacityRequests != nil {
+					return true
+				}
+			}
+		}
+	}
+
+	if allocation := claim.Status.Allocation; allocation != nil {
+		for _, result := range allocation.Devices.Results {
+			if result.ShareID != nil {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// dropDisabledDRAResourceClaimConsumableCapacityFields drops any new CapacityRequests
+// fields from the new slice if they were not used in the old slice.
+func dropDisabledDRAResourceClaimConsumableCapacityFields(newClaim, oldClaim *resource.ResourceClaim) {
+	if utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity) ||
+		draConsumableCapacityFeatureInUse(oldClaim) {
+		// No need to drop anything.
 		return
 	}
+
+	// Drop any CapacityRequests newly added.
 	for i := range newClaim.Spec.Devices.Requests {
 		if newClaim.Spec.Devices.Requests[i].Exactly != nil {
 			newClaim.Spec.Devices.Requests[i].Exactly.CapacityRequests = nil
 		}
-		for j := range newClaim.Spec.Devices.Requests[i].FirstAvailable {
-			newClaim.Spec.Devices.Requests[i].FirstAvailable[j].CapacityRequests = nil
+		request := newClaim.Spec.Devices.Requests[i]
+		if len(request.FirstAvailable) > 0 {
+			for j := range request.FirstAvailable {
+				newClaim.Spec.Devices.Requests[i].FirstAvailable[j].CapacityRequests = nil
+			}
 		}
 	}
 }

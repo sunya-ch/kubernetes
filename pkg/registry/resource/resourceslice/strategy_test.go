@@ -457,8 +457,8 @@ func TestResourceSliceStrategyUpdate(t *testing.T) {
 				return obj
 			}(),
 		},
-		"keep-fields-consumable-capacity": {
-			oldObj: sliceWithConsumableCapacity,
+		"keep-existing-fields-consumable-capacity": {
+			oldObj: sliceWithCapacity,
 			newObj: func() *resource.ResourceSlice {
 				obj := sliceWithConsumableCapacity.DeepCopy()
 				obj.ResourceVersion = "4"
@@ -468,11 +468,26 @@ func TestResourceSliceStrategyUpdate(t *testing.T) {
 			expectObj: func() *resource.ResourceSlice {
 				obj := sliceWithConsumableCapacity.DeepCopy()
 				obj.ResourceVersion = "4"
+				obj.Generation = 1
+				return obj
+			}(),
+		},
+		"keep-existing-fields-consumable-capacity-disabled-feature": {
+			oldObj: sliceWithConsumableCapacity,
+			newObj: func() *resource.ResourceSlice {
+				obj := sliceWithConsumableCapacity.DeepCopy()
+				obj.ResourceVersion = "4"
+				return obj
+			}(),
+			consumableCapacity: false,
+			expectObj: func() *resource.ResourceSlice {
+				obj := sliceWithConsumableCapacity.DeepCopy()
+				obj.ResourceVersion = "4"
 				return obj
 			}(),
 		},
 		"drop-fields-consumable-capacity-disabled-feature": {
-			oldObj: sliceWithConsumableCapacity,
+			oldObj: sliceWithCapacity,
 			newObj: func() *resource.ResourceSlice {
 				obj := sliceWithConsumableCapacity.DeepCopy()
 				obj.ResourceVersion = "4"
@@ -482,6 +497,7 @@ func TestResourceSliceStrategyUpdate(t *testing.T) {
 			expectObj: func() *resource.ResourceSlice {
 				obj := sliceWithCapacity.DeepCopy()
 				obj.ResourceVersion = "4"
+				obj.Generation = 1
 				return obj
 			}(),
 		},
