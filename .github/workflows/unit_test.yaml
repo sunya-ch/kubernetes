@@ -22,6 +22,7 @@ jobs:
       run: |
         make test WHAT=./pkg/apis/resource/...  GOFLAGS=-v KUBE_COVER=y
         make test WHAT=./pkg/registry/resource/... GOFLAGS=-v KUBE_COVER=y
+        make test WHAT=./pkg/kubelet/cm/dra/... GOFLAGS=-v KUBE_COVER=y
     - name: Allocator unit test
       run: |
         make test WHAT=./staging/src/k8s.io/dynamic-resource-allocation/structured/... GOFLAGS=-v KUBE_COVER=y
