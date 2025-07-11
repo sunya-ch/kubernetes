@@ -311,8 +311,18 @@ func TestClaimTemplateStrategyCreate(t *testing.T) {
 			},
 		},
 		"keep-consumable-capacity-fields": {
-			obj:                objWithCapacityRequests,
+			obj:                obj,
 			consumableCapacity: true,
+			expectObj:          objWithCapacityRequests,
+			verify: func(t *testing.T, as []testclient.Action) {
+				if len(as) != 0 {
+					t.Errorf("expected no action to be taken")
+				}
+			},
+		},
+		"keep-existing-fields-consumable-capacity-disabled-feature": {
+			obj:                objWithCapacityRequests,
+			consumableCapacity: false,
 			expectObj:          objWithCapacityRequests,
 			verify: func(t *testing.T, as []testclient.Action) {
 				if len(as) != 0 {
