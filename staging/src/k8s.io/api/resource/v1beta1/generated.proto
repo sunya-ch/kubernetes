@@ -446,6 +446,10 @@ message DeviceAttribute {
 message DeviceCapacity {
   // Value defines how much of a certain device capacity is available.
   //
+  // If the capacity is consumable (i.e., a SharingPolicy is specified),
+  // the consumed amount is deducted and cached in memory by the scheduler.
+  // Note that the remaining capacity is not reflected in the resource slice.
+  //
   // +required
   optional .k8s.io.apimachinery.pkg.api.resource.Quantity value = 1;
 

@@ -491,7 +491,7 @@
                 "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity"
               }
             ],
-            "description": "Value defines how much of a certain device capacity is available."
+            "description": "Value defines how much of a certain device capacity is available.\n\nIf the capacity is consumable (i.e., a SharingPolicy is specified), the consumed amount is deducted and cached in memory by the scheduler. Note that the remaining capacity is not reflected in the resource slice."
           }
         },
         "required": [
