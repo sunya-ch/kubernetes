@@ -47690,7 +47690,7 @@ func schema_k8sio_api_resource_v1beta1_DeviceCapacity(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"value": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Value defines how much of a certain device capacity is available.",
+							Description: "Value defines how much of a certain device capacity is available.\n\nIf the capacity is consumable (i.e., a SharingPolicy is specified), the consumed amount is deducted and cached in memory by the scheduler. Note that the remaining capacity is not reflected in the resource slice.",
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
@@ -49752,7 +49752,7 @@ func schema_k8sio_api_resource_v1beta2_DeviceCapacity(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"value": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Value defines how much of a certain device capacity is available.",
+							Description: "Value defines how much of a certain device capacity is available.\n\nIf the capacity is consumable (i.e., a SharingPolicy is specified), the consumed amount is deducted and cached in memory by the scheduler. Note that the remaining capacity is not reflected in the resource slice.",
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},

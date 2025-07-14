@@ -161,7 +161,7 @@ func (DeviceAttribute) SwaggerDoc() map[string]string {
 
 var map_DeviceCapacity = map[string]string{
 	"":              "DeviceCapacity describes a quantity associated with a device.",
-	"value":         "Value defines how much of a certain device capacity is available.",
+	"value":         "Value defines how much of a certain device capacity is available.\n\nIf the capacity is consumable (i.e., a SharingPolicy is specified), the consumed amount is deducted and cached in memory by the scheduler. Note that the remaining capacity is not reflected in the resource slice.",
 	"sharingPolicy": "SharingPolicy specifies that this device capacity must be consumed by each resource claim according to the defined sharing policy. The Device must have AllowMultipleAllocations set to true.\n\nIf this field is unset, capacity sharing is unconstrained. All ResourceClaims or requests share the same capacity pool.",
 }
 
