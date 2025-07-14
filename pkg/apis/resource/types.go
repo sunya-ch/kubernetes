@@ -366,6 +366,10 @@ type DeviceCounterConsumption struct {
 type DeviceCapacity struct {
 	// Value defines how much of a certain device capacity is available.
 	//
+	// If the capacity is consumable (i.e., a SharingPolicy is specified),
+	// the consumed amount is deducted and cached in memory by the scheduler.
+	// Note that the remaining capacity is not reflected in the resource slice.
+	//
 	// +required
 	Value resource.Quantity
 
