@@ -225,21 +225,10 @@ func claim(name, req, class string, constraints ...resourceapi.DeviceConstraint)
 	return claim
 }
 
-// generate a ResourceClaim object with the given name, request, class, and capacity requests.
-func claimWithCapacityReqeust(name, req, class string, count int64, capacityRequest *resourceapi.CapacityRequirements, constraints ...resourceapi.DeviceConstraint) wrapResourceClaim {
-	claim := claimWithRequests(name, constraints, requestWithCapacityRequest(req, class, count, capacityRequest))
-	return claim
-}
-
-func requestWithCapacityRequest(name, class string, count int64, capacityRequest *resourceapi.CapacityRequirements,
-	selectors ...resourceapi.DeviceSelector) resourceapi.DeviceRequest {
-	return resourceapi.DeviceRequest{
-		Name:             name,
-		CapacityRequests: capacityRequest,
-		Count:            count,
-		AllocationMode:   resourceapi.DeviceAllocationModeExactCount,
-		DeviceClassName:  class,
-		Selectors:        selectors,
+// return a wrapped request, calling an original request function
+func wrapRequest(name, class string, count int64) wrapDeviceRequest {
+	return wrapDeviceRequest{
+		request(name, class, count),
 	}
 }
 
@@ -255,6 +244,39 @@ func (in wrapResourceClaim) withTolerations(tolerations ...resourceapi.DeviceTol
 		out.Spec.Devices.Requests[i].Tolerations = append(out.Spec.Devices.Requests[i].Tolerations, tolerations...)
 	}
 	return wrapResourceClaim{out}
+}
+
+func (in wrapResourceClaim) withRequests(requests ...wrapDeviceRequest) wrapResourceClaim {
+	out := in.DeepCopy()
+	out.Spec.Devices.Requests = make([]resourceapi.DeviceRequest, len(requests))
+	for i, request := range requests {
+		out.Spec.Devices.Requests[i] = resourceapi.DeviceRequest(request.DeviceRequest)
+	}
+	return wrapResourceClaim{out}
+}
+
+type wrapDeviceRequest struct{ resourceapi.DeviceRequest }
+
+func (in wrapDeviceRequest) obj() resourceapi.DeviceRequest {
+	return in.DeviceRequest
+}
+
+func (in wrapDeviceRequest) withCapacityRequest(capacityRequest *resourceapi.CapacityRequirements) wrapDeviceRequest {
+	out := in.DeepCopy()
+	out.CapacityRequests = capacityRequest
+	return wrapDeviceRequest{*out}
+}
+
+type wrapDeviceSubRequest struct{ resourceapi.DeviceSubRequest }
+
+func (in wrapDeviceSubRequest) obj() resourceapi.DeviceSubRequest {
+	return in.DeviceSubRequest
+}
+
+func (in wrapDeviceSubRequest) withCapacityRequest(capacityRequest *resourceapi.CapacityRequirements) wrapDeviceSubRequest {
+	out := in.DeepCopy()
+	out.CapacityRequests = capacityRequest
+	return wrapDeviceSubRequest{*out}
 }
 
 // generate a ResourceClaim object with the given name, request, class, and attribute.
@@ -3567,8 +3589,8 @@ func TestAllocator(t *testing.T) {
 				ConsumableCapacity: true,
 			},
 			claimsToAllocate: objects(
-				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
-				claimWithCapacityReqeust(claim1, req0, classA, 1, capacityRequests(&one)),
+				claimWithRequests(claim0, nil, wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
+				claimWithRequests(claim1, nil, wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
 			),
 			classes: objects(classWithAllowMultipleAllocations(classA, driverA, true)),
 			slices: unwrap(
@@ -3593,8 +3615,8 @@ func TestAllocator(t *testing.T) {
 				ConsumableCapacity: true,
 			},
 			claimsToAllocate: objects(
-				claimWithCapacityReqeust(claim0, req0, classA, 1, nil),
-				claimWithCapacityReqeust(claim1, req0, classA, 1, nil),
+				claimWithRequests(claim0, nil, request(req0, classA, 1)),
+				claimWithRequests(claim1, nil, request(req0, classA, 1)),
 			),
 			classes: objects(classWithAllowMultipleAllocations(classA, driverA, true)),
 			slices: unwrap(
@@ -3620,8 +3642,10 @@ func TestAllocator(t *testing.T) {
 				ConsumableCapacity: true,
 			},
 			claimsToAllocate: objects(
-				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
-				claimWithCapacityReqeust(claim1, req0, classA, 1, capacityRequests(&two)),
+				claimWithRequests(claim0, nil,
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
+				claimWithRequests(claim1, nil,
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&two)).obj()),
 			),
 			classes: objects(classWithAllowMultipleAllocations(classA, driverA, true)),
 			slices: unwrap(
@@ -3638,7 +3662,8 @@ func TestAllocator(t *testing.T) {
 				ConsumableCapacity: true,
 			},
 			claimsToAllocate: objects(
-				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+				claimWithRequests(claim0, nil,
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
 			),
 			allocatedCapacityDevices: map[DeviceID]ConsumedCapacity{
 				MakeDeviceID(driverA, pool1, device1): {
@@ -3660,6 +3685,44 @@ func TestAllocator(t *testing.T) {
 				),
 			},
 		},
+		"consumable-capacity-with-multi-allocatable-device-backtrack": {
+			features: Features{
+				ConsumableCapacity: true,
+			},
+			claimsToAllocate: objects(
+				// 2 requests with one per each
+				claimWithRequests(claim0,
+					[]resourceapi.DeviceConstraint{
+						{MatchAttribute: &stringAttribute},
+					},
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj(),
+					wrapRequest(req1, classA, 1).withCapacityRequest(capacityRequests(&one)).obj(),
+				),
+				claimWithRequests(claim1, nil,
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
+			),
+			classes: objects(class(classA, driverA)),
+			slices: unwrap(
+				slice(slice1, node1, pool1, driverA,
+					device(device2, nil,
+						map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
+							"stringAttribute": {StringValue: ptr.To("stringAttributeValue1")},
+						}).withAllowMultipleAllocations().withConsumableCapacity(map[resourceapi.QualifiedName]resource.Quantity{capacity0: one}),
+					device(device1, nil,
+						map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
+							"stringAttribute": {StringValue: ptr.To("stringAttributeValue2")},
+						}).withAllowMultipleAllocations().withConsumableCapacity(map[resourceapi.QualifiedName]resource.Quantity{capacity0: two}),
+				),
+			),
+			node: node(node1, region1),
+			expectResults: []any{
+				allocationResult(localNodeSelector(node1),
+					deviceAllocationResultWithConsumedCapacity(req0, driverA, pool1, device1, &fixedShareID, false, capacityRequests(&one)),
+					deviceAllocationResultWithConsumedCapacity(req1, driverA, pool1, device1, &fixedShareID, false, capacityRequests(&one)),
+				),
+				allocationResult(localNodeSelector(node1), deviceAllocationResultWithConsumedCapacity(req0, driverA, pool1, device2, &fixedShareID, false, capacityRequests(&one))),
+			},
+		},
 		"consumable-capacity-multi-allocatable-device-with-subrequest": {
 			features: Features{
 				ConsumableCapacity: true,
@@ -3669,12 +3732,11 @@ func TestAllocator(t *testing.T) {
 				func() wrapResourceClaim {
 					claim := claimWithRequests(claim0, nil,
 						requestWithPrioritizedList(req0,
-							subRequest(subReq0, classA, 1),
+							wrapDeviceSubRequest{subRequest(subReq0, classA, 1)}.withCapacityRequest(capacityRequests(&two)).obj(),
+							wrapDeviceSubRequest{subRequest(subReq1, classA, 1)}.withCapacityRequest(capacityRequests(&one)).obj(),
 							subRequest(subReq1, classA, 1),
 						),
 					)
-					claim.Spec.Devices.Requests[0].FirstAvailable[0].CapacityRequests = capacityRequests(&two)
-					claim.Spec.Devices.Requests[0].FirstAvailable[1].CapacityRequests = capacityRequests(&one)
 					return claim
 				}(),
 			),
@@ -3697,7 +3759,8 @@ func TestAllocator(t *testing.T) {
 				ConsumableCapacity: true,
 			},
 			claimsToAllocate: objects(
-				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+				claimWithRequests(claim0, nil,
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
 			),
 			allocatedCapacityDevices: map[DeviceID]ConsumedCapacity{
 				MakeDeviceID(driverA, pool1, device1): {
@@ -3719,8 +3782,10 @@ func TestAllocator(t *testing.T) {
 				ConsumableCapacity: true,
 			},
 			claimsToAllocate: objects(
-				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
-				claimWithCapacityReqeust(claim1, req0, classA, 1, capacityRequests(&one)),
+				claimWithRequests(claim0, nil,
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
+				claimWithRequests(claim1, nil,
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
 			),
 			classes: objects(classWithAllowMultipleAllocations(classA, driverA, true)),
 			slices: unwrap(
@@ -3746,7 +3811,8 @@ func TestAllocator(t *testing.T) {
 				ConsumableCapacity: true,
 			},
 			claimsToAllocate: objects(
-				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+				claimWithRequests(claim0, nil,
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
 			),
 			classes: objects(classWithAllowMultipleAllocations(classA, driverA, false)),
 			slices: unwrap(
@@ -3768,8 +3834,10 @@ func TestAllocator(t *testing.T) {
 				ConsumableCapacity: true,
 			},
 			claimsToAllocate: objects(
-				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
-				claimWithCapacityReqeust(claim1, req0, classA, 1, capacityRequests(&one)),
+				claimWithRequests(claim0, nil,
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
+				claimWithRequests(claim1, nil,
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
 			),
 			classes: objects(classWithAllowMultipleAllocations(classA, driverA, false)),
 			slices: unwrap(
@@ -3785,7 +3853,8 @@ func TestAllocator(t *testing.T) {
 				ConsumableCapacity: true,
 			},
 			claimsToAllocate: objects(
-				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+				claimWithRequests(claim0, nil,
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
 			),
 			classes: objects(classWithAllowMultipleAllocations(classA, driverA, false)),
 			slices: unwrap(
@@ -3805,7 +3874,8 @@ func TestAllocator(t *testing.T) {
 				MakeDeviceID(driverA, pool1, device1),
 			},
 			claimsToAllocate: objects(
-				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+				claimWithRequests(claim0, nil,
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
 			),
 			classes: objects(classWithAllowMultipleAllocations(classA, driverA, true)),
 			slices: unwrap(
@@ -3822,7 +3892,8 @@ func TestAllocator(t *testing.T) {
 				ConsumableCapacity: true,
 			},
 			claimsToAllocate: objects(
-				claimWithCapacityReqeust(claim0, req0, classA, 1, capacityRequests(&one)),
+				claimWithRequests(claim0, nil,
+					wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj()),
 			),
 			allocatedCapacityDevices: map[DeviceID]ConsumedCapacity{
 				MakeDeviceID(driverA, pool1, device1): {
@@ -3887,10 +3958,9 @@ func TestAllocator(t *testing.T) {
 				[]resourceapi.DeviceConstraint{
 					{DistinctAttribute: &stringAttribute},
 				},
-				requestWithCapacityRequest(req0, classA, 1, capacityRequests(&one)),
-				requestWithCapacityRequest(req1, classA, 1, capacityRequests(&one)),
-			),
-			),
+				wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj(),
+				wrapRequest(req1, classA, 1).withCapacityRequest(capacityRequests(&one)).obj(),
+			)),
 			classes: objects(classWithAllowMultipleAllocations(classA, driverA, true)),
 			slices: unwrap(
 				slice(slice1, node1, pool1, driverA,
@@ -3911,8 +3981,8 @@ func TestAllocator(t *testing.T) {
 				[]resourceapi.DeviceConstraint{
 					{DistinctAttribute: &stringAttribute},
 				},
-				requestWithCapacityRequest(req0, classA, 1, capacityRequests(&one)),
-				requestWithCapacityRequest(req1, classA, 1, capacityRequests(&one)),
+				wrapRequest(req0, classA, 1).withCapacityRequest(capacityRequests(&one)).obj(),
+				wrapRequest(req1, classA, 1).withCapacityRequest(capacityRequests(&one)).obj(),
 			),
 			),
 			classes: objects(classWithAllowMultipleAllocations(classA, driverA, true)),
@@ -3956,9 +4026,6 @@ func TestAllocator(t *testing.T) {
 			allocatedDevices := slices.Clone(tc.allocatedDevices)
 			allocatedShare := tc.allocatedCapacityDevices.Clone()
 			slices := slices.Clone(tc.slices)
-			if len(slices) > 0 && len(slices[0].Spec.Devices) > 0 {
-				fmt.Println("device basic", slices[0].Spec.Devices[0].Basic)
-			}
 			allocatedState := AllocatedState{
 				AllocatedDevices:         sets.New(allocatedDevices...),
 				AllocatedSharedDeviceIDs: tc.allocatedSharedDeviceIDs,
