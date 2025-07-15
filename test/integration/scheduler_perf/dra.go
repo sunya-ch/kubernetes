@@ -339,13 +339,12 @@ claims:
 			for _, result := range claim.Status.Allocation.Devices.Results {
 				deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
 				allocatedDevices.Insert(deviceID)
-				if result.ShareID != nil {
-					sharedDeviceID := structured.MakeSharedDeviceID(deviceID, *result.ShareID)
-					allocatedSharedDeviceIDs.Insert(sharedDeviceID)
-				} else {
+				if result.ShareID == nil {
 					allocatedDevices.Insert(deviceID)
 					continue
 				}
+				sharedDeviceID := structured.MakeSharedDeviceID(deviceID, *result.ShareID)
+				allocatedSharedDeviceIDs.Insert(sharedDeviceID)
 				claimedCapacity := result.ConsumedCapacities
 				if claimedCapacity != nil {
 					allocatedCapacity := structured.NewDeviceConsumedCapacity(deviceID, claimedCapacity)

@@ -216,7 +216,7 @@ func (c *claimTracker) GatherAllocatedState() (*structured.AllocatedState, error
 			allocated.Insert(deviceID)
 		}, func(sharedDeviceID structured.SharedDeviceID) {
 			c.logger.V(6).Info("Device is in flight for allocation", "shared device", sharedDeviceID, "claim", klog.KObj(claim))
-			allocatedSharedDeviceIDs[sharedDeviceID] = struct{}{}
+			allocatedSharedDeviceIDs.Insert(sharedDeviceID)
 		}, func(capacity structured.DeviceConsumedCapacity) {
 			c.logger.V(6).Info("Device is in flight for allocation", "consumed capacity", capacity, "claim", klog.KObj(claim))
 			aggregatedCapacity.Insert(capacity)

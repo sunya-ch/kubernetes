@@ -87,7 +87,7 @@ func (s ConsumedCapacity) Empty() bool {
 // CmpRequestOverCapacity checks whether the new capacity request can be added within the given capacity,
 // and checks whether the requested value is against the capacity sharing policy.
 func (s ConsumedCapacity) CmpRequestOverCapacity(capacityRequests *resourceapi.CapacityRequirements,
-	capacity map[draapi.QualifiedName]draapi.DeviceCapacity, allocatingCapacity *ConsumedCapacity) (bool, error) {
+	capacity map[draapi.QualifiedName]draapi.DeviceCapacity, allocatingCapacity ConsumedCapacity) (bool, error) {
 	if requestsContainNonExistCapacity(capacityRequests, capacity) {
 		return false, errors.New("some requested capacity has not been defined")
 	}
@@ -96,15 +96,14 @@ func (s ConsumedCapacity) CmpRequestOverCapacity(capacityRequests *resourceapi.C
 		convertedName := resourceapi.QualifiedName(name)
 		var convertedCapacity resourceapi.DeviceCapacity
 		err := draapi.Convert_api_DeviceCapacity_To_v1beta1_DeviceCapacity(&cap, &convertedCapacity, nil)
-
+		if err != nil {
+			return false, fmt.Errorf("failed to convert DeviceCapacity %w", err)
+		}
 		var requestedValPtr *resource.Quantity
 		if capacityRequests != nil && capacityRequests.Minimum != nil {
 			if requestedVal, requestedFound := capacityRequests.Minimum[convertedName]; requestedFound {
 				requestedValPtr = &requestedVal
 			}
-		}
-		if err != nil {
-			return false, fmt.Errorf("failed to convert DeviceCapacity %w", err)
 		}
 		if isConsumableCapacity(convertedCapacity) {
 			consumedCapacity := calculateConsumedCapacity(requestedValPtr, *convertedCapacity.SharingPolicy)
@@ -118,7 +117,7 @@ func (s ConsumedCapacity) CmpRequestOverCapacity(capacityRequests *resourceapi.C
 				clone[convertedName].Add(*consumedCapacity)
 			}
 			if allocatingCapacity != nil {
-				if allocatingVal, allocatingFound := (*allocatingCapacity)[convertedName]; allocatingFound {
+				if allocatingVal, allocatingFound := allocatingCapacity[convertedName]; allocatingFound {
 					clone[convertedName].Add(*allocatingVal)
 				}
 			}
@@ -145,11 +144,11 @@ func (c ConsumedCapacityCollection) Clone() ConsumedCapacityCollection {
 
 // Insert adds a new allocated capacity to the collection.
 func (c ConsumedCapacityCollection) Insert(cap DeviceConsumedCapacity) {
-	clone := cap.ConsumedCapacity.Clone()
+	consumedCapacity := cap.ConsumedCapacity
 	if _, found := c[cap.DeviceID]; found {
-		c[cap.DeviceID].Add(clone)
+		c[cap.DeviceID].Add(consumedCapacity)
 	} else {
-		c[cap.DeviceID] = clone
+		c[cap.DeviceID] = consumedCapacity.Clone()
 	}
 }
 

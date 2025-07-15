@@ -1022,19 +1022,12 @@ func (alloc *allocator) isSelectable(r requestIndices, requestData requestData, 
 // isConsumable checks whether a device with remaining resources is consumable by the request.
 func (alloc *allocator) CmpRequestOverCapacity(request requestAccessor, slice *draapi.ResourceSlice, deviceIndex int) (bool, error) {
 	deviceID := DeviceID{Driver: slice.Spec.Driver, Pool: slice.Spec.Pool.Name, Device: slice.Spec.Devices[deviceIndex].Name}
-	var allocatingCapacityPtr *ConsumedCapacity
-	if allocatingCapacity, found := alloc.allocatingCapacity[deviceID]; found {
-		allocatingCapacityPtr = &allocatingCapacity
-	}
-	var valid bool
-	var err error
+	allocatingCapacity := alloc.allocatingCapacity[deviceID]
 	capacities := slice.Spec.Devices[deviceIndex].Basic.Capacity
 	if allocatedCapacity, found := alloc.allocatedState.AggregatedCapacity[deviceID]; found {
-		valid, err = allocatedCapacity.CmpRequestOverCapacity(request.capacities(), capacities, allocatingCapacityPtr)
-	} else {
-		valid, err = NewConsumedCapacity().CmpRequestOverCapacity(request.capacities(), capacities, allocatingCapacityPtr)
+		return allocatedCapacity.CmpRequestOverCapacity(request.capacities(), capacities, allocatingCapacity)
 	}
-	return valid, err
+	return NewConsumedCapacity().CmpRequestOverCapacity(request.capacities(), capacities, allocatingCapacity)
 }
 
 func (alloc *allocator) selectorsMatch(r requestIndices, device *draapi.BasicDevice, deviceID DeviceID, class *resourceapi.DeviceClass, selectors []resourceapi.DeviceSelector) (bool, error) {
