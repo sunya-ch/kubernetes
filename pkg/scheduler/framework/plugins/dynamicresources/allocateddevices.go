@@ -21,9 +21,11 @@ import (
 
 	resourceapi "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/dynamic-resource-allocation/structured"
 	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/features"
 	schedutil "k8s.io/kubernetes/pkg/scheduler/util"
 	"k8s.io/utils/ptr"
 )
@@ -55,19 +57,28 @@ func foreachAllocatedDevice(claim *resourceapi.ResourceClaim,
 		}
 
 		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
-		shared := result.ShareID != nil
-		// None of the users of this helper need to abort iterating,
-		// therefore it's not supported as it only would add overhead.
-		if !shared {
-			dedicatedDeviceCallback(deviceID)
-		} else {
+
+		// Execute sharedDeviceCallback and consumedCapacityCallback correspondingly
+		// if DRAConsumableCapacity feature is enabled
+		if utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity) {
+			shared := result.ShareID != nil
+			// None of the users of this helper need to abort iterating,
+			// therefore it's not supported as it only would add overhead.
+			if !shared {
+				dedicatedDeviceCallback(deviceID)
+				continue
+			}
 			sharedDeviceID := structured.MakeSharedDeviceID(deviceID, *result.ShareID)
 			sharedDeviceCallback(sharedDeviceID)
 			if result.ConsumedCapacities != nil {
 				deviceConsumedCapacity := structured.NewDeviceConsumedCapacity(deviceID, result.ConsumedCapacities)
 				consumedCapacityCallback(deviceConsumedCapacity)
 			}
+			continue
 		}
+
+		// Otherwise, execute dedicatedDeviceCallback
+		dedicatedDeviceCallback(deviceID)
 	}
 }
 
@@ -90,7 +101,7 @@ func newAllocatedDevices(logger klog.Logger) *allocatedDevices {
 		logger:     logger,
 		ids:        sets.New[structured.DeviceID](),
 		shareIDs:   sets.New[structured.SharedDeviceID](),
-		capacities: make(map[structured.DeviceID]structured.ConsumedCapacity),
+		capacities: structured.NewConsumedCapacityCollection(),
 	}
 }
 
@@ -99,13 +110,6 @@ func (a *allocatedDevices) Get() sets.Set[structured.DeviceID] {
 	defer a.mutex.RUnlock()
 
 	return a.ids.Clone()
-}
-
-func (a *allocatedDevices) GetSharedDeviceIDList() sets.Set[structured.SharedDeviceID] {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
-
-	return a.shareIDs.Clone()
 }
 
 func (a *allocatedDevices) GetConsumedCapacityCollection() structured.ConsumedCapacityCollection {
@@ -173,8 +177,12 @@ func (a *allocatedDevices) addDevices(claim *resourceapi.ResourceClaim) {
 	// Locking of the mutex gets minimized by pre-computing what needs to be done
 	// without holding the lock.
 	deviceIDs := make([]structured.DeviceID, 0, 20)
-	shareIDs := make([]structured.SharedDeviceID, 0, 20)
-	deviceCapacities := make([]structured.DeviceConsumedCapacity, 0, 20)
+	var shareIDs []structured.SharedDeviceID
+	var deviceCapacities []structured.DeviceConsumedCapacity
+	if utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity) {
+		shareIDs = make([]structured.SharedDeviceID, 0, 20)
+		deviceCapacities = make([]structured.DeviceConsumedCapacity, 0, 20)
+	}
 	foreachAllocatedDevice(claim,
 		func(deviceID structured.DeviceID) {
 			a.logger.V(6).Info("Observed device allocation", "device", deviceID, "claim", klog.KObj(claim))
@@ -185,7 +193,7 @@ func (a *allocatedDevices) addDevices(claim *resourceapi.ResourceClaim) {
 			shareIDs = append(shareIDs, sharedDeviceID)
 		},
 		func(capacity structured.DeviceConsumedCapacity) {
-			a.logger.V(6).Info("Observed consumed capacity", "device id", capacity.DeviceID, "consumed capacity", capacity.ConsumedCapacity, "claim", klog.KObj(claim))
+			a.logger.V(6).Info("Observed consumed capacity", "device", capacity.DeviceID, "consumed capacity", capacity.ConsumedCapacity, "claim", klog.KObj(claim))
 			deviceCapacities = append(deviceCapacities, capacity)
 		},
 	)
@@ -199,12 +207,7 @@ func (a *allocatedDevices) addDevices(claim *resourceapi.ResourceClaim) {
 		a.shareIDs.Insert(shareID)
 	}
 	for _, capacity := range deviceCapacities {
-		deviceID := capacity.DeviceID
-		if _, found := a.capacities[deviceID]; found {
-			a.capacities[deviceID].Add(capacity.ConsumedCapacity)
-		} else {
-			a.capacities[deviceID] = capacity.ConsumedCapacity.Clone()
-		}
+		a.capacities.Insert(capacity)
 	}
 }
 
