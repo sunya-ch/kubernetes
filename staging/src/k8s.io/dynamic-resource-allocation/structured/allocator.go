@@ -27,7 +27,6 @@ import (
 	"k8s.io/dynamic-resource-allocation/structured/internal/experimental"
 	"k8s.io/dynamic-resource-allocation/structured/internal/incubating"
 	"k8s.io/dynamic-resource-allocation/structured/internal/stable"
-	"k8s.io/kubernetes/pkg/apis/resource"
 )
 
 // To keep the code in different packages simple, type aliases are used everywhere.
@@ -172,7 +171,7 @@ var availableAllocators = []struct {
 			slices []*resourceapi.ResourceSlice,
 			celCache *cel.Cache,
 		) (Allocator, error) {
-			shareIDFactory := NewUniqueHexStringFactory(resource.ShareIDNBytes)
+			shareIDFactory := NewUniqueHexStringFactory(resourceapi.ShareIDNBytes)
 			shareIDFactory.SetUsedShareIDs(allocatedState.AllocatedSharedDeviceIDs)
 			return experimental.NewAllocator(ctx, features, claimsToAllocate, allocatedState, shareIDFactory, classLister, slices, celCache)
 		},

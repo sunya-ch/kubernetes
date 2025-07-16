@@ -97,9 +97,8 @@ const (
 var (
 	fixedShareID = "000000"
 
-	one   = resource.MustParse("1")
-	two   = resource.MustParse("2")
-	three = resource.MustParse("3")
+	one = resource.MustParse("1")
+	two = resource.MustParse("2")
 )
 
 func init() {

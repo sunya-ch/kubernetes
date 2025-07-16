@@ -21,7 +21,9 @@ jobs:
       - name: Update
         run: |
           make update
-
+          ./hack/update-vendor.sh
+          ./hack/update-vendor-licenses.sh
+          ./hack/update-import-aliases.sh
       - name: Commit changes if any
         id: commit_changes
         run: |

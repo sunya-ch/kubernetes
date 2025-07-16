@@ -24,7 +24,6 @@ import (
 	"k8s.io/dynamic-resource-allocation/cel"
 	"k8s.io/dynamic-resource-allocation/structured/internal"
 	"k8s.io/dynamic-resource-allocation/structured/internal/allocatortesting"
-	"k8s.io/kubernetes/pkg/apis/resource"
 )
 
 func NewUniqueHexStringFactory(nBytes int) *UniqueHexStringFactory {
@@ -43,7 +42,7 @@ func TestAllocator(t *testing.T) {
 			slices []*resourceapi.ResourceSlice,
 			celCache *cel.Cache,
 		) (internal.Allocator, error) {
-			shareIDFactory := NewUniqueHexStringFactory(resource.ShareIDNBytes)
+			shareIDFactory := NewUniqueHexStringFactory(resourceapi.ShareIDNBytes)
 			shareIDFactory.SetUsedShareIDs(allocatedState.AllocatedSharedDeviceIDs)
 			return NewAllocator(ctx, features, claimsToAllocate, allocatedState, shareIDFactory, classLister, slices, celCache)
 		},
