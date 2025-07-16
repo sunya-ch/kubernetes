@@ -21,11 +21,15 @@ import (
 	"testing"
 
 	resourceapi "k8s.io/api/resource/v1beta1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/dynamic-resource-allocation/cel"
 	"k8s.io/dynamic-resource-allocation/structured/internal"
 	"k8s.io/dynamic-resource-allocation/structured/internal/allocatortesting"
+	"k8s.io/kubernetes/pkg/apis/resource"
 )
+
+func NewUniqueHexStringFactory(nBytes int) *UniqueHexStringFactory {
+	return internal.NewUniqueHexStringFactory(nBytes)
+}
 
 func TestAllocator(t *testing.T) {
 	allocatortesting.TestAllocator(t,
@@ -34,12 +38,14 @@ func TestAllocator(t *testing.T) {
 			ctx context.Context,
 			features Features,
 			claimsToAllocate []*resourceapi.ResourceClaim,
-			allocatedDevices sets.Set[DeviceID],
+			allocatedState AllocatedState,
 			classLister DeviceClassLister,
 			slices []*resourceapi.ResourceSlice,
 			celCache *cel.Cache,
 		) (internal.Allocator, error) {
-			return NewAllocator(ctx, features, claimsToAllocate, allocatedDevices, classLister, slices, celCache)
+			shareIDFactory := NewUniqueHexStringFactory(resource.ShareIDNBytes)
+			shareIDFactory.SetUsedShareIDs(allocatedState.AllocatedSharedDeviceIDs)
+			return NewAllocator(ctx, features, claimsToAllocate, allocatedState, shareIDFactory, classLister, slices, celCache)
 		},
 	)
 }

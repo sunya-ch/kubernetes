@@ -22,12 +22,12 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1beta1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/dynamic-resource-allocation/cel"
 	"k8s.io/dynamic-resource-allocation/structured/internal"
 	"k8s.io/dynamic-resource-allocation/structured/internal/experimental"
 	"k8s.io/dynamic-resource-allocation/structured/internal/incubating"
 	"k8s.io/dynamic-resource-allocation/structured/internal/stable"
+	"k8s.io/kubernetes/pkg/apis/resource"
 )
 
 // To keep the code in different packages simple, type aliases are used everywhere.
@@ -86,7 +86,7 @@ type Allocator interface {
 func NewAllocator(ctx context.Context,
 	features Features,
 	claimsToAllocate []*resourceapi.ResourceClaim,
-	allocatedDevices sets.Set[DeviceID],
+	allocatedState AllocatedState,
 	classLister DeviceClassLister,
 	slices []*resourceapi.ResourceSlice,
 	celCache *cel.Cache,
@@ -118,7 +118,7 @@ func NewAllocator(ctx context.Context,
 		// All required features supported?
 		if allocator.supportedFeatures.Set().IsSuperset(features.Set()) {
 			// Use it!
-			return allocator.newAllocator(ctx, features, claimsToAllocate, allocatedDevices, classLister, slices, celCache)
+			return allocator.newAllocator(ctx, features, claimsToAllocate, allocatedState, classLister, slices, celCache)
 		}
 	}
 	return nil, fmt.Errorf("internal error: no allocator available for feature set %v", features)
@@ -129,7 +129,7 @@ var availableAllocators = []struct {
 	newAllocator      func(ctx context.Context,
 		features Features,
 		claimsToAllocate []*resourceapi.ResourceClaim,
-		allocatedDevices sets.Set[DeviceID],
+		allocatedState AllocatedState,
 		classLister DeviceClassLister,
 		slices []*resourceapi.ResourceSlice,
 		celCache *cel.Cache,
@@ -141,12 +141,12 @@ var availableAllocators = []struct {
 		newAllocator: func(ctx context.Context,
 			features Features,
 			claimsToAllocate []*resourceapi.ResourceClaim,
-			allocatedDevices sets.Set[DeviceID],
+			allocatedState AllocatedState,
 			classLister DeviceClassLister,
 			slices []*resourceapi.ResourceSlice,
 			celCache *cel.Cache,
 		) (Allocator, error) {
-			return stable.NewAllocator(ctx, features, claimsToAllocate, allocatedDevices, classLister, slices, celCache)
+			return stable.NewAllocator(ctx, features, claimsToAllocate, allocatedState.AllocatedDevices, classLister, slices, celCache)
 		},
 	},
 	{
@@ -154,12 +154,12 @@ var availableAllocators = []struct {
 		newAllocator: func(ctx context.Context,
 			features Features,
 			claimsToAllocate []*resourceapi.ResourceClaim,
-			allocatedDevices sets.Set[DeviceID],
+			allocatedState AllocatedState,
 			classLister DeviceClassLister,
 			slices []*resourceapi.ResourceSlice,
 			celCache *cel.Cache,
 		) (Allocator, error) {
-			return incubating.NewAllocator(ctx, features, claimsToAllocate, allocatedDevices, classLister, slices, celCache)
+			return incubating.NewAllocator(ctx, features, claimsToAllocate, allocatedState.AllocatedDevices, classLister, slices, celCache)
 		},
 	},
 	{
@@ -167,12 +167,14 @@ var availableAllocators = []struct {
 		newAllocator: func(ctx context.Context,
 			features Features,
 			claimsToAllocate []*resourceapi.ResourceClaim,
-			allocatedDevices sets.Set[DeviceID],
+			allocatedState AllocatedState,
 			classLister DeviceClassLister,
 			slices []*resourceapi.ResourceSlice,
 			celCache *cel.Cache,
 		) (Allocator, error) {
-			return incubating.NewAllocator(ctx, features, claimsToAllocate, allocatedDevices, classLister, slices, celCache)
+			shareIDFactory := NewUniqueHexStringFactory(resource.ShareIDNBytes)
+			shareIDFactory.SetUsedShareIDs(allocatedState.AllocatedSharedDeviceIDs)
+			return experimental.NewAllocator(ctx, features, claimsToAllocate, allocatedState, shareIDFactory, classLister, slices, celCache)
 		},
 	},
 }
