@@ -340,7 +340,7 @@ func (a *Allocator) Allocate(ctx context.Context, node *v1.Node) (finalResult []
 		allocationResult.Devices.Results = make([]resourceapi.DeviceRequestAllocationResult, len(internalResult.devices))
 		for i, internal := range internalResult.devices {
 			var consumedCapacities map[resourceapi.QualifiedName]resource.Quantity
-			if internal.consumedCapacities != nil && len(internal.consumedCapacities) > 0 {
+			if internal.consumedCapacities != nil {
 				consumedCapacities = make(map[resourceapi.QualifiedName]resource.Quantity, len(internal.consumedCapacities))
 				for key, val := range internal.consumedCapacities {
 					consumedCapacities[key] = val.DeepCopy()
@@ -1156,7 +1156,7 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 		alloc.allocatingDevices[device.id].Insert(r.claimIndex)
 	}
 
-	var consumedCapacities map[resourceapi.QualifiedName]resource.Quantity
+	consumedCapacities := make(map[resourceapi.QualifiedName]resource.Quantity, 0)
 	var shareID *string
 	if alloc.features.ConsumableCapacity {
 		var err error
@@ -1185,16 +1185,18 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 	}
 
 	result := internalDeviceResult{
-		request:            request.name(),
-		parentRequest:      parentRequestName,
-		id:                 device.id,
-		basic:              device.basic,
-		slice:              device.slice,
-		consumedCapacities: consumedCapacities,
-		shareID:            shareID,
+		request:       request.name(),
+		parentRequest: parentRequestName,
+		id:            device.id,
+		basic:         device.basic,
+		slice:         device.slice,
+		shareID:       shareID,
 	}
 	if request.adminAccess() {
 		result.adminAccess = ptr.To(request.adminAccess())
+	}
+	if len(consumedCapacities) > 0 {
+		result.consumedCapacities = consumedCapacities
 	}
 	previousNumResults := len(alloc.result[r.claimIndex].devices)
 	alloc.result[r.claimIndex].devices = append(alloc.result[r.claimIndex].devices, result)
