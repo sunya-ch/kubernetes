@@ -89,7 +89,7 @@ spec:
           adminAccess: true
           allocationMode: allocationModeValue
           capacityRequests:
-            minimum:
+            requests:
               minimumKey: "0"
           count: 4
           deviceClassName: deviceClassNameValue
@@ -105,7 +105,7 @@ spec:
         firstAvailable:
         - allocationMode: allocationModeValue
           capacityRequests:
-            minimum:
+            requests:
               minimumKey: "0"
           count: 5
           deviceClassName: deviceClassNameValue

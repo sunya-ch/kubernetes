@@ -542,7 +542,7 @@ func Convert_resource_CELDeviceSelector_To_v1beta1_CELDeviceSelector(in *resourc
 }
 
 func autoConvert_v1beta1_CapacityRequirements_To_resource_CapacityRequirements(in *resourcev1beta1.CapacityRequirements, out *resource.CapacityRequirements, s conversion.Scope) error {
-	out.Minimum = *(*map[resource.QualifiedName]apiresource.Quantity)(unsafe.Pointer(&in.Minimum))
+	out.Requests = *(*map[resource.QualifiedName]apiresource.Quantity)(unsafe.Pointer(&in.Requests))
 	return nil
 }
 
@@ -552,7 +552,7 @@ func Convert_v1beta1_CapacityRequirements_To_resource_CapacityRequirements(in *r
 }
 
 func autoConvert_resource_CapacityRequirements_To_v1beta1_CapacityRequirements(in *resource.CapacityRequirements, out *resourcev1beta1.CapacityRequirements, s conversion.Scope) error {
-	out.Minimum = *(*map[resourcev1beta1.QualifiedName]apiresource.Quantity)(unsafe.Pointer(&in.Minimum))
+	out.Requests = *(*map[resourcev1beta1.QualifiedName]apiresource.Quantity)(unsafe.Pointer(&in.Requests))
 	return nil
 }
 

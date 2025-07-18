@@ -12764,7 +12764,7 @@ var schemaYAML = typed.YAMLObject(`types:
 - name: io.k8s.api.resource.v1beta1.CapacityRequirements
   map:
     fields:
-    - name: minimum
+    - name: requests
       type:
         map:
           elementType:
@@ -13367,7 +13367,7 @@ var schemaYAML = typed.YAMLObject(`types:
 - name: io.k8s.api.resource.v1beta2.CapacityRequirements
   map:
     fields:
-    - name: minimum
+    - name: requests
       type:
         map:
           elementType:

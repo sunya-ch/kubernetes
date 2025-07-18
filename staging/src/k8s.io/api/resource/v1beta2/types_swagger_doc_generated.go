@@ -61,8 +61,8 @@ func (CELDeviceSelector) SwaggerDoc() map[string]string {
 }
 
 var map_CapacityRequirements = map[string]string{
-	"":        "CapacityRequirements defines the capacity requirements for a specific device request.",
-	"minimum": "Minimum defines the minimum amount of each device capacity required for the request.\n\nIf the capacity has a sharing policy, this value is rounded up to the nearest valid amount according to that policy. The rounded value is used during scheduling to determine how much capacity to consume.\n\nIf the quantity does not have a sharing policy, this value is used as an additional filtering condition against the available capacity on the device. This is semantically equivalent to a CEL selector with `device.capacity[<domain>].<name>.compareTo(quantity(<minimum quantity>)) >= 0` For example, device.capacity['test-driver.cdi.k8s.io'].counters.compareTo(quantity('2')) >= 0",
+	"":         "CapacityRequirements defines the capacity requirements for a specific device request.",
+	"requests": "Requests defines the request amount of each device capacity required for the request.\n\nIf the capacity has a sharing policy, this value is rounded up to the nearest valid amount according to that policy. The rounded value is used during scheduling to determine how much capacity to consume.\n\nIf the quantity does not have a sharing policy, this value is used as an additional filtering condition against the available capacity on the device. This is semantically equivalent to a CEL selector with `device.capacity[<domain>].<name>.compareTo(quantity(<request quantity>)) >= 0` For example, device.capacity['test-driver.cdi.k8s.io'].counters.compareTo(quantity('2')) >= 0",
 }
 
 func (CapacityRequirements) SwaggerDoc() map[string]string {
