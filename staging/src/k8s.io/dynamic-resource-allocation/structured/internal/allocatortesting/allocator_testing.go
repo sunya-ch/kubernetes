@@ -4209,7 +4209,7 @@ func TestAllocator(t *testing.T,
 					ctx = c
 				}
 
-				allocator, err := newAllocator(ctx, Features{}, nil, classLister, slices, cel.NewCache(1))
+				allocator, err := newAllocator(ctx, Features{}, AllocatedState{}, classLister, slices, cel.NewCache(1))
 				g.Expect(err).ToNot(gomega.HaveOccurred())
 				_, err = allocator.Allocate(ctx, node, claimsToAllocate)
 				t.Logf("got error %v", err)
