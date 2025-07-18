@@ -90,7 +90,7 @@ spec:
           allocationMode: allocationModeValue
           capacityRequests:
             requests:
-              minimumKey: "0"
+              requestsKey: "0"
           count: 4
           deviceClassName: deviceClassNameValue
           selectors:
@@ -106,7 +106,7 @@ spec:
         - allocationMode: allocationModeValue
           capacityRequests:
             requests:
-              minimumKey: "0"
+              requestsKey: "0"
           count: 5
           deviceClassName: deviceClassNameValue
           name: nameValue

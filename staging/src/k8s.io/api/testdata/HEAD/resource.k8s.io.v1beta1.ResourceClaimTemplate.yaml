@@ -89,14 +89,14 @@ spec:
         allocationMode: allocationModeValue
         capacityRequests:
           requests:
-            minimumKey: "0"
+            requestsKey: "0"
         count: 5
         deviceClassName: deviceClassNameValue
         firstAvailable:
         - allocationMode: allocationModeValue
           capacityRequests:
             requests:
-              minimumKey: "0"
+              requestsKey: "0"
           count: 5
           deviceClassName: deviceClassNameValue
           name: nameValue
