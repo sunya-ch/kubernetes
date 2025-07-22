@@ -1022,7 +1022,7 @@ type CapacityRequirements struct {
 	// based on the sharing policy — for example, to match a defined chunk size or meet a requirement.
 
 	// Potential extension:
-	// A `Max` or `Limit` field to describe burstable consumption.
+	// `Limits` field to describe burstable consumption.
 	// Handling burstability would be the responsibility of the individual device driver,
 	// similar to how the CPU manager handles CPU burst behavior.
 }
@@ -1358,10 +1358,6 @@ type ResourceClaimStatus struct {
 	// +listMapKey=shareID
 	// +featureGate=DRAResourceClaimDeviceStatus
 	Devices []AllocatedDeviceStatus
-
-	// listType=map doesn’t support adding an optional map key (identifier) like shareID, which limits flexibility.
-	// However, this structure is useful because different DRA drivers own separate entries and can manage them using SSA.
-	// Current solution appends a new identifier to the device name using a slash-separated format.
 }
 
 // ResourceClaimReservedForMaxSize is the maximum number of entries in

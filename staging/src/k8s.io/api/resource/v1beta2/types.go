@@ -367,11 +367,11 @@ type DeviceCounterConsumption struct {
 
 // DeviceCapacity describes a quantity associated with a device.
 type DeviceCapacity struct {
-	// Value defines how much of a certain device capacity is available.
+	// Value defines how much of a certain capacity that device has.
 	//
-	// If the capacity is consumable (i.e., a SharingPolicy is specified),
-	// the consumed amount is deducted and cached in memory by the scheduler.
-	// Note that the remaining capacity is not reflected in the resource slice.
+	// This field reflects the fixed total capacity and does not change.
+	// If the capacity is consumable (i.e., a SharingPolicy is defined),
+	// the consumed amount is tracked separately and does not affect this value
 	//
 	// +required
 	Value resource.Quantity `json:"value" protobuf:"bytes,1,rep,name=value"`
@@ -1024,7 +1024,7 @@ type CapacityRequirements struct {
 	// based on the sharing policy — for example, to match a defined chunk size or meet a requirement.
 
 	// Potential extension:
-	// A `Max` or `Limit` field to describe burstable consumption.
+	// `Limits` field to describe burstable consumption.
 	// Handling burstability would be the responsibility of the individual device driver,
 	// similar to how the CPU manager handles CPU burst behavior.
 }
@@ -1360,10 +1360,6 @@ type ResourceClaimStatus struct {
 	// +listMapKey=shareID
 	// +featureGate=DRAResourceClaimDeviceStatus
 	Devices []AllocatedDeviceStatus `json:"devices,omitempty" protobuf:"bytes,4,opt,name=devices"`
-
-	// listType=map doesn’t support adding an optional map key (identifier) like shareID, which limits flexibility.
-	// However, this structure is useful because different DRA drivers own separate entries and can manage them using SSA.
-	// Current solution appends a new identifier to the device name using a slash-separated format.
 }
 
 // ResourceClaimReservedForMaxSize is the maximum number of entries in
@@ -1715,6 +1711,9 @@ const (
 
 // AllocatedDeviceStatus contains the status of an allocated device, if the
 // driver chooses to report it. This may include driver-specific information.
+//
+// The combination of Driver, Pool, Device, and ShareID must match the corresponding key
+// in Status.Allocation.Devices.
 type AllocatedDeviceStatus struct {
 	// Driver specifies the name of the DRA driver whose kubelet
 	// plugin should be invoked to process the allocation once the claim is
