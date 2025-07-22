@@ -289,9 +289,6 @@ type CapacitySharingPolicyRange struct {
 	//
 	// +optional
 	Step *resource.Quantity `json:"step,omitempty" protobuf:"bytes,3,opt,name=step"`
-
-	// ^^^
-	// The alternative names proposed were: `ChunkSize`, `StepSize`, `UnitSize`.
 }
 
 // DriverNameMaxLength is the maximum valid length of a driver name in the

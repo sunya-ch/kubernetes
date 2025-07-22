@@ -59,7 +59,6 @@ import (
 	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/component-base/metrics/testutil"
-	dracel "k8s.io/dynamic-resource-allocation/cel"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/scheduler/apis/config"
@@ -1041,6 +1040,7 @@ func setupTestCase(t testing.TB, tc *testCase, featureGates map[featuregate.Feat
 		if err != nil {
 			t.Fatalf("Failed to create per-test log output file: %v", err)
 		}
+
 		t.Cleanup(func() {
 			// Everything should have stopped by now, checked below
 			// by GoleakCheck (which runs first during test
@@ -1259,9 +1259,6 @@ func RunBenchmarkPerfScheduling(b *testing.B, configFile string, topicName strin
 					// carried over to the next workload.
 					legacyregistry.Reset()
 
-					// Reset CEL compiler
-					dracel.ResetCompiler()
-
 					// Exactly one result is expected to contain the progress information.
 					for _, item := range results {
 						if len(item.progress) == 0 {
@@ -1338,9 +1335,6 @@ func RunIntegrationPerfScheduling(t *testing.T, configFile string) {
 					// Reset metrics to prevent metrics generated in current workload gets
 					// carried over to the next workload.
 					legacyregistry.Reset()
-
-					// Reset CEL compiler
-					dracel.ResetCompiler()
 				})
 			}
 		})

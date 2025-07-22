@@ -489,9 +489,6 @@ type CapacitySharingPolicyRange struct {
 	//
 	// +optional
 	Step *resource.Quantity
-
-	// ^^^
-	// The alternative names proposed were: `ChunkSize`, `StepSize`, `UnitSize`.
 }
 
 // Limit for the sum of the number of entries in both attributes and capacity.

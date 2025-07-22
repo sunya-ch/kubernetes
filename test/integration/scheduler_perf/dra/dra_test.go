@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	_ "k8s.io/component-base/logs/json/register"
+	dracel "k8s.io/dynamic-resource-allocation/cel"
 	perf "k8s.io/kubernetes/test/integration/scheduler_perf"
 )
 
@@ -35,9 +36,15 @@ func TestMain(m *testing.M) {
 }
 
 func TestSchedulerPerf(t *testing.T) {
+	// Initialize compiler with default environment
+	dracel.GetCompiler()
+
 	perf.RunIntegrationPerfScheduling(t, "performance-config.yaml")
 }
 
 func BenchmarkPerfScheduling(b *testing.B) {
+	// Initialize compiler with default environment
+	dracel.GetCompiler()
+
 	perf.RunBenchmarkPerfScheduling(b, "performance-config.yaml", "dra", nil)
 }

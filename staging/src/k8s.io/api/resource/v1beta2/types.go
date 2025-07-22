@@ -486,9 +486,6 @@ type CapacitySharingPolicyRange struct {
 	//
 	// +optional
 	Step *resource.Quantity `json:"step,omitempty" protobuf:"bytes,3,opt,name=step"`
-
-	// ^^^
-	// The alternative names proposed were: `ChunkSize`, `StepSize`, `UnitSize`.
 }
 
 // Limit for the sum of the number of entries in both attributes and capacity.

@@ -52,8 +52,9 @@ const (
 )
 
 var (
-	lazyCompilerInit sync.Once
-	lazyCompiler     *compiler
+	lazyCompilerInit  sync.Once
+	lazyCompiler      *compiler
+	lazyCompilerMutex sync.Mutex
 
 	// A variant of AnyType = https://github.com/kubernetes/kubernetes/blob/ec2e0de35a298363872897e5904501b029817af3/staging/src/k8s.io/apiserver/pkg/cel/types.go#L550:
 	// unknown actual type (could be bool, int, string, etc.) but with a known maximum size.
@@ -81,12 +82,6 @@ func GetCompiler() *compiler {
 		lazyCompiler = newCompiler()
 	})
 	return lazyCompiler
-}
-
-func ResetCompiler() {
-	// Reassign new sync.Once and nil compiler
-	lazyCompilerInit = sync.Once{}
-	lazyCompiler = nil
 }
 
 // CompilationResult represents a compiled expression.
