@@ -224,7 +224,7 @@ func (c *claimTracker) GatherAllocatedState() (*structured.AllocatedState, error
 	// world according to the informers.
 	allocated := c.allocatedDevices.Get()
 	allocatedSharedDeviceIDs := sets.New[structured.SharedDeviceID]()
-	aggregatedCapacity := c.allocatedDevices.GetConsumedCapacityCollection()
+	aggregatedCapacity := c.allocatedDevices.Capacities()
 
 	// Whatever is in flight also has to be checked.
 	c.inFlightAllocations.Range(func(key, value any) bool {

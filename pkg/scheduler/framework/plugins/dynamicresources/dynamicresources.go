@@ -469,15 +469,13 @@ func (pl *DynamicResources) PreFilter(ctx context.Context, state fwk.CycleState,
 		// during filtering, so we can determine that once.
 		var allocatedState *structured.AllocatedState
 		if pl.enableConsumableCapacity {
-			claimTrackerInstance, ok := pl.draManager.ResourceClaims().(*claimTracker)
-			if !ok {
-				return nil, statusError(logger, fmt.Errorf("failed to parse claimTracker"))
-			}
-			allocatedState, err = claimTrackerInstance.GatherAllocatedState()
+			allocatedState, err = pl.draManager.ResourceClaims().GatherAllocatedState()
 			if err != nil {
 				return nil, statusError(logger, err)
 			}
-
+			if allocatedState == nil {
+				return nil, statusError(logger, errors.New("nil allocated state"))
+			}
 		} else {
 			allocatedDevices, err := pl.draManager.ResourceClaims().ListAllAllocatedDevices()
 			if err != nil {
@@ -489,10 +487,6 @@ func (pl *DynamicResources) PreFilter(ctx context.Context, state fwk.CycleState,
 				AggregatedCapacity:       structured.NewConsumedCapacityCollection(),
 			}
 		}
-		if allocatedState == nil {
-			return nil, statusError(logger, errors.New("nil allocated state"))
-		}
-
 		slices, err := pl.draManager.ResourceSlices().ListWithDeviceTaintRules()
 		if err != nil {
 			return nil, statusError(logger, err)

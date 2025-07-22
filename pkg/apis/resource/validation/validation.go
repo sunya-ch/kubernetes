@@ -910,11 +910,6 @@ func validateSingleAllocatableDeviceCapacity(capacity resource.DeviceCapacity, f
 	return allErrs
 }
 
-func validateDeviceCapacity(capacity resource.DeviceCapacity, fldPath *field.Path) field.ErrorList {
-	// Any parsed quantity is valid.
-	return nil
-}
-
 // validateSharingPolicy validates at most one of ValidSharingValues can be defined.
 // If any ValidSharingValues are defined, Default must also be defined and valid.
 func validateSharingPolicy(maxCapacity apiresource.Quantity, policy *resource.CapacitySharingPolicy, fldPath *field.Path) field.ErrorList {

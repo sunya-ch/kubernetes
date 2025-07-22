@@ -39,10 +39,6 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-var (
-	maxTryOnGenerateShareID = 100
-)
-
 type DeviceClassLister = internal.DeviceClassLister
 type Features = internal.Features
 type DeviceID = internal.DeviceID

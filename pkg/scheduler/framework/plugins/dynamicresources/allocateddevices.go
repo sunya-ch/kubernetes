@@ -112,7 +112,7 @@ func (a *allocatedDevices) Get() sets.Set[structured.DeviceID] {
 	return a.ids.Clone()
 }
 
-func (a *allocatedDevices) GetConsumedCapacityCollection() structured.ConsumedCapacityCollection {
+func (a *allocatedDevices) Capacities() structured.ConsumedCapacityCollection {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 
@@ -251,7 +251,7 @@ func (a *allocatedDevices) removeDevices(claim *resourceapi.ResourceClaim) {
 		if _, found := a.capacities[deviceID]; found {
 			a.capacities[deviceID].Sub(capacity.ConsumedCapacity)
 			if a.capacities[deviceID].Empty() {
-				delete(a.capacities, deviceID)
+				a.capacities.Remove(capacity)
 			}
 		}
 	}

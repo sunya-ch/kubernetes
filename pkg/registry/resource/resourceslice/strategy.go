@@ -265,9 +265,9 @@ func dropDisabledDRAConsumableCapacityFields(newSlice, oldSlice *resource.Resour
 		newSlice.Spec.Devices[i].AllowMultipleAllocations = nil
 		if newSlice.Spec.Devices[i].Capacity != nil {
 			for ci, capacity := range newSlice.Spec.Devices[i].Capacity {
-				capacity := *capacity.DeepCopy()
-				capacity.SharingPolicy = nil
-				newSlice.Spec.Devices[i].Capacity[ci] = capacity
+				newSlice.Spec.Devices[i].Capacity[ci] = resource.DeviceCapacity{
+					Value: capacity.Value,
+				}
 			}
 		}
 	}

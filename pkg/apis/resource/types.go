@@ -406,8 +406,8 @@ const CapacitySharingPolicyDiscreteMaxOptions = 10
 // At most one of ValidSharingValues can be defined.
 // If any ValidSharingValues are defined, Default must also be defined and valid.
 type CapacitySharingPolicy struct {
-	// Default specifies the amount of this capacity consumed by a request
-	// that does not include an entry for it in CapacityRequests.
+	// Default specifies how much of this capacity is consumed by a request
+	// that does not contain an entry for it in CapacityRequests.
 	//
 	// +optional
 	Default *resource.Quantity
