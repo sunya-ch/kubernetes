@@ -229,6 +229,7 @@ func TestDRA(t *testing.T) {
 				features.DynamicResourceAllocation: true,
 				// TODO: replace specific list with AllBeta once DRA is not beta.
 				features.DRAResourceClaimDeviceStatus: false,
+				features.DRAConsumableCapacity:        false,
 				// featuregate.Feature("AllBeta"):     false,
 			},
 			f: func(tCtx ktesting.TContext) {
@@ -239,7 +240,7 @@ func TestDRA(t *testing.T) {
 				tCtx.Run("PublishResourceSlices", func(tCtx ktesting.TContext) {
 					testPublishResourceSlices(tCtx, true, features.DRADeviceTaints, features.DRAPartitionableDevices)
 				})
-				tCtx.Run("ResourceClaimDeviceStatus", func(tCtx ktesting.TContext) { testResourceClaimDeviceStatus(tCtx, false) })
+				tCtx.Run("ResourceClaimDeviceStatus", func(tCtx ktesting.TContext) { testResourceClaimDeviceStatus(tCtx, false, false) })
 			},
 		},
 		"core": {
@@ -247,7 +248,9 @@ func TestDRA(t *testing.T) {
 				resourceapi.SchemeGroupVersion:     true,
 				resourcev1beta2.SchemeGroupVersion: true,
 			},
-			features: map[featuregate.Feature]bool{features.DynamicResourceAllocation: true},
+			features: map[featuregate.Feature]bool{
+				features.DynamicResourceAllocation: true,
+			},
 			f: func(tCtx ktesting.TContext) {
 				tCtx.Run("AdminAccess", func(tCtx ktesting.TContext) { testAdminAccess(tCtx, false) })
 				tCtx.Run("PrioritizedList", func(tCtx ktesting.TContext) { testPrioritizedList(tCtx, false) })
@@ -255,7 +258,7 @@ func TestDRA(t *testing.T) {
 				tCtx.Run("PublishResourceSlices", func(tCtx ktesting.TContext) {
 					testPublishResourceSlices(tCtx, true, features.DRADeviceTaints, features.DRAPartitionableDevices)
 				})
-				tCtx.Run("ResourceClaimDeviceStatus", func(tCtx ktesting.TContext) { testResourceClaimDeviceStatus(tCtx, true) })
+				tCtx.Run("ResourceClaimDeviceStatus", func(tCtx ktesting.TContext) { testResourceClaimDeviceStatus(tCtx, true, false) })
 			},
 		},
 		"v1beta1": {
@@ -292,6 +295,7 @@ func TestDRA(t *testing.T) {
 				// in alphabetical order,
 				// as needed by tests for them.
 				features.DRAAdminAccess:          true,
+				features.DRAConsumableCapacity:   true,
 				features.DRADeviceTaints:         true,
 				features.DRAPartitionableDevices: true,
 				features.DRAPrioritizedList:      true,
@@ -301,7 +305,7 @@ func TestDRA(t *testing.T) {
 				tCtx.Run("Convert", testConvert)
 				tCtx.Run("PrioritizedList", func(tCtx ktesting.TContext) { testPrioritizedList(tCtx, true) })
 				tCtx.Run("PublishResourceSlices", func(tCtx ktesting.TContext) { testPublishResourceSlices(tCtx, true) })
-				tCtx.Run("ResourceClaimDeviceStatus", func(tCtx ktesting.TContext) { testResourceClaimDeviceStatus(tCtx, true) })
+				tCtx.Run("ResourceClaimDeviceStatus", func(tCtx ktesting.TContext) { testResourceClaimDeviceStatus(tCtx, true, true) })
 				tCtx.Run("MaxResourceSlice", testMaxResourceSlice)
 			},
 		},
@@ -795,13 +799,14 @@ func testPublishResourceSlices(tCtx ktesting.TContext, haveLatestAPI bool, disab
 				var expected []any
 				for _, device := range spec.Devices {
 					expected = append(expected, gstruct.MatchAllFields(gstruct.Fields{
-						"Name":             gomega.Equal(device.Name),
-						"Attributes":       gomega.Equal(device.Attributes),
-						"Capacity":         gomega.Equal(device.Capacity),
-						"ConsumesCounters": gomega.Equal(device.ConsumesCounters),
-						"NodeName":         matchPointer(device.NodeName),
-						"NodeSelector":     matchPointer(device.NodeSelector),
-						"AllNodes":         matchPointer(device.AllNodes),
+						"Name":                     gomega.Equal(device.Name),
+						"AllowMultipleAllocations": gomega.Equal(device.AllowMultipleAllocations),
+						"Attributes":               gomega.Equal(device.Attributes),
+						"Capacity":                 gomega.Equal(device.Capacity),
+						"ConsumesCounters":         gomega.Equal(device.ConsumesCounters),
+						"NodeName":                 matchPointer(device.NodeName),
+						"NodeSelector":             matchPointer(device.NodeSelector),
+						"AllNodes":                 matchPointer(device.AllNodes),
 						"Taints": gomega.HaveExactElements(func() []any {
 							var expected []any
 							for _, taint := range device.Taints {
@@ -996,7 +1001,7 @@ func testPublishResourceSlices(tCtx ktesting.TContext, haveLatestAPI bool, disab
 // and checks that the object is not validated (feature enabled) resp. accepted without the field (disabled).
 //
 // When enabled, it tries server-side-apply (SSA) with different clients. This is what DRA drivers should be using.
-func testResourceClaimDeviceStatus(tCtx ktesting.TContext, enabled bool) {
+func testResourceClaimDeviceStatus(tCtx ktesting.TContext, enabledDeviceStatus, enabledConsumableCapacity bool) {
 	namespace := createTestNamespace(tCtx, nil)
 
 	claim := &resourceapi.ResourceClaim{
@@ -1019,9 +1024,10 @@ func testResourceClaimDeviceStatus(tCtx ktesting.TContext, enabled bool) {
 	tCtx.ExpectNoError(err, "create ResourceClaim")
 
 	deviceStatus := []resourceapi.AllocatedDeviceStatus{{
-		Driver: "one",
-		Pool:   "global",
-		Device: "my-device",
+		Driver:  "one",
+		Pool:    "global",
+		Device:  "my-device",
+		ShareID: ptr.To(""),
 		Data: &runtime.RawExtension{
 			Raw: []byte(`{"kind": "foo", "apiVersion": "dra.example.com/v1"}`),
 		},
@@ -1034,9 +1040,12 @@ func testResourceClaimDeviceStatus(tCtx ktesting.TContext, enabled bool) {
 			HardwareAddress: "ea:9f:cb:40:b1:7b",
 		},
 	}}
+	if enabledConsumableCapacity {
+		deviceStatus[0].ShareID = ptr.To("")
+	}
 	claim.Status.Devices = deviceStatus
 	updatedClaim, err := tCtx.Client().ResourceV1beta1().ResourceClaims(namespace).UpdateStatus(tCtx, claim, metav1.UpdateOptions{})
-	if !enabled {
+	if !enabledDeviceStatus {
 		tCtx.ExpectNoError(err, "updating the status with an invalid AllocatedDeviceStatus should have worked because the field should have been dropped")
 		require.Empty(tCtx, updatedClaim.Status.Devices, "field should have been dropped")
 		return
@@ -1096,9 +1105,10 @@ func testResourceClaimDeviceStatus(tCtx ktesting.TContext, enabled bool) {
 		WithDevice("another-device").
 		WithNetworkData(resourceapiac.NetworkDeviceData().WithInterfaceName("net-2"))
 	deviceStatus = append(deviceStatus, resourceapi.AllocatedDeviceStatus{
-		Driver: "two",
-		Pool:   "global",
-		Device: "another-device",
+		Driver:  "two",
+		Pool:    "global",
+		Device:  "another-device",
+		ShareID: ptr.To(""),
 		NetworkData: &resourceapi.NetworkDeviceData{
 			InterfaceName: "net-2",
 		},
@@ -1118,9 +1128,10 @@ func testResourceClaimDeviceStatus(tCtx ktesting.TContext, enabled bool) {
 		WithDevice("my-device").
 		WithNetworkData(resourceapiac.NetworkDeviceData().WithInterfaceName("net-3"))
 	deviceStatus = append(deviceStatus, resourceapi.AllocatedDeviceStatus{
-		Driver: "three",
-		Pool:   "global",
-		Device: "my-device",
+		Driver:  "three",
+		Pool:    "global",
+		Device:  "my-device",
+		ShareID: ptr.To(""),
 		NetworkData: &resourceapi.NetworkDeviceData{
 			InterfaceName: "net-3",
 		},

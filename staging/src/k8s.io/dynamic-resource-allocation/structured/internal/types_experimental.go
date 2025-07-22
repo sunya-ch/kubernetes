@@ -64,6 +64,8 @@ func GenerateShareID() *types.UID {
 func ConvertShareIDToStringPointer(shareID *types.UID) (shareIDStrPtr *string) {
 	if shareID != nil {
 		shareIDStrPtr = ptr.To(string(*shareID))
+	} else {
+		shareIDStrPtr = ptr.To(string(""))
 	}
 	return shareIDStrPtr
 }
