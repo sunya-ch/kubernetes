@@ -138,7 +138,7 @@
           },
           "shareID": {
             "default": "",
-            "description": "ShareID uniquely identifies an individual allocation share of a device.\n\nMust be a valid UID.",
+            "description": "ShareID uniquely identifies an individual allocation share of a device.",
             "type": "string"
           }
         },
