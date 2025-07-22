@@ -78,10 +78,23 @@ var (
 )
 
 func GetCompiler() *compiler {
+	lazyCompilerMutex.Lock()
+	defer lazyCompilerMutex.Unlock()
 	lazyCompilerInit.Do(func() {
-		lazyCompiler = newCompiler()
+		lazyCompiler = newCompiler(environment.DefaultCompatibilityVersion())
 	})
 	return lazyCompiler
+}
+
+func ResetCompiler(kVersion *version.Version) {
+	lazyCompilerMutex.Lock()
+	defer lazyCompilerMutex.Unlock()
+	// Reassign new sync.Once
+	lazyCompilerInit = sync.Once{}
+	lazyCompiler = nil
+	lazyCompilerInit.Do(func() {
+		lazyCompiler = newCompiler(kVersion)
+	})
 }
 
 // CompilationResult represents a compiled expression.
@@ -291,8 +304,8 @@ func (c CompilationResult) DeviceMatches(ctx context.Context, input Device) (boo
 	return resultBool, details, nil
 }
 
-func newCompiler() *compiler {
-	envset := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), true /* strictCost */)
+func newCompiler(kVersion *version.Version) *compiler {
+	envset := environment.MustBaseEnvSet(kVersion, true /* strictCost */)
 	field := func(name string, declType *apiservercel.DeclType, required bool) *apiservercel.DeclField {
 		return apiservercel.NewDeclField(name, declType, required, nil, nil)
 	}
