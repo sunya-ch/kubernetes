@@ -47849,7 +47849,7 @@ func schema_k8sio_api_resource_v1beta1_AllocatedDeviceStatus(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AllocatedDeviceStatus contains the status of an allocated device, if the driver chooses to report it. This may include driver-specific information.",
+				Description: "AllocatedDeviceStatus contains the status of an allocated device, if the driver chooses to report it. This may include driver-specific information.\n\nThe combination of Driver, Pool, Device, and ShareID must match the corresponding key in Status.Allocation.Devices.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"driver": {
@@ -48125,7 +48125,7 @@ func schema_k8sio_api_resource_v1beta1_CapacitySharingPolicy(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"default": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Default specifies the amount of this capacity consumed by a request that does not include an entry for it in CapacityRequests.",
+							Description: "Default specifies how much of this capacity is consumed by a request that does not contain an entry for it in CapacityRequests.",
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
@@ -49940,7 +49940,7 @@ func schema_k8sio_api_resource_v1beta2_AllocatedDeviceStatus(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AllocatedDeviceStatus contains the status of an allocated device, if the driver chooses to report it. This may include driver-specific information.",
+				Description: "AllocatedDeviceStatus contains the status of an allocated device, if the driver chooses to report it. This may include driver-specific information.\n\nThe combination of Driver, Pool, Device, and ShareID must match the corresponding key in Status.Allocation.Devices.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"driver": {
@@ -50106,7 +50106,7 @@ func schema_k8sio_api_resource_v1beta2_CapacitySharingPolicy(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"default": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Default specifies the amount of this capacity consumed by a request that does not include an entry for it in CapacityRequests.",
+							Description: "Default specifies how much of this capacity is consumed by a request that does not contain an entry for it in CapacityRequests.",
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
@@ -50509,7 +50509,7 @@ func schema_k8sio_api_resource_v1beta2_DeviceCapacity(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"value": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Value defines how much of a certain device capacity is available.\n\nIf the capacity is consumable (i.e., a SharingPolicy is specified), the consumed amount is deducted and cached in memory by the scheduler. Note that the remaining capacity is not reflected in the resource slice.",
+							Description: "Value defines how much of a certain capacity that device has.\n\nThis field reflects the fixed total capacity and does not change. If the capacity is consumable (i.e., a SharingPolicy is defined), the consumed amount is tracked separately and does not affect this value",
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},

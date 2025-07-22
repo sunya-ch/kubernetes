@@ -87,7 +87,7 @@
         "x-kubernetes-map-type": "atomic"
       },
       "io.k8s.api.resource.v1beta1.AllocatedDeviceStatus": {
-        "description": "AllocatedDeviceStatus contains the status of an allocated device, if the driver chooses to report it. This may include driver-specific information.",
+        "description": "AllocatedDeviceStatus contains the status of an allocated device, if the driver chooses to report it. This may include driver-specific information.\n\nThe combination of Driver, Pool, Device, and ShareID must match the corresponding key in Status.Allocation.Devices.",
         "properties": {
           "conditions": {
             "description": "Conditions contains the latest observation of the device's state. If the device has been configured according to the class and claim config references, the `Ready` condition should be True.\n\nMust not contain more than 8 entries.",
@@ -115,7 +115,7 @@
           },
           "device": {
             "default": "",
-            "description": "Device references one device instance via its name in the driver's resource pool. It must be a DNS label.\n\nIf the allocation result includes a ShareID, the Device field is extended with the ShareID, formatted as `<device name>/<share id>`.",
+            "description": "Device references one device instance via its name in the driver's resource pool. It must be a DNS label.",
             "type": "string"
           },
           "driver": {
@@ -138,7 +138,7 @@
           },
           "shareID": {
             "default": "",
-            "description": "ShareID uniquely identifies an individual allocation share of a device.\n\nHex is chosen for its compact representation, ease of generation from binary, and suitability for identifiers in logs, APIs, and storage.",
+            "description": "ShareID uniquely identifies an individual allocation share of a device.\n\nMust be a valid UID.",
             "type": "string"
           }
         },
@@ -180,7 +180,7 @@
             "type": "boolean"
           },
           "allowMultipleAllocations": {
-            "description": "AllowMultipleAllocations marks whether the device is allowed to be allocated multiple times.\n\nA device with allowMultipleAllocations=\"true\" can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
+            "description": "AllowMultipleAllocations marks whether the device is allowed to be allocated multiple times.\n\nIf AllowMultipleAllocations is set to true, the device can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
             "type": "boolean"
           },
           "attributes": {
@@ -253,7 +253,7 @@
         "properties": {
           "expression": {
             "default": "",
-            "description": "Expression is a CEL expression which evaluates a single device. It must evaluate to true when the device under consideration satisfies the desired criteria, and false when it does not. Any other result is an error and causes allocation of devices to abort.\n\nThe expression's input is an object named \"device\", which carries the following properties:\n - driver (string): the name of the driver which defines this device.\n - attributes (map[string]object): the device's attributes, grouped by prefix\n   (e.g. device.attributes[\"dra.example.com\"] evaluates to an object with all\n   of the attributes which were prefixed by \"dra.example.com\".\n - capacity (map[string]object): the device's capacities, grouped by prefix.\n\nExample: Consider a device with driver=\"dra.example.com\", which exposes two attributes named \"model\" and \"ext.example.com/family\" and which exposes one capacity named \"modules\". This input to this expression would have the following fields:\n\n    device.driver\n    device.attributes[\"dra.example.com\"].model\n    device.attributes[\"ext.example.com\"].family\n    device.capacity[\"dra.example.com\"].modules\n\nThe device.driver field can be used to check for a specific driver, either as a high-level precondition (i.e. you only want to consider devices from this driver) or as part of a multi-clause expression that is meant to consider devices from different drivers.\n\nThe value type of each attribute is defined by the device definition, and users who write these expressions must consult the documentation for their specific drivers. The value type of each capacity is Quantity.\n\nIf an unknown prefix is used as a lookup in either device.attributes or device.capacity, an empty map will be returned. Any reference to an unknown field will cause an evaluation error and allocation to abort.\n\nA robust expression should check for the existence of attributes before referencing them.\n\nFor ease of use, the cel.bind() function is enabled, and can be used to simplify expressions that access multiple attributes with the same domain. For example:\n\n    cel.bind(dra, device.attributes[\"dra.example.com\"], dra.someBool && dra.anotherBool)\n\nThe length of the expression must be smaller or equal to 10 Ki. The cost of evaluating it is also limited based on the estimated number of logical steps.",
+            "description": "Expression is a CEL expression which evaluates a single device. It must evaluate to true when the device under consideration satisfies the desired criteria, and false when it does not. Any other result is an error and causes allocation of devices to abort.\n\nThe expression's input is an object named \"device\", which carries the following properties:\n - driver (string): the name of the driver which defines this device.\n - attributes (map[string]object): the device's attributes, grouped by prefix\n   (e.g. device.attributes[\"dra.example.com\"] evaluates to an object with all\n   of the attributes which were prefixed by \"dra.example.com\".\n - capacity (map[string]object): the device's capacities, grouped by prefix.\n - allowMultipleAllocations (bool): the allowMultipleAllocations property of the device (v1.34+).\n\nExample: Consider a device with driver=\"dra.example.com\", which exposes two attributes named \"model\" and \"ext.example.com/family\" and which exposes one capacity named \"modules\". This input to this expression would have the following fields:\n\n    device.driver\n    device.attributes[\"dra.example.com\"].model\n    device.attributes[\"ext.example.com\"].family\n    device.capacity[\"dra.example.com\"].modules\n\nThe device.driver field can be used to check for a specific driver, either as a high-level precondition (i.e. you only want to consider devices from this driver) or as part of a multi-clause expression that is meant to consider devices from different drivers.\n\nThe value type of each attribute is defined by the device definition, and users who write these expressions must consult the documentation for their specific drivers. The value type of each capacity is Quantity.\n\nIf an unknown prefix is used as a lookup in either device.attributes or device.capacity, an empty map will be returned. Any reference to an unknown field will cause an evaluation error and allocation to abort.\n\nA robust expression should check for the existence of attributes before referencing them.\n\nFor ease of use, the cel.bind() function is enabled, and can be used to simplify expressions that access multiple attributes with the same domain. For example:\n\n    cel.bind(dra, device.attributes[\"dra.example.com\"], dra.someBool && dra.anotherBool)\n\nThe length of the expression must be smaller or equal to 10 Ki. The cost of evaluating it is also limited based on the estimated number of logical steps.",
             "type": "string"
           }
         },
@@ -269,14 +269,14 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity"
             },
-            "description": "Requests represent individual device resource requests for distinct resources which must all be provided and guaranteed by the device. If empty, nothing needs to be allocated.\n\nIf the capacity has a sharing policy, this value is rounded up to the nearest valid amount according to that policy. The rounded value is used during scheduling to determine how much capacity to consume.\n\nIf the quantity does not have a sharing policy, this value is used as an additional filtering condition against the available capacity on the device. This is semantically equivalent to a CEL selector with `device.capacity[<domain>].<name>.compareTo(quantity(<request quantity>)) >= 0` For example, device.capacity['test-driver.cdi.k8s.io'].counters.compareTo(quantity('2')) >= 0",
+            "description": "Requests represent individual device resource requests for distinct resources, all of which must be provided by the device.\n\nFor each capacity with a defined SharingPolicy, the policy is applied: - If no request amount is provided, the Default value is applied. - If the capacity's SharingPolicy defines a ValidRange, the value is used as-is or rounded up\n  to the nearest valid amount according to the policy.\n- If the capacity's SharingPolicy defines ValidValues,\n  the value must be in the defined list to be selectable and used as-is.\nThis applied value is used during scheduling to determine how much capacity to consume by the request.\n\nFor each capacity without SharingPolicy, this value is used as an additional filtering condition against the available capacity on the device. This is semantically equivalent to a CEL selector with `device.capacity[<domain>].<name>.compareTo(quantity(<request quantity>)) >= 0`. For example, device.capacity['test-driver.cdi.k8s.io'].counters.compareTo(quantity('2')) >= 0.",
             "type": "object"
           }
         },
         "type": "object"
       },
       "io.k8s.api.resource.v1beta1.CapacitySharingPolicy": {
-        "description": "CapacitySharingPolicy defines how requests consume the available capacity. A policy must have a default value to be applied when no value is explicitly provided in the ResourceClaim. Optionally, valid sharing values may additionally be defined as either a discrete set or a continuous range. If valid values are specified, the default must be included within them.",
+        "description": "CapacitySharingPolicy defines how requests consume device capacity.\n\nThe Default field must be defined for the scheduler to consume the capacity and to ensure that the total allocated capacity remains within the DeviceCapacity's Value.\n\nThe ValidSharingValues field (either ValidValues or ValidRange) is optional. At most one of ValidSharingValues can be defined. If any ValidSharingValues are defined, Default must also be defined and valid.",
         "properties": {
           "default": {
             "allOf": [
@@ -284,7 +284,7 @@
                 "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity"
               }
             ],
-            "description": "Default specifies the default capacity to be used for a consumption request."
+            "description": "Default specifies how much of this capacity is consumed by a request that does not contain an entry for it in CapacityRequests."
           },
           "validRange": {
             "allOf": [
@@ -292,10 +292,10 @@
                 "$ref": "#/components/schemas/io.k8s.api.resource.v1beta1.CapacitySharingPolicyRange"
               }
             ],
-            "description": "ValidRange defines an acceptable quantity value range in consuming requests."
+            "description": "ValidRange defines an acceptable quantity value range in consuming requests.\n\nIf this field is set, Default must be defined and it must fall within the defined ValidRange."
           },
           "validValues": {
-            "description": "ValidValues defines a set of acceptable quantity values in consuming requests.\n\nMust not contain more than 10 entries.",
+            "description": "ValidValues defines a set of acceptable quantity values in consuming requests.\n\nMust not contain more than 10 entries.\n\nIf this field is set, Default must be defined and it must be included in ValidValues list.",
             "items": {
               "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity"
             },
@@ -303,41 +303,38 @@
             "x-kubernetes-list-type": "atomic"
           }
         },
-        "required": [
-          "default"
-        ],
         "type": "object"
       },
       "io.k8s.api.resource.v1beta1.CapacitySharingPolicyRange": {
-        "description": "CapacitySharingPolicyRange defines a valid range for consumable capacity values.\n\n  - If the requested amount is less than Minimum, it is rounded up to the Minimum value.\n  - If the requested amount is between Minimum and Maximum, ChunkSize is set,\n    and the amount does not align with the ChunkSize,\n    it will be rounded up to the next value matching Minimum + (n * ChunkSize).\n  - If the requested or rounded amount exceeds Maximum (if set), the request does not satisfy the policy,\n    and the device cannot be allocated.\n\n- If ChunkSize is not set, the requested amount is used as-is, provided it falls within the range.",
+        "description": "CapacitySharingPolicyRange defines a valid range for consumable capacity values.\n\n  - If the requested amount is less than Min, it is rounded up to the Min value.\n  - If Step is set and the requested amount is between Min and Max but not aligned with Step,\n    it will be rounded up to the next value equal to Min + (n * Step).\n  - If Step is not set, the requested amount is used as-is if it falls within the range Min to Max (if set).\n  - If the requested or rounded amount exceeds Max (if set), the request does not satisfy the policy,\n    and the device cannot be allocated.",
         "properties": {
-          "chunkSize": {
+          "max": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity"
               }
             ],
-            "description": "ChunkSize defines the step size between valid capacity amounts within the range.\n\nMaximum and default must be a multiple of the chunk size. Minimum + chunk size must be less than or equal to the capacity value."
+            "description": "Max defines the upper limit for capacity that can be requested.\n\nMax must be less than or equal to the capacity value. Min and Default (if set) must be less than or equal to the maximum."
           },
-          "maximum": {
+          "min": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity"
               }
             ],
-            "description": "Maximum defines the upper limit for capacity that can be requested.\n\nMaximum must be less than or equal to the capacity value. Minimum and default must be less than or equal to the maximum."
+            "description": "Min specifies the minimum capacity allowed for a consumption request.\n\nMin must be less than or equal to the capacity value. If Default is defined, it must be more than or equal to the minimum."
           },
-          "minimum": {
+          "step": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity"
               }
             ],
-            "description": "Minimum specifies the minimum capacity allowed for a consumption request.\n\nMinimum must be less than or equal to the capacity value. Default must be more than or equal to the minimum."
+            "description": "Step defines the step size between valid capacity amounts within the range.\n\nMax and Default (if set) must be a multiple of Step. Min + Step must be less than or equal to the capacity value."
           }
         },
         "required": [
-          "minimum"
+          "min"
         ],
         "type": "object"
       },
@@ -502,7 +499,7 @@
                 "$ref": "#/components/schemas/io.k8s.api.resource.v1beta1.CapacitySharingPolicy"
               }
             ],
-            "description": "SharingPolicy specifies that this device capacity must be consumed by each resource claim according to the defined sharing policy. The Device must have AllowMultipleAllocations set to true.\n\nIf this field is unset, capacity sharing is unconstrained. All ResourceClaims or requests share the same capacity pool."
+            "description": "SharingPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have AllowMultipleAllocations set to true.\n\nIf this field is unset, capacity sharing is unconstrained: all ResourceClaims or requests share the same capacity pool."
           },
           "value": {
             "allOf": [
@@ -510,7 +507,7 @@
                 "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity"
               }
             ],
-            "description": "Value defines how much of a certain device capacity is available.\n\nIf the capacity is consumable (i.e., a SharingPolicy is specified), the consumed amount is deducted and cached in memory by the scheduler. Note that the remaining capacity is not reflected in the resource slice."
+            "description": "Value defines how much of a certain capacity that device has.\n\nThis field reflects the fixed total capacity and does not change. If the capacity is consumable (i.e., a SharingPolicy is defined), the consumed amount is tracked separately and does not affect this value"
           }
         },
         "required": [
@@ -786,7 +783,7 @@
                 "$ref": "#/components/schemas/io.k8s.api.resource.v1beta1.CapacityRequirements"
               }
             ],
-            "description": "CapacityRequests define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity with a defined sharing policy."
+            "description": "CapacityRequests define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity with a defined sharing policy.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements."
           },
           "count": {
             "description": "Count is used only when the count mode is \"ExactCount\". Must be greater than zero. If AllocationMode is ExactCount and this field is not specified, the default is one.\n\nThis field can only be set when deviceClassName is set and no subrequests are specified in the firstAvailable list.",
@@ -859,7 +856,7 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity"
             },
-            "description": "ConsumedCapacities tracks the amount of capacity consumed per device as part of the claim request. The consumed amount may differ from the requested amount: it is rounded up to the nearest valid value based on the device’s sharing policy if applicable (i.e., may not be less than the requested amount).\n\nThe total consumed capacity for each device must not exceed its available capacity.\n\nThis field references only consumable capacities of a device and is empty when there are none.",
+            "description": "ConsumedCapacities tracks the amount of capacity consumed per device as part of the claim request. The consumed amount may differ from the requested amount: it is rounded up to the nearest valid value based on the device’s sharing policy if applicable and must not be less than the requested amount.\n\nThe total consumed capacity for each device must not exceed the DeviceCapacity's Value.\n\nThis field references only consumable capacities of a device and is empty when there are none.",
             "type": "object"
           },
           "device": {
@@ -883,7 +880,7 @@
             "type": "string"
           },
           "shareID": {
-            "description": "ShareID uniquely identifies an individual allocation share of a device, used when the device supports multiple simultaneous allocations. It serves as an additional map key to differentiate concurrent shares of the same device.\n\nThe ID is randomly generated as a hexadecimal (hex) string for each allocation share. It must be unique among all currently allocated shares for the same device (i.e., uniqueness is required only at the device level, not globally).\n\nHex is chosen for its compact representation, ease of generation from binary, and suitability for identifiers in logs, APIs, and storage.",
+            "description": "ShareID uniquely identifies an individual allocation share of a device, used when the device supports multiple simultaneous allocations. It serves as an additional map key to differentiate concurrent shares of the same device.",
             "type": "string"
           },
           "tolerations": {
@@ -935,7 +932,7 @@
                 "$ref": "#/components/schemas/io.k8s.api.resource.v1beta1.CapacityRequirements"
               }
             ],
-            "description": "CapacityRequests define resource requirements against each capacity."
+            "description": "CapacityRequests define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity with a defined sharing policy.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements."
           },
           "count": {
             "description": "Count is used only when the count mode is \"ExactCount\". Must be greater than zero. If AllocationMode is ExactCount and this field is not specified, the default is one.",

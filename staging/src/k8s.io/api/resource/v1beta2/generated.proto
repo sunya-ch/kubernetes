@@ -32,6 +32,9 @@ option go_package = "k8s.io/api/resource/v1beta2";
 
 // AllocatedDeviceStatus contains the status of an allocated device, if the
 // driver chooses to report it. This may include driver-specific information.
+//
+// The combination of Driver, Pool, Device, and ShareID must match the corresponding key
+// in Status.Allocation.Devices.
 message AllocatedDeviceStatus {
   // Driver specifies the name of the DRA driver whose kubelet
   // plugin should be invoked to process the allocation once the claim is
@@ -195,8 +198,8 @@ message CapacityRequirements {
 // At most one of ValidSharingValues can be defined.
 // If any ValidSharingValues are defined, Default must also be defined and valid.
 message CapacitySharingPolicy {
-  // Default specifies the amount of this capacity consumed by a request
-  // that does not include an entry for it in CapacityRequests.
+  // Default specifies how much of this capacity is consumed by a request
+  // that does not contain an entry for it in CapacityRequests.
   //
   // +optional
   optional .k8s.io.apimachinery.pkg.api.resource.Quantity default = 1;
@@ -456,11 +459,11 @@ message DeviceAttribute {
 
 // DeviceCapacity describes a quantity associated with a device.
 message DeviceCapacity {
-  // Value defines how much of a certain device capacity is available.
+  // Value defines how much of a certain capacity that device has.
   //
-  // If the capacity is consumable (i.e., a SharingPolicy is specified),
-  // the consumed amount is deducted and cached in memory by the scheduler.
-  // Note that the remaining capacity is not reflected in the resource slice.
+  // This field reflects the fixed total capacity and does not change.
+  // If the capacity is consumable (i.e., a SharingPolicy is defined),
+  // the consumed amount is tracked separately and does not affect this value
   //
   // +required
   optional .k8s.io.apimachinery.pkg.api.resource.Quantity value = 1;

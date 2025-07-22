@@ -97,9 +97,9 @@
                   "0"
                 ],
                 "validRange": {
-                  "minimum": "0",
-                  "maximum": "0",
-                  "chunkSize": "0"
+                  "min": "0",
+                  "max": "0",
+                  "step": "0"
                 }
               }
             }

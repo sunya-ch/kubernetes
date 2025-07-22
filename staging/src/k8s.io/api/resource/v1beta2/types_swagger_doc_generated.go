@@ -28,7 +28,7 @@ package v1beta2
 
 // AUTO-GENERATED FUNCTIONS START HERE. DO NOT EDIT.
 var map_AllocatedDeviceStatus = map[string]string{
-	"":            "AllocatedDeviceStatus contains the status of an allocated device, if the driver chooses to report it. This may include driver-specific information.",
+	"":            "AllocatedDeviceStatus contains the status of an allocated device, if the driver chooses to report it. This may include driver-specific information.\n\nThe combination of Driver, Pool, Device, and ShareID must match the corresponding key in Status.Allocation.Devices.",
 	"driver":      "Driver specifies the name of the DRA driver whose kubelet plugin should be invoked to process the allocation once the claim is needed on a node.\n\nMust be a DNS subdomain and should end with a DNS domain owned by the vendor of the driver.",
 	"pool":        "This name together with the driver name and the device name field identify which device was allocated (`<driver name>/<pool name>/<device name>`).\n\nMust not be longer than 253 characters and may contain one or more DNS sub-domains separated by slashes.",
 	"device":      "Device references one device instance via its name in the driver's resource pool. It must be a DNS label.",
@@ -72,7 +72,7 @@ func (CapacityRequirements) SwaggerDoc() map[string]string {
 
 var map_CapacitySharingPolicy = map[string]string{
 	"":            "CapacitySharingPolicy defines how requests consume device capacity.\n\nThe Default field must be defined for the scheduler to consume the capacity and to ensure that the total allocated capacity remains within the DeviceCapacity's Value.\n\nThe ValidSharingValues field (either ValidValues or ValidRange) is optional. At most one of ValidSharingValues can be defined. If any ValidSharingValues are defined, Default must also be defined and valid.",
-	"default":     "Default specifies the amount of this capacity consumed by a request that does not include an entry for it in CapacityRequests.",
+	"default":     "Default specifies how much of this capacity is consumed by a request that does not contain an entry for it in CapacityRequests.",
 	"validValues": "ValidValues defines a set of acceptable quantity values in consuming requests.\n\nMust not contain more than 10 entries.\n\nIf this field is set, Default must be defined and it must be included in ValidValues list.",
 	"validRange":  "ValidRange defines an acceptable quantity value range in consuming requests.\n\nIf this field is set, Default must be defined and it must fall within the defined ValidRange.",
 }
@@ -162,7 +162,7 @@ func (DeviceAttribute) SwaggerDoc() map[string]string {
 
 var map_DeviceCapacity = map[string]string{
 	"":              "DeviceCapacity describes a quantity associated with a device.",
-	"value":         "Value defines how much of a certain device capacity is available.\n\nIf the capacity is consumable (i.e., a SharingPolicy is specified), the consumed amount is deducted and cached in memory by the scheduler. Note that the remaining capacity is not reflected in the resource slice.",
+	"value":         "Value defines how much of a certain capacity that device has.\n\nThis field reflects the fixed total capacity and does not change. If the capacity is consumable (i.e., a SharingPolicy is defined), the consumed amount is tracked separately and does not affect this value",
 	"sharingPolicy": "SharingPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have AllowMultipleAllocations set to true.\n\nIf this field is unset, capacity sharing is unconstrained: all ResourceClaims or requests share the same capacity pool.",
 }
 
