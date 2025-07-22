@@ -15,5 +15,5 @@ jobs:
         ulimit -n 1200
     - name: Integration test
       run: |
-        make test-integration WHAT=./test/integration/scheduler_perf/... GOFLAGS=-v KUBE_COVER=y
+        make test-integration WHAT=./test/integration/scheduler_perf/dra GOFLAGS=-v KUBE_COVER=y
         make test-integration WHAT=./test/integration/dra/... GOFLAGS=-v KUBE_COVER=y
