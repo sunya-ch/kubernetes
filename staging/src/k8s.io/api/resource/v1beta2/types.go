@@ -1742,8 +1742,6 @@ type AllocatedDeviceStatus struct {
 
 	// ShareID uniquely identifies an individual allocation share of a device.
 	//
-	// Must be a valid UID.
-	//
 	// +default=""
 	// +optional
 	// +featureGate=DRAConsumableCapacity

@@ -63,11 +63,9 @@ func GenerateShareID() *types.UID {
 
 func ConvertShareIDToStringPointer(shareID *types.UID) (shareIDStrPtr *string) {
 	if shareID != nil {
-		shareIDStrPtr = ptr.To(string(*shareID))
-	} else {
-		shareIDStrPtr = ptr.To(string(""))
+		return ptr.To(string(*shareID))
 	}
-	return shareIDStrPtr
+	return ptr.To(string(""))
 }
 
 // AllocatedState packs information of allocated devices which is gathered from allocated resource claims.
