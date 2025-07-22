@@ -1259,6 +1259,9 @@ func RunBenchmarkPerfScheduling(b *testing.B, configFile string, topicName strin
 					// carried over to the next workload.
 					legacyregistry.Reset()
 
+					// Reset CEL compiler
+					dracel.ResetCompiler()
+
 					// Exactly one result is expected to contain the progress information.
 					for _, item := range results {
 						if len(item.progress) == 0 {

@@ -1845,7 +1845,7 @@ var _ = framework.SIGDescribe("node")(framework.WithLabel("DRA"), framework.With
 		))
 		b := drautils.NewBuilder(f, driver)
 
-		f.It("must allow multiple allocations and consume capacity", func(ctx context.Context) {
+		f.It("must allow multiple allocations and consume capacity", f.WithLabel("KubeletMinVersion:1.34"), func(ctx context.Context) {
 			// The first pod will use 4Gi of the device.
 			claim := b.ExternalClaim()
 			claim.Spec.Devices.Requests[0].Exactly.CapacityRequests = &resourceapi.CapacityRequirements{
