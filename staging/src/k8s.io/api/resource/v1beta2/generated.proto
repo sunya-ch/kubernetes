@@ -58,6 +58,15 @@ message AllocatedDeviceStatus {
   // +required
   optional string device = 3;
 
+  // ShareID uniquely identifies an individual allocation share of a device.
+  //
+  // Must be a valid UID.
+  //
+  // +default=""
+  // +optional
+  // +featureGate=DRAConsumableCapacity
+  optional string shareID = 7;
+
   // Conditions contains the latest observation of the device's state.
   // If the device has been configured according to the class and claim
   // config references, the `Ready` condition should be True.
@@ -110,6 +119,7 @@ message CELDeviceSelector {
   //    (e.g. device.attributes["dra.example.com"] evaluates to an object with all
   //    of the attributes which were prefixed by "dra.example.com".
   //  - capacity (map[string]object): the device's capacities, grouped by prefix.
+  //  - allowMultipleAllocations (bool): the allowMultipleAllocations property of the device (v1.34+).
   //
   // Example: Consider a device with driver="dra.example.com", which exposes
   // two attributes named "model" and "ext.example.com/family" and which
@@ -151,6 +161,98 @@ message CELDeviceSelector {
   //
   // +required
   optional string expression = 1;
+}
+
+// CapacityRequirements defines the capacity requirements for a specific device request.
+message CapacityRequirements {
+  // Requests represent individual device resource requests for distinct resources,
+  // all of which must be provided by the device.
+  //
+  // For each capacity with a defined SharingPolicy, the policy is applied:
+  // - If no request amount is provided, the Default value is applied.
+  // - If the capacity's SharingPolicy defines a ValidRange, the value is used as-is or rounded up
+  //   to the nearest valid amount according to the policy.
+  // - If the capacity's SharingPolicy defines ValidValues,
+  //   the value must be in the defined list to be selectable and used as-is.
+  // This applied value is used during scheduling to determine how much capacity to consume by the request.
+  //
+  // For each capacity without SharingPolicy, this value is used as an additional filtering
+  // condition against the available capacity on the device.
+  // This is semantically equivalent to a CEL selector with
+  // `device.capacity[<domain>].<name>.compareTo(quantity(<request quantity>)) >= 0`.
+  // For example, device.capacity['test-driver.cdi.k8s.io'].counters.compareTo(quantity('2')) >= 0.
+  //
+  // +optional
+  map<string, .k8s.io.apimachinery.pkg.api.resource.Quantity> requests = 1;
+}
+
+// CapacitySharingPolicy defines how requests consume device capacity.
+//
+// The Default field must be defined for the scheduler to consume the capacity
+// and to ensure that the total allocated capacity remains within the DeviceCapacity's Value.
+//
+// The ValidSharingValues field (either ValidValues or ValidRange) is optional.
+// At most one of ValidSharingValues can be defined.
+// If any ValidSharingValues are defined, Default must also be defined and valid.
+message CapacitySharingPolicy {
+  // Default specifies the amount of this capacity consumed by a request
+  // that does not include an entry for it in CapacityRequests.
+  //
+  // +optional
+  optional .k8s.io.apimachinery.pkg.api.resource.Quantity default = 1;
+
+  // ValidValues defines a set of acceptable quantity values in consuming requests.
+  //
+  // Must not contain more than 10 entries.
+  //
+  // If this field is set, Default must be defined and it must be included in ValidValues list.
+  //
+  // +optional
+  // +listType=atomic
+  // +oneOf=ValidSharingValues
+  repeated .k8s.io.apimachinery.pkg.api.resource.Quantity validValues = 2;
+
+  // ValidRange defines an acceptable quantity value range in consuming requests.
+  //
+  // If this field is set, Default must be defined and it must fall within the defined ValidRange.
+  //
+  // +optional
+  // +oneOf=ValidSharingValues
+  optional CapacitySharingPolicyRange validRange = 3;
+}
+
+// CapacitySharingPolicyRange defines a valid range for consumable capacity values.
+//
+//   - If the requested amount is less than Min, it is rounded up to the Min value.
+//   - If Step is set and the requested amount is between Min and Max but not aligned with Step,
+//     it will be rounded up to the next value equal to Min + (n * Step).
+//   - If Step is not set, the requested amount is used as-is if it falls within the range Min to Max (if set).
+//   - If the requested or rounded amount exceeds Max (if set), the request does not satisfy the policy,
+//     and the device cannot be allocated.
+message CapacitySharingPolicyRange {
+  // Min specifies the minimum capacity allowed for a consumption request.
+  //
+  // Min must be less than or equal to the capacity value.
+  // If Default is defined, it must be more than or equal to the minimum.
+  //
+  // +required
+  optional .k8s.io.apimachinery.pkg.api.resource.Quantity min = 1;
+
+  // Max defines the upper limit for capacity that can be requested.
+  //
+  // Max must be less than or equal to the capacity value.
+  // Min and Default (if set) must be less than or equal to the maximum.
+  //
+  // +optional
+  optional .k8s.io.apimachinery.pkg.api.resource.Quantity max = 2;
+
+  // Step defines the step size between valid capacity amounts within the range.
+  //
+  // Max and Default (if set) must be a multiple of Step.
+  // Min + Step must be less than or equal to the capacity value.
+  //
+  // +optional
+  optional .k8s.io.apimachinery.pkg.api.resource.Quantity step = 3;
 }
 
 // Counter describes a quantity associated with a device.
@@ -269,6 +371,15 @@ message Device {
   // +listType=atomic
   // +featureGate=DRADeviceTaints
   repeated DeviceTaint taints = 8;
+
+  // AllowMultipleAllocations marks whether the device is allowed to be allocated multiple times.
+  //
+  // If AllowMultipleAllocations is set to true, the device can be allocated more than once,
+  // and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.
+  //
+  // +optional
+  // +featureGate=DRAConsumableCapacity
+  optional bool allowMultipleAllocations = 9;
 }
 
 // DeviceAllocationConfiguration gets embedded in an AllocationResult.
@@ -347,8 +458,24 @@ message DeviceAttribute {
 message DeviceCapacity {
   // Value defines how much of a certain device capacity is available.
   //
+  // If the capacity is consumable (i.e., a SharingPolicy is specified),
+  // the consumed amount is deducted and cached in memory by the scheduler.
+  // Note that the remaining capacity is not reflected in the resource slice.
+  //
   // +required
   optional .k8s.io.apimachinery.pkg.api.resource.Quantity value = 1;
+
+  // SharingPolicy defines how this DeviceCapacity must be consumed
+  // when the device is allowed to be shared by multiple allocations.
+  //
+  // The Device must have AllowMultipleAllocations set to true.
+  //
+  // If this field is unset, capacity sharing is unconstrained:
+  // all ResourceClaims or requests share the same capacity pool.
+  //
+  // +optional
+  // +featureGate=DRAConsumableCapacity
+  optional CapacitySharingPolicy sharingPolicy = 2;
 }
 
 // DeviceClaim defines how to request devices with a ResourceClaim.
@@ -493,6 +620,22 @@ message DeviceConstraint {
   // +optional
   // +oneOf=ConstraintType
   optional string matchAttribute = 2;
+
+  // DistinctAttribute requires that all devices in question have this
+  // attribute and that its type and value are unique across those devices.
+  //
+  // This acts as the inverse of MatchAttribute.
+  //
+  // This constraint is used to avoid allocating multiple requests to the same device
+  // by ensuring attribute-level differentiation.
+  //
+  // This is useful for scenarios where resource requests must be fulfilled by separate physical devices.
+  // For example, a container requests two network interfaces that must be allocated from two different physical NICs.
+  //
+  // +optional
+  // +oneOf=ConstraintType
+  // +featureGate=DRAConsumableCapacity
+  optional string distinctAttribute = 3;
 }
 
 // DeviceCounterConsumption defines a set of counters that
@@ -626,6 +769,27 @@ message DeviceRequestAllocationResult {
   // +listType=atomic
   // +featureGate=DRADeviceTaints
   repeated DeviceToleration tolerations = 6;
+
+  // ShareID uniquely identifies an individual allocation share of a device,
+  // used when the device supports multiple simultaneous allocations.
+  // It serves as an additional map key to differentiate concurrent shares
+  // of the same device.
+  //
+  // +optional
+  // +featureGate=DRAConsumableCapacity
+  optional string shareID = 7;
+
+  // ConsumedCapacities tracks the amount of capacity consumed per device as part of the claim request.
+  // The consumed amount may differ from the requested amount: it is rounded up to the nearest valid
+  // value based on the device’s sharing policy if applicable (i.e., may not be less than the requested amount).
+  //
+  // The total consumed capacity for each device must not exceed its available capacity.
+  //
+  // This field references only consumable capacities of a device and is empty when there are none.
+  //
+  // +optional
+  // +featureGate=DRAConsumableCapacity
+  map<string, .k8s.io.apimachinery.pkg.api.resource.Quantity> consumedCapacities = 8;
 }
 
 // DeviceSelector must have exactly one field set.
@@ -729,6 +893,21 @@ message DeviceSubRequest {
   // +listType=atomic
   // +featureGate=DRADeviceTaints
   repeated DeviceToleration tolerations = 6;
+
+  // CapacityRequests define resource requirements against each capacity.
+  //
+  // If this field is unset and the device supports multiple allocations,
+  // the default value will be applied to each capacity with a defined sharing policy.
+  //
+  // Applies to each device allocation.
+  // If Count > 1,
+  // request fails if there aren't enough devices that meet the requirements.
+  // If AllocationMode is set to All,
+  // request fails if any device doesn't meet the requirements.
+  //
+  // +optional
+  // +featureGate=DRAConsumableCapacity
+  optional CapacityRequirements capacityRequests = 7;
 }
 
 // The device this taint is attached to has the "effect" on
@@ -898,6 +1077,21 @@ message ExactDeviceRequest {
   // +listType=atomic
   // +featureGate=DRADeviceTaints
   repeated DeviceToleration tolerations = 6;
+
+  // CapacityRequests define resource requirements against each capacity.
+  //
+  // If this field is unset and the device supports multiple allocations,
+  // the default value will be applied to each capacity with a defined sharing policy.
+  //
+  // Applies to each device allocation.
+  // If Count > 1,
+  // request fails if there aren't enough devices that meet the requirements.
+  // If AllocationMode is set to All,
+  // request fails if any device doesn't meet the requirements.
+  //
+  // +optional
+  // +featureGate=DRAConsumableCapacity
+  optional CapacityRequirements capacityRequests = 7;
 }
 
 // NetworkDeviceData provides network-related details for the allocated device.
@@ -1064,6 +1258,7 @@ message ResourceClaimStatus {
   // +listMapKey=driver
   // +listMapKey=device
   // +listMapKey=pool
+  // +listMapKey=shareID
   // +featureGate=DRAResourceClaimDeviceStatus
   repeated AllocatedDeviceStatus devices = 4;
 }
