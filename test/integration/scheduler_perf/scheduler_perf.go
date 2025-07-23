@@ -59,6 +59,7 @@ import (
 	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/component-base/metrics/testutil"
+	dracel "k8s.io/dynamic-resource-allocation/cel"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/scheduler/apis/config"
@@ -1074,6 +1075,8 @@ func setupTestCase(t testing.TB, tc *testCase, featureGates map[featuregate.Feat
 			t.Fatalf("Failed to apply the per-test logging configuration: %v", err)
 		}
 	}
+	// Always reset compiler after test
+	t.Cleanup(dracel.ResetCompiler)
 
 	// Ensure that there are no leaked
 	// goroutines.  They could influence
@@ -1097,6 +1100,11 @@ func setupTestCase(t testing.TB, tc *testCase, featureGates map[featuregate.Feat
 	// Only emulate v1.33 when QueueingHints is explicitly disabled.
 	if qhEnabled, exists := featureGates[features.SchedulerQueueingHints]; exists && !qhEnabled {
 		featuregatetesting.SetFeatureGateEmulationVersionDuringTest(t, utilfeature.DefaultFeatureGate, version.MustParse("1.33"))
+	}
+	// We need to set minimum compatibility version for DRAConsumableCapacity feature gate, which requires 1.34.
+	if consumableEnabled, exists := featureGates[features.DRAConsumableCapacity]; exists && consumableEnabled {
+		t.Log("Setting minimum compatibility version: 1.34")
+		featuregatetesting.SetDefaultMinCompatibilityDuringTest(t, version.MustParse("1.34"))
 	}
 	for feature, flag := range featureGates {
 		featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, feature, flag)

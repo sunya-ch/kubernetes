@@ -22,14 +22,18 @@ import (
 	"sync"
 
 	"k8s.io/apimachinery/pkg/util/version"
+	"k8s.io/apiserver/pkg/util/compatibility"
+	basecompatibility "k8s.io/component-base/compatibility"
 	"k8s.io/component-base/featuregate"
 )
 
 var (
-	overrideLock                  sync.Mutex
-	featureFlagOverride           map[featuregate.Feature]string
-	emulationVersionOverride      string
-	emulationVersionOverrideValue *version.Version
+	overrideLock                      sync.Mutex
+	featureFlagOverride               map[featuregate.Feature]string
+	emulationVersionOverride          string
+	emulationVersionOverrideValue     *version.Version
+	minimumCompatibilityOverride      string
+	minimumCompatibilityOverrideValue *version.Version
 )
 
 func init() {
@@ -136,6 +140,27 @@ func SetFeatureGateEmulationVersionDuringTest(tb TB, gate featuregate.FeatureGat
 	})
 }
 
+// featuregatetesting.SetDefaultMinCompatibilityDuringTest(t, version.MustParse("1.31"))
+func SetDefaultMinCompatibilityDuringTest(tb TB, ver *version.Version) {
+	tb.Helper()
+	detectParallelOverrideCleanup := detectParallelOverrideMinimumCompatibilityVersion(tb, ver)
+	effectiveVer := compatibility.DefaultComponentGlobalsRegistry.EffectiveVersionFor(basecompatibility.DefaultKubeComponent)
+	if effectiveVer == nil {
+		tb.Fatalf("failed to get effective version during test")
+	}
+	originalVer := effectiveVer.MinCompatibilityVersion()
+	if err := compatibility.DefaultComponentGlobalsRegistry.SetMinCompatibilityVersion(basecompatibility.DefaultKubeComponent, ver); err != nil {
+		tb.Fatalf("failed to set minimum compatibility version of %s to %s during test: %v", basecompatibility.DefaultKubeComponent, ver.String(), err)
+	}
+	tb.Cleanup(func() {
+		tb.Helper()
+		detectParallelOverrideCleanup()
+		if err := compatibility.DefaultComponentGlobalsRegistry.SetMinCompatibilityVersion(basecompatibility.DefaultKubeComponent, originalVer); err != nil {
+			tb.Fatalf("failed to restore minimum compatibility version of %s to %s during test: %v", basecompatibility.DefaultKubeComponent, ver.String(), err)
+		}
+	})
+}
+
 func detectParallelOverride(tb TB, f featuregate.Feature) func() {
 	tb.Helper()
 	overrideLock.Lock()
@@ -181,6 +206,33 @@ func detectParallelOverrideEmulationVersion(tb TB, ver *version.Version) func() 
 		}
 		emulationVersionOverride = beforeOverrideTestName
 		emulationVersionOverrideValue = beforeOverrideValue
+	}
+}
+
+func detectParallelOverrideMinimumCompatibilityVersion(tb TB, ver *version.Version) func() {
+	tb.Helper()
+	overrideLock.Lock()
+	defer overrideLock.Unlock()
+	beforeOverrideTestName := minimumCompatibilityOverride
+	beforeOverrideValue := minimumCompatibilityOverrideValue
+	if ver.EqualTo(beforeOverrideValue) {
+		return func() {}
+	}
+	if beforeOverrideTestName != "" && !sameTestOrSubtest(tb, beforeOverrideTestName) {
+		tb.Fatalf("Detected parallel setting of a feature gate minimum compatibility version by both %q and %q", beforeOverrideTestName, tb.Name())
+	}
+	minimumCompatibilityOverride = tb.Name()
+	minimumCompatibilityOverrideValue = ver
+
+	return func() {
+		tb.Helper()
+		overrideLock.Lock()
+		defer overrideLock.Unlock()
+		if afterOverrideTestName := minimumCompatibilityOverride; afterOverrideTestName != tb.Name() {
+			tb.Fatalf("Detected parallel setting of a feature gate minimum compatibility version between both %q and %q", afterOverrideTestName, tb.Name())
+		}
+		minimumCompatibilityOverride = beforeOverrideTestName
+		minimumCompatibilityOverrideValue = beforeOverrideValue
 	}
 }
 
