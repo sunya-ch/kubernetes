@@ -1001,17 +1001,6 @@ type CapacityRequirements struct {
 	// +optional
 	Requests map[QualifiedName]resource.Quantity
 
-	// ^^^
-	// The alternative names proposed were: `Required`, `Reservation`, `Consumption`, and `Min`.
-	// `Requests` was dropped once since it's already used in the DRA API for device requests.
-	// `Min` was selected as an alternative.
-	// `Requests` was selected during API review because
-	// it is more align with the container spec and
-	// matches present semantic definition used elsewhere in the API (minimum guaranteed, must be satisfied).
-	// with the need of clear description to distinguish
-	// between requests for devices and requests for resources which must be provided by those devices.
-	// based on the sharing policy — for example, to match a defined chunk size or meet a requirement.
-
 	// Potential extension:
 	// `Limits` field to describe burstable consumption.
 	// Handling burstability would be the responsibility of the individual device driver,
