@@ -218,7 +218,7 @@
             "description": "ValidRange defines an acceptable quantity value range in consuming requests.\n\nIf this field is set, Default must be defined and it must fall within the defined ValidRange."
           },
           "validValues": {
-            "description": "ValidValues defines a set of acceptable quantity values in consuming requests.\n\nMust not contain more than 10 entries.\n\nIf this field is set, Default must be defined and it must be included in ValidValues list.",
+            "description": "ValidValues defines a set of acceptable quantity values in consuming requests.\n\nMust not contain more than 10 entries. Must be sorted in ascending order.\n\nIf this field is set, Default must be defined and it must be included in ValidValues list.",
             "items": {
               "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity"
             },
