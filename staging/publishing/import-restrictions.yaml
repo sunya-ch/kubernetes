@@ -65,6 +65,7 @@
 - baseImportPath: "./staging/src/k8s.io/component-base"
   allowedImports:
   - k8s.io/apimachinery
+  - k8s.io/apiserver
   - k8s.io/component-base
   - k8s.io/client-go
   - k8s.io/client-go/tools/
