@@ -87,14 +87,14 @@ spec:
       requests:
       - adminAccess: true
         allocationMode: allocationModeValue
-        capacityRequests:
+        capacity:
           requests:
             requestsKey: "0"
         count: 5
         deviceClassName: deviceClassNameValue
         firstAvailable:
         - allocationMode: allocationModeValue
-          capacityRequests:
+          capacity:
             requests:
               requestsKey: "0"
           count: 5

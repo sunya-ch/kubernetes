@@ -55,7 +55,7 @@ spec:
     - exactly:
         adminAccess: true
         allocationMode: allocationModeValue
-        capacityRequests:
+        capacity:
           requests:
             requestsKey: "0"
         count: 4
@@ -71,7 +71,7 @@ spec:
           value: valueValue
       firstAvailable:
       - allocationMode: allocationModeValue
-        capacityRequests:
+        capacity:
           requests:
             requestsKey: "0"
         count: 5

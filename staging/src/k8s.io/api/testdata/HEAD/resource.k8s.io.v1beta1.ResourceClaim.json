@@ -81,7 +81,7 @@
                   "tolerationSeconds": 5
                 }
               ],
-              "capacityRequests": {
+              "capacity": {
                 "requests": {
                   "requestsKey": "0"
                 }
@@ -97,7 +97,7 @@
               "tolerationSeconds": 5
             }
           ],
-          "capacityRequests": {
+          "capacity": {
             "requests": {
               "requestsKey": "0"
             }
