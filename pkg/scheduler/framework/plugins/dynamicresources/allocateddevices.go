@@ -63,18 +63,16 @@ func foreachAllocatedDevice(claim *resourceapi.ResourceClaim,
 		// if DRAConsumableCapacity feature is enabled
 		if enabledConsumableCapacity {
 			shared := result.ShareID != nil
-			// None of the users of this helper need to abort iterating,
-			// therefore it's not supported as it only would add overhead.
-			if !shared {
-				dedicatedDeviceCallback(deviceID)
+			if shared {
+				sharedDeviceID := structured.MakeSharedDeviceID(deviceID, result.ShareID)
+				sharedDeviceCallback(sharedDeviceID)
+				if result.ConsumedCapacity != nil {
+					deviceConsumedCapacity := structured.NewDeviceConsumedCapacity(deviceID, result.ConsumedCapacity)
+					consumedCapacityCallback(deviceConsumedCapacity)
+				}
 				continue
 			}
-			sharedDeviceID := structured.MakeSharedDeviceID(deviceID, result.ShareID)
-			sharedDeviceCallback(sharedDeviceID)
-			if result.ConsumedCapacity != nil {
-				deviceConsumedCapacity := structured.NewDeviceConsumedCapacity(deviceID, result.ConsumedCapacity)
-				consumedCapacityCallback(deviceConsumedCapacity)
-			}
+			dedicatedDeviceCallback(deviceID)
 			continue
 		}
 
