@@ -2464,6 +2464,7 @@ func RunTestCoreResourceEnqueue(t *testing.T, tt *CoreResourceEnqueueTestCase) {
 	t.Log("finished initial schedulings for all Pods, will trigger triggerFn")
 
 	legacyregistry.Reset() // reset the metric before triggering
+
 	wantTriggeredEvents, err := tt.TriggerFn(testCtx)
 	if err != nil {
 		t.Fatalf("Failed to trigger the event: %v", err)

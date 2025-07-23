@@ -229,6 +229,7 @@ func TestDRA(t *testing.T) {
 				features.DynamicResourceAllocation: true,
 				// TODO: replace specific list with AllBeta once DRA is not beta.
 				features.DRAResourceClaimDeviceStatus: false,
+				features.DRAConsumableCapacity:        false,
 				// featuregate.Feature("AllBeta"):     false,
 			},
 			f: func(tCtx ktesting.TContext) {
@@ -247,7 +248,9 @@ func TestDRA(t *testing.T) {
 				resourceapi.SchemeGroupVersion:     true,
 				resourcev1beta2.SchemeGroupVersion: true,
 			},
-			features: map[featuregate.Feature]bool{features.DynamicResourceAllocation: true},
+			features: map[featuregate.Feature]bool{
+				features.DynamicResourceAllocation: true,
+			},
 			f: func(tCtx ktesting.TContext) {
 				tCtx.Run("AdminAccess", func(tCtx ktesting.TContext) { testAdminAccess(tCtx, false) })
 				tCtx.Run("PrioritizedList", func(tCtx ktesting.TContext) { testPrioritizedList(tCtx, false) })
@@ -292,6 +295,7 @@ func TestDRA(t *testing.T) {
 				// in alphabetical order,
 				// as needed by tests for them.
 				features.DRAAdminAccess:          true,
+				features.DRAConsumableCapacity:   true,
 				features.DRADeviceTaints:         true,
 				features.DRAPartitionableDevices: true,
 				features.DRAPrioritizedList:      true,
@@ -795,13 +799,14 @@ func testPublishResourceSlices(tCtx ktesting.TContext, haveLatestAPI bool, disab
 				var expected []any
 				for _, device := range spec.Devices {
 					expected = append(expected, gstruct.MatchAllFields(gstruct.Fields{
-						"Name":             gomega.Equal(device.Name),
-						"Attributes":       gomega.Equal(device.Attributes),
-						"Capacity":         gomega.Equal(device.Capacity),
-						"ConsumesCounters": gomega.Equal(device.ConsumesCounters),
-						"NodeName":         matchPointer(device.NodeName),
-						"NodeSelector":     matchPointer(device.NodeSelector),
-						"AllNodes":         matchPointer(device.AllNodes),
+						"Name":                     gomega.Equal(device.Name),
+						"AllowMultipleAllocations": gomega.Equal(device.AllowMultipleAllocations),
+						"Attributes":               gomega.Equal(device.Attributes),
+						"Capacity":                 gomega.Equal(device.Capacity),
+						"ConsumesCounters":         gomega.Equal(device.ConsumesCounters),
+						"NodeName":                 matchPointer(device.NodeName),
+						"NodeSelector":             matchPointer(device.NodeSelector),
+						"AllNodes":                 matchPointer(device.AllNodes),
 						"Taints": gomega.HaveExactElements(func() []any {
 							var expected []any
 							for _, taint := range device.Taints {
@@ -1034,6 +1039,7 @@ func testResourceClaimDeviceStatus(tCtx ktesting.TContext, enabled bool) {
 			HardwareAddress: "ea:9f:cb:40:b1:7b",
 		},
 	}}
+
 	claim.Status.Devices = deviceStatus
 	updatedClaim, err := tCtx.Client().ResourceV1beta1().ResourceClaims(namespace).UpdateStatus(tCtx, claim, metav1.UpdateOptions{})
 	if !enabled {

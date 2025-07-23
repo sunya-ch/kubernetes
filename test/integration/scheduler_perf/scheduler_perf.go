@@ -59,6 +59,7 @@ import (
 	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/component-base/metrics/testutil"
+	dracel "k8s.io/dynamic-resource-allocation/cel"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/scheduler/apis/config"
@@ -1101,6 +1102,11 @@ func setupTestCase(t testing.TB, tc *testCase, featureGates map[featuregate.Feat
 	for feature, flag := range featureGates {
 		featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, feature, flag)
 	}
+
+	// Reset CEL compiler
+	emulationVersion := utilfeature.DefaultFeatureGate.(featuregate.MutableVersionedFeatureGate).EmulationVersion()
+	t.Logf("Resetting compiler: %s", emulationVersion)
+	dracel.ResetCompiler(emulationVersion)
 
 	// 30 minutes should be plenty enough even for the 5000-node tests.
 	timeout := 30 * time.Minute
