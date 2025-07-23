@@ -29,6 +29,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2
 	golang.org/x/sys v0.31.0
 	k8s.io/apimachinery v0.0.0
+	k8s.io/apiserver v0.0.0
 	k8s.io/client-go v0.0.0
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
@@ -90,5 +91,7 @@ require (
 replace (
 	k8s.io/api => ../api
 	k8s.io/apimachinery => ../apimachinery
+	k8s.io/apiserver => ../apiserver
 	k8s.io/client-go => ../client-go
+	k8s.io/kms => ../kms
 )
