@@ -90,7 +90,10 @@ func GetCompiler() *compiler {
 func SetCompilerWithVersion(version *version.Version) {
 	lazyCompilerMutex.Lock()
 	defer lazyCompilerMutex.Unlock()
-	lazyCompiler = newCompilerWithVersion(version)
+	lazyCompilerInit = sync.Once{}
+	lazyCompilerInit.Do(func() {
+		lazyCompiler = newCompilerWithVersion(version)
+	})
 }
 
 func ResetCompiler() {
