@@ -18,6 +18,7 @@ package compatibility
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -91,6 +92,8 @@ type ComponentGlobalsRegistry interface {
 	// and cannot be set from cmd flags anymore.
 	// For a given component, its emulation version can only depend on one other component, no multiple dependency is allowed.
 	SetEmulationVersionMapping(fromComponent, toComponent string, f VersionMapping) error
+	// SetMinCompatibilityVersion sets MinCompatibilityVersion of the specified component.
+	SetMinCompatibilityVersion(component string, ver *version.Version) error
 	// AddMetrics adds metrics for the emulation version of a component.
 	AddMetrics()
 }
@@ -459,5 +462,20 @@ func (r *componentGlobalsRegistry) SetEmulationVersionMapping(fromComponent, toC
 	for comp, ver := range emulationVersions {
 		r.componentGlobals[comp].effectiveVersion.SetEmulationVersion(ver)
 	}
+	return nil
+}
+
+func (r *componentGlobalsRegistry) SetMinCompatibilityVersion(component string, ver *version.Version) error {
+	klog.V(klogLevel).Infof("setting MinCompatibilityVersion mapping %v to %s", ver, component)
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	if _, ok := r.componentGlobals[component]; !ok {
+		return fmt.Errorf("component not registered: %s", component)
+	}
+	if r.componentGlobals[component].effectiveVersion == nil {
+		return errors.New("effectiveVersion not set")
+	}
+
+	r.componentGlobals[component].effectiveVersion.SetMinCompatibilityVersion(ver)
 	return nil
 }
