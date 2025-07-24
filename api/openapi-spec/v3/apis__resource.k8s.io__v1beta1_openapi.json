@@ -179,7 +179,7 @@
             "type": "boolean"
           },
           "allowMultipleAllocations": {
-            "description": "AllowMultipleAllocations marks whether the device is allowed to be allocated to multiple DeviceRequests.\n\nIf AllowMultipleAllocations is set to true, the device can be allocated more than once, and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.",
+            "description": "AllowMultipleAllocations marks whether the device is allowed to be allocated to multiple DeviceRequests.\n\nIf AllowMultipleAllocations is set to true, the device can be allocated more than once, and its capacity is shared, regardless of whether the CapacityRequestPolicy is defined or not.",
             "type": "boolean"
           },
           "attributes": {
@@ -268,14 +268,14 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity"
             },
-            "description": "Requests represent individual device resource requests for distinct resources, all of which must be provided by the device.\n\nFor each device capacity with a defined sharingPolicy, the scheduler uses the policy to determine how much capacity is consumed: - If no capacity request is specified, the device sharingPolicy.default value is used. - If the device sharingPolicy defines a validRange,\n  the capacity request is rounded up to the nearest valid value in the range.\n- If the device sharingPolicy defines validValues, the capacity request is rounded up to the nearest valid value. The consumed capacity is written to the resource claim status.devices[*].consumedCapacity field.\n\nThis value is used as an additional filtering condition against the available capacity on the device. This is semantically equivalent to a CEL selector with `device.capacity[<domain>].<name>.compareTo(quantity(<request quantity>)) >= 0`. For example, device.capacity['test-driver.cdi.k8s.io'].counters.compareTo(quantity('2')) >= 0.",
+            "description": "Requests represent individual device resource requests for distinct resources, all of which must be provided by the device.\n\nFor each device capacity with a defined requestPolicy, the scheduler uses the policy to determine how much capacity is consumed: - If no capacity request is specified, the device requestPolicy.default value is used. - If the device requestPolicy defines a validRange,\n  the capacity request is rounded up to the nearest valid value in the range.\n- If the device requestPolicy defines validValues, the capacity request is rounded up to the nearest valid value. The consumed capacity is written to the resource claim status.devices[*].consumedCapacity field.\n\nThis value is used as an additional filtering condition against the available capacity on the device. This is semantically equivalent to a CEL selector with `device.capacity[<domain>].<name>.compareTo(quantity(<request quantity>)) >= 0`. For example, device.capacity['test-driver.cdi.k8s.io'].counters.compareTo(quantity('2')) >= 0.",
             "type": "object"
           }
         },
         "type": "object"
       },
-      "io.k8s.api.resource.v1beta1.CapacitySharingPolicy": {
-        "description": "CapacitySharingPolicy defines how requests consume device capacity.\n\nThe Default field must be defined for the scheduler to consume the capacity and to ensure that the total allocated capacity remains within the DeviceCapacity's Value.\n\nThe ValidSharingValues field (either ValidValues or ValidRange) is optional. At most one of ValidSharingValues can be defined. If any ValidSharingValues are defined, Default must also be defined and valid.",
+      "io.k8s.api.resource.v1beta1.CapacityRequestPolicy": {
+        "description": "CapacityRequestPolicy defines how requests consume device capacity.\n\nThe Default field must be defined for the scheduler to consume the capacity and to ensure that the total allocated capacity remains within the DeviceCapacity's Value.\n\nThe ValidSharingValues field (either ValidValues or ValidRange) is optional. At most one of ValidSharingValues can be defined. If any ValidSharingValues are defined, Default must also be defined and valid.",
         "properties": {
           "default": {
             "allOf": [
@@ -288,7 +288,7 @@
           "validRange": {
             "allOf": [
               {
-                "$ref": "#/components/schemas/io.k8s.api.resource.v1beta1.CapacitySharingPolicyRange"
+                "$ref": "#/components/schemas/io.k8s.api.resource.v1beta1.CapacityRequestPolicyRange"
               }
             ],
             "description": "ValidRange defines an acceptable quantity value range in consuming requests.\n\nIf this field is set, Default must be defined and it must fall within the defined ValidRange."
@@ -304,8 +304,8 @@
         },
         "type": "object"
       },
-      "io.k8s.api.resource.v1beta1.CapacitySharingPolicyRange": {
-        "description": "CapacitySharingPolicyRange defines a valid range for consumable capacity values.\n\n  - If the requested amount is less than Min, it is rounded up to the Min value.\n  - If Step is set and the requested amount is between Min and Max but not aligned with Step,\n    it will be rounded up to the next value equal to Min + (n * Step).\n  - If Step is not set, the requested amount is used as-is if it falls within the range Min to Max (if set).\n  - If the requested or rounded amount exceeds Max (if set), the request does not satisfy the policy,\n    and the device cannot be allocated.",
+      "io.k8s.api.resource.v1beta1.CapacityRequestPolicyRange": {
+        "description": "CapacityRequestPolicyRange defines a valid range for consumable capacity values.\n\n  - If the requested amount is less than Min, it is rounded up to the Min value.\n  - If Step is set and the requested amount is between Min and Max but not aligned with Step,\n    it will be rounded up to the next value equal to Min + (n * Step).\n  - If Step is not set, the requested amount is used as-is if it falls within the range Min to Max (if set).\n  - If the requested or rounded amount exceeds Max (if set), the request does not satisfy the policy,\n    and the device cannot be allocated.",
         "properties": {
           "max": {
             "allOf": [
@@ -492,13 +492,13 @@
       "io.k8s.api.resource.v1beta1.DeviceCapacity": {
         "description": "DeviceCapacity describes a quantity associated with a device.",
         "properties": {
-          "sharingPolicy": {
+          "requestPolicy": {
             "allOf": [
               {
-                "$ref": "#/components/schemas/io.k8s.api.resource.v1beta1.CapacitySharingPolicy"
+                "$ref": "#/components/schemas/io.k8s.api.resource.v1beta1.CapacityRequestPolicy"
               }
             ],
-            "description": "SharingPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have allowMultipleAllocations set to true in order to set a sharingPolicy.\n\nIf this field is unset, capacity sharing is unconstrained: it can be shared with any number of DeviceRequests, and the scheduler will not deduct (consume) its value from capacity, even if those requests are defined, when the device is allocated."
+            "description": "RequestPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have allowMultipleAllocations set to true in order to set a requestPolicy.\n\nIf this field is unset, capacity sharing is unconstrained: it can be shared with any number of DeviceRequests, and the scheduler will not deduct (consume) its value from capacity, even if those requests are defined, when the device is allocated."
           },
           "value": {
             "allOf": [
@@ -506,7 +506,7 @@
                 "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity"
               }
             ],
-            "description": "Value defines how much of a certain capacity that device has.\n\nThis field reflects the fixed total capacity and does not change. If the capacity is consumable (i.e., allowMultipleAllocations is set to true and sharingPolicy is defined), the consumed amount is tracked separately by scheduler and does not affect this value."
+            "description": "Value defines how much of a certain capacity that device has.\n\nThis field reflects the fixed total capacity and does not change. If the capacity is consumable (i.e., allowMultipleAllocations is set to true and requestPolicy is defined), the consumed amount is tracked separately by scheduler and does not affect this value."
           }
         },
         "required": [
@@ -782,7 +782,7 @@
                 "$ref": "#/components/schemas/io.k8s.api.resource.v1beta1.CapacityRequirements"
               }
             ],
-            "description": "Capacity define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity with a defined sharing policy.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements."
+            "description": "Capacity define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity with a defined requestPolicy.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements."
           },
           "count": {
             "description": "Count is used only when the count mode is \"ExactCount\". Must be greater than zero. If AllocationMode is ExactCount and this field is not specified, the default is one.\n\nThis field can only be set when deviceClassName is set and no subrequests are specified in the firstAvailable list.",
@@ -855,7 +855,7 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity"
             },
-            "description": "ConsumedCapacity tracks the amount of capacity consumed per device as part of the claim request. The consumed amount may differ from the requested amount: it is rounded up to the nearest valid value based on the device’s sharing policy if applicable and must not be less than the requested amount.\n\nThe total consumed capacity for each device must not exceed the DeviceCapacity's Value.\n\nThis field is populated only for devices that support multiple allocations. It references only DeviceCapacity entries that have a specified sharingPolicy, and is empty if no such entries exist.",
+            "description": "ConsumedCapacity tracks the amount of capacity consumed per device as part of the claim request. The consumed amount may differ from the requested amount: it is rounded up to the nearest valid value based on the device’s requestPolicy if applicable and must not be less than the requested amount.\n\nThe total consumed capacity for each device must not exceed the DeviceCapacity's Value.\n\nThis field is populated only for devices that support multiple allocations. It references only DeviceCapacity entries that have a specified requestPolicy, and is empty if no such entries exist.",
             "type": "object"
           },
           "device": {
@@ -931,7 +931,7 @@
                 "$ref": "#/components/schemas/io.k8s.api.resource.v1beta1.CapacityRequirements"
               }
             ],
-            "description": "Capacity define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity with a defined sharing policy.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements."
+            "description": "Capacity define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity with a defined requestPolicy.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements."
           },
           "count": {
             "description": "Count is used only when the count mode is \"ExactCount\". Must be greater than zero. If AllocationMode is ExactCount and this field is not specified, the default is one.",

@@ -22,32 +22,41 @@ import (
 	resource "k8s.io/apimachinery/pkg/api/resource"
 )
 
-// CapacitySharingPolicyApplyConfiguration represents a declarative configuration of the CapacitySharingPolicy type for use
+// CapacityRequestPolicyApplyConfiguration represents a declarative configuration of the CapacityRequestPolicy type for use
 // with apply.
-type CapacitySharingPolicyApplyConfiguration struct {
-	Default     *resource.Quantity                            `json:"default,omitempty"`
-	ValidValues []resource.Quantity                           `json:"validValues,omitempty"`
-	ValidRange  *CapacitySharingPolicyRangeApplyConfiguration `json:"validRange,omitempty"`
+type CapacityRequestPolicyApplyConfiguration struct {
+	Default         *resource.Quantity                            `json:"default,omitempty"`
+	ZeroConsumption *bool                                         `json:"zeroConsumption,omitempty"`
+	ValidValues     []resource.Quantity                           `json:"validValues,omitempty"`
+	ValidRange      *CapacityRequestPolicyRangeApplyConfiguration `json:"validRange,omitempty"`
 }
 
-// CapacitySharingPolicyApplyConfiguration constructs a declarative configuration of the CapacitySharingPolicy type for use with
+// CapacityRequestPolicyApplyConfiguration constructs a declarative configuration of the CapacityRequestPolicy type for use with
 // apply.
-func CapacitySharingPolicy() *CapacitySharingPolicyApplyConfiguration {
-	return &CapacitySharingPolicyApplyConfiguration{}
+func CapacityRequestPolicy() *CapacityRequestPolicyApplyConfiguration {
+	return &CapacityRequestPolicyApplyConfiguration{}
 }
 
 // WithDefault sets the Default field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Default field is set to the value of the last call.
-func (b *CapacitySharingPolicyApplyConfiguration) WithDefault(value resource.Quantity) *CapacitySharingPolicyApplyConfiguration {
+func (b *CapacityRequestPolicyApplyConfiguration) WithDefault(value resource.Quantity) *CapacityRequestPolicyApplyConfiguration {
 	b.Default = &value
+	return b
+}
+
+// WithZeroConsumption sets the ZeroConsumption field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ZeroConsumption field is set to the value of the last call.
+func (b *CapacityRequestPolicyApplyConfiguration) WithZeroConsumption(value bool) *CapacityRequestPolicyApplyConfiguration {
+	b.ZeroConsumption = &value
 	return b
 }
 
 // WithValidValues adds the given value to the ValidValues field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the ValidValues field.
-func (b *CapacitySharingPolicyApplyConfiguration) WithValidValues(values ...resource.Quantity) *CapacitySharingPolicyApplyConfiguration {
+func (b *CapacityRequestPolicyApplyConfiguration) WithValidValues(values ...resource.Quantity) *CapacityRequestPolicyApplyConfiguration {
 	for i := range values {
 		b.ValidValues = append(b.ValidValues, values[i])
 	}
@@ -57,7 +66,7 @@ func (b *CapacitySharingPolicyApplyConfiguration) WithValidValues(values ...reso
 // WithValidRange sets the ValidRange field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ValidRange field is set to the value of the last call.
-func (b *CapacitySharingPolicyApplyConfiguration) WithValidRange(value *CapacitySharingPolicyRangeApplyConfiguration) *CapacitySharingPolicyApplyConfiguration {
+func (b *CapacityRequestPolicyApplyConfiguration) WithValidRange(value *CapacityRequestPolicyRangeApplyConfiguration) *CapacityRequestPolicyApplyConfiguration {
 	b.ValidRange = value
 	return b
 }

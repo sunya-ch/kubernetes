@@ -22,24 +22,24 @@ import (
 	resource "k8s.io/apimachinery/pkg/api/resource"
 )
 
-// CapacitySharingPolicyRangeApplyConfiguration represents a declarative configuration of the CapacitySharingPolicyRange type for use
+// CapacityRequestPolicyRangeApplyConfiguration represents a declarative configuration of the CapacityRequestPolicyRange type for use
 // with apply.
-type CapacitySharingPolicyRangeApplyConfiguration struct {
+type CapacityRequestPolicyRangeApplyConfiguration struct {
 	Min  *resource.Quantity `json:"min,omitempty"`
 	Max  *resource.Quantity `json:"max,omitempty"`
 	Step *resource.Quantity `json:"step,omitempty"`
 }
 
-// CapacitySharingPolicyRangeApplyConfiguration constructs a declarative configuration of the CapacitySharingPolicyRange type for use with
+// CapacityRequestPolicyRangeApplyConfiguration constructs a declarative configuration of the CapacityRequestPolicyRange type for use with
 // apply.
-func CapacitySharingPolicyRange() *CapacitySharingPolicyRangeApplyConfiguration {
-	return &CapacitySharingPolicyRangeApplyConfiguration{}
+func CapacityRequestPolicyRange() *CapacityRequestPolicyRangeApplyConfiguration {
+	return &CapacityRequestPolicyRangeApplyConfiguration{}
 }
 
 // WithMin sets the Min field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Min field is set to the value of the last call.
-func (b *CapacitySharingPolicyRangeApplyConfiguration) WithMin(value resource.Quantity) *CapacitySharingPolicyRangeApplyConfiguration {
+func (b *CapacityRequestPolicyRangeApplyConfiguration) WithMin(value resource.Quantity) *CapacityRequestPolicyRangeApplyConfiguration {
 	b.Min = &value
 	return b
 }
@@ -47,7 +47,7 @@ func (b *CapacitySharingPolicyRangeApplyConfiguration) WithMin(value resource.Qu
 // WithMax sets the Max field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Max field is set to the value of the last call.
-func (b *CapacitySharingPolicyRangeApplyConfiguration) WithMax(value resource.Quantity) *CapacitySharingPolicyRangeApplyConfiguration {
+func (b *CapacityRequestPolicyRangeApplyConfiguration) WithMax(value resource.Quantity) *CapacityRequestPolicyRangeApplyConfiguration {
 	b.Max = &value
 	return b
 }
@@ -55,7 +55,7 @@ func (b *CapacitySharingPolicyRangeApplyConfiguration) WithMax(value resource.Qu
 // WithStep sets the Step field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Step field is set to the value of the last call.
-func (b *CapacitySharingPolicyRangeApplyConfiguration) WithStep(value resource.Quantity) *CapacitySharingPolicyRangeApplyConfiguration {
+func (b *CapacityRequestPolicyRangeApplyConfiguration) WithStep(value resource.Quantity) *CapacityRequestPolicyRangeApplyConfiguration {
 	b.Step = &value
 	return b
 }

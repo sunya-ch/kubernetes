@@ -91,7 +91,7 @@
           "capacity": {
             "capacityKey": {
               "value": "0",
-              "sharingPolicy": {
+              "requestPolicy": {
                 "default": "0",
                 "validValues": [
                   "0"

@@ -45,7 +45,7 @@ spec:
         version: versionValue
     capacity:
       capacityKey:
-        sharingPolicy:
+        requestPolicy:
           default: "0"
           validRange:
             max: "0"

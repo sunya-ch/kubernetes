@@ -12896,15 +12896,7 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
-- name: io.k8s.api.resource.v1beta1.CapacityRequirements
-  map:
-    fields:
-    - name: requests
-      type:
-        map:
-          elementType:
-            namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
-- name: io.k8s.api.resource.v1beta1.CapacitySharingPolicy
+- name: io.k8s.api.resource.v1beta1.CapacityRequestPolicy
   map:
     fields:
     - name: default
@@ -12912,14 +12904,17 @@ var schemaYAML = typed.YAMLObject(`types:
         namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
     - name: validRange
       type:
-        namedType: io.k8s.api.resource.v1beta1.CapacitySharingPolicyRange
+        namedType: io.k8s.api.resource.v1beta1.CapacityRequestPolicyRange
     - name: validValues
       type:
         list:
           elementType:
             namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
           elementRelationship: atomic
-- name: io.k8s.api.resource.v1beta1.CapacitySharingPolicyRange
+    - name: zeroConsumption
+      type:
+        scalar: boolean
+- name: io.k8s.api.resource.v1beta1.CapacityRequestPolicyRange
   map:
     fields:
     - name: max
@@ -12931,6 +12926,14 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: step
       type:
         namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+- name: io.k8s.api.resource.v1beta1.CapacityRequirements
+  map:
+    fields:
+    - name: requests
+      type:
+        map:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
 - name: io.k8s.api.resource.v1beta1.Counter
   map:
     fields:
@@ -13008,9 +13011,9 @@ var schemaYAML = typed.YAMLObject(`types:
 - name: io.k8s.api.resource.v1beta1.DeviceCapacity
   map:
     fields:
-    - name: sharingPolicy
+    - name: requestPolicy
       type:
-        namedType: io.k8s.api.resource.v1beta1.CapacitySharingPolicy
+        namedType: io.k8s.api.resource.v1beta1.CapacityRequestPolicy
     - name: value
       type:
         namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
@@ -13503,15 +13506,7 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
-- name: io.k8s.api.resource.v1beta2.CapacityRequirements
-  map:
-    fields:
-    - name: requests
-      type:
-        map:
-          elementType:
-            namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
-- name: io.k8s.api.resource.v1beta2.CapacitySharingPolicy
+- name: io.k8s.api.resource.v1beta2.CapacityRequestPolicy
   map:
     fields:
     - name: default
@@ -13519,14 +13514,17 @@ var schemaYAML = typed.YAMLObject(`types:
         namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
     - name: validRange
       type:
-        namedType: io.k8s.api.resource.v1beta2.CapacitySharingPolicyRange
+        namedType: io.k8s.api.resource.v1beta2.CapacityRequestPolicyRange
     - name: validValues
       type:
         list:
           elementType:
             namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
           elementRelationship: atomic
-- name: io.k8s.api.resource.v1beta2.CapacitySharingPolicyRange
+    - name: zeroConsumption
+      type:
+        scalar: boolean
+- name: io.k8s.api.resource.v1beta2.CapacityRequestPolicyRange
   map:
     fields:
     - name: max
@@ -13538,6 +13536,14 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: step
       type:
         namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+- name: io.k8s.api.resource.v1beta2.CapacityRequirements
+  map:
+    fields:
+    - name: requests
+      type:
+        map:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
 - name: io.k8s.api.resource.v1beta2.Counter
   map:
     fields:
@@ -13646,9 +13652,9 @@ var schemaYAML = typed.YAMLObject(`types:
 - name: io.k8s.api.resource.v1beta2.DeviceCapacity
   map:
     fields:
-    - name: sharingPolicy
+    - name: requestPolicy
       type:
-        namedType: io.k8s.api.resource.v1beta2.CapacitySharingPolicy
+        namedType: io.k8s.api.resource.v1beta2.CapacityRequestPolicy
     - name: value
       type:
         namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
