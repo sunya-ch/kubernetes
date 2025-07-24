@@ -90,7 +90,9 @@ func ResetCompiler() {
 	lazyCompilerMutex.Lock()
 	defer lazyCompilerMutex.Unlock()
 	lazyCompilerInit = sync.Once{}
-	lazyCompiler = nil
+	lazyCompilerInit.Do(func() {
+		lazyCompiler = newCompiler()
+	})
 }
 
 // CompilationResult represents a compiled expression.

@@ -1102,6 +1102,8 @@ func setupTestCase(t testing.TB, tc *testCase, featureGates map[featuregate.Feat
 	// We need to have DRAConsumableCapacity set allowedByFeatureGate for DRAConsumableCapacity feature gate.
 	if consumableEnabled, exists := featureGates[features.DRAConsumableCapacity]; exists && consumableEnabled {
 		dracel.SetDRAConsumableCapacity()
+		dracel.ResetCompiler()
+		t.Logf("Enabling DRAConsumableCapacity CEL compiler (%v)", dracel.DRAConsumableCapacity())
 		t.Cleanup(func() {
 			dracel.UnsetDRAConsumableCapacity()
 			dracel.ResetCompiler()
