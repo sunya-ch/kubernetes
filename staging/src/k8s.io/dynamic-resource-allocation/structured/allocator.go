@@ -27,6 +27,7 @@ import (
 	"k8s.io/dynamic-resource-allocation/structured/internal/experimental"
 	"k8s.io/dynamic-resource-allocation/structured/internal/incubating"
 	"k8s.io/dynamic-resource-allocation/structured/internal/stable"
+	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 )
 
 // To keep the code in different packages simple, type aliases are used everywhere.
@@ -36,10 +37,11 @@ import (
 
 type DeviceClassLister = internal.DeviceClassLister
 type Features = internal.Features
-type DeviceID = internal.DeviceID
+type DeviceID = types.DeviceID
+type AllocatedState = types.AllocatedState
 
 func MakeDeviceID(driver, pool, device string) DeviceID {
-	return internal.MakeDeviceID(driver, pool, device)
+	return types.MakeDeviceID(driver, pool, device)
 }
 
 // Allocator calculates how to allocate a set of unallocated claims which use

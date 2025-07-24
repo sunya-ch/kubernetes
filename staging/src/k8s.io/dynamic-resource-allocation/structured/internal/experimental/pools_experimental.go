@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/component-helpers/scheduling/corev1/nodeaffinity"
 	draapi "k8s.io/dynamic-resource-allocation/api"
+	"k8s.io/klog/v2"
 )
 
 func nodeMatches(node *v1.Node, nodeNameToMatch string, allNodesMatch bool, nodeSelector *v1.NodeSelector) (bool, error) {
@@ -52,12 +53,12 @@ func nodeMatches(node *v1.Node, nodeNameToMatch string, allNodesMatch bool, node
 // Both is recorded in the result.
 func GatherPools(ctx context.Context, slices []*resourceapi.ResourceSlice, node *v1.Node, features Features) ([]*Pool, error) {
 	pools := make(map[PoolID]*Pool)
+	logger := klog.FromContext(ctx)
 
 	for _, slice := range slices {
 		if !features.PartitionableDevices && slice.Spec.PerDeviceNodeSelection != nil {
 			continue
 		}
-
 		switch {
 		case slice.Spec.NodeName != "" || slice.Spec.AllNodes || slice.Spec.NodeSelector != nil:
 			match, err := nodeMatches(node, slice.Spec.NodeName, slice.Spec.AllNodes, slice.Spec.NodeSelector)
@@ -114,6 +115,8 @@ func GatherPools(ctx context.Context, slices []*resourceapi.ResourceSlice, node 
 		pool.IsInvalid, pool.InvalidReason = poolIsInvalid(pool)
 		result = append(result, pool)
 	}
+
+	logger.V(5).Info("GatherResults", "result", result)
 
 	return result, nil
 }

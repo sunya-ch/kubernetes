@@ -45,6 +45,7 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/apis/config"
 	"k8s.io/kubernetes/pkg/scheduler/apis/config/validation"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
+	dratypes "k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/feature"
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/names"
 	schedutil "k8s.io/kubernetes/pkg/scheduler/util"
@@ -483,8 +484,8 @@ func (pl *DynamicResources) PreFilter(ctx context.Context, state fwk.CycleState,
 			}
 			allocatedState = &structured.AllocatedState{
 				AllocatedDevices:         allocatedDevices,
-				AllocatedSharedDeviceIDs: sets.New[structured.SharedDeviceID](),
-				AggregatedCapacity:       structured.NewConsumedCapacityCollection(),
+				AllocatedSharedDeviceIDs: sets.New[dratypes.SharedDeviceID](),
+				AggregatedCapacity:       dratypes.NewConsumedCapacityCollection(),
 			}
 		}
 		slices, err := pl.draManager.ResourceSlices().ListWithDeviceTaintRules()

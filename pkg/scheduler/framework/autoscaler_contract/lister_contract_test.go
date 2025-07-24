@@ -24,8 +24,8 @@ import (
 	resourceapi "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/dynamic-resource-allocation/structured"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
+	dratypes "k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 )
 
 var _ framework.NodeInfoLister = &nodeInfoListerContract{}
@@ -96,11 +96,11 @@ func (r *resourceClaimTrackerContract) Get(_, _ string) (*resourceapi.ResourceCl
 	return nil, nil
 }
 
-func (r *resourceClaimTrackerContract) ListAllAllocatedDevices() (sets.Set[structured.DeviceID], error) {
+func (r *resourceClaimTrackerContract) ListAllAllocatedDevices() (sets.Set[dratypes.DeviceID], error) {
 	return nil, nil
 }
 
-func (r *resourceClaimTrackerContract) GatherAllocatedState() (*structured.AllocatedState, error) {
+func (r *resourceClaimTrackerContract) GatherAllocatedState() (*dratypes.AllocatedState, error) {
 	return nil, nil
 }
 

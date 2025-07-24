@@ -34,6 +34,7 @@ const (
 )
 
 var (
+	zero  = resource.MustParse("0")
 	one   = resource.MustParse("1")
 	two   = resource.MustParse("2")
 	three = resource.MustParse("3")
@@ -84,65 +85,65 @@ func TestConsumableCapacity(t *testing.T) {
 		consumableCapacity := map[resourceapi.QualifiedName]resourceapi.DeviceCapacity{
 			capacity0: {
 				Value: two,
-				SharingPolicy: &resourceapi.CapacitySharingPolicy{
+				RequestPolicy: &resourceapi.CapacityRequestPolicy{
 					Default:    ptr.To(one),
-					ValidRange: &resourceapi.CapacitySharingPolicyRange{Min: one},
+					ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: one},
 				},
 			},
 			capacity1: {
 				Value: two,
-				SharingPolicy: &resourceapi.CapacitySharingPolicy{
+				RequestPolicy: &resourceapi.CapacityRequestPolicy{
 					Default:    ptr.To(one),
-					ValidRange: &resourceapi.CapacitySharingPolicyRange{Min: one},
+					ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: one},
 				},
 			},
 			// non-consumable
 			"dummy": {
-				Value: two,
+				Value: one,
 			},
 		}
 		consumedCapacity := GetConsumedCapacityFromRequest(requestedCapacity, consumableCapacity)
 		g := NewWithT(t)
-		g.Expect(consumedCapacity).To(HaveLen(2))
+		g.Expect(consumedCapacity).To(HaveLen(3))
 		for name, val := range consumedCapacity {
-			g.Expect(string(name)).Should(BeElementOf([]string{capacity0, capacity1}))
+			g.Expect(string(name)).Should(BeElementOf([]string{capacity0, capacity1, "dummy"}))
 			g.Expect(val.Cmp(one)).To(BeZero())
 		}
 	})
 
-	t.Run("violate-capacity-sharing", testViolateCapacitySharingPolicy)
+	t.Run("violate-capacity-sharing", testViolateCapacityRequestPolicy)
 
 	t.Run("calculate-consumed-capacity", testCalculateConsumedCapacity)
 
 }
 
-func testViolateCapacitySharingPolicy(t *testing.T) {
+func testViolateCapacityRequestPolicy(t *testing.T) {
 	testcases := map[string]struct {
-		requestedVal resource.Quantity
-		consumable   *resourceapi.CapacitySharingPolicy
+		requestedVal  resource.Quantity
+		requestPolicy *resourceapi.CapacityRequestPolicy
 
 		expectResult bool
 	}{
 		"no constraint": {one, nil, false},
 		"less than maximum": {
 			one,
-			&resourceapi.CapacitySharingPolicy{
+			&resourceapi.CapacityRequestPolicy{
 				Default:    ptr.To(one),
-				ValidRange: &resourceapi.CapacitySharingPolicyRange{Min: one, Max: &two},
+				ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: one, Max: &two},
 			},
 			false,
 		},
 		"more than maximum": {
 			two,
-			&resourceapi.CapacitySharingPolicy{
+			&resourceapi.CapacityRequestPolicy{
 				Default:    ptr.To(one),
-				ValidRange: &resourceapi.CapacitySharingPolicyRange{Min: one, Max: &one},
+				ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: one, Max: &one},
 			},
 			true,
 		},
 		"in set": {
 			one,
-			&resourceapi.CapacitySharingPolicy{
+			&resourceapi.CapacityRequestPolicy{
 				Default:     ptr.To(one),
 				ValidValues: []resource.Quantity{one},
 			},
@@ -150,7 +151,7 @@ func testViolateCapacitySharingPolicy(t *testing.T) {
 		},
 		"not in set": {
 			two,
-			&resourceapi.CapacitySharingPolicy{
+			&resourceapi.CapacityRequestPolicy{
 				Default:     ptr.To(one),
 				ValidValues: []resource.Quantity{one},
 			},
@@ -160,7 +161,7 @@ func testViolateCapacitySharingPolicy(t *testing.T) {
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
 			g := NewWithT(t)
-			violate := violatesPolicy(tc.requestedVal, tc.consumable)
+			violate := violatesPolicy(tc.requestedVal, tc.requestPolicy)
 			g.Expect(violate).To(BeEquivalentTo(tc.expectResult))
 		})
 	}
@@ -168,62 +169,79 @@ func testViolateCapacitySharingPolicy(t *testing.T) {
 
 func testCalculateConsumedCapacity(t *testing.T) {
 	testcases := map[string]struct {
-		requestedVal *resource.Quantity
-		consumable   resourceapi.CapacitySharingPolicy
+		requestedVal  *resource.Quantity
+		capacityValue resource.Quantity
+		requestPolicy *resourceapi.CapacityRequestPolicy
 
-		expectResult *resource.Quantity
+		expectResult resource.Quantity
 	}{
-		"empty": {nil, resourceapi.CapacitySharingPolicy{}, nil},
+		"empty":         {nil, one, &resourceapi.CapacityRequestPolicy{}, one},
+		"zero":          {nil, one, &resourceapi.CapacityRequestPolicy{ZeroConsumption: ptr.To(true)}, zero},
+		"zero is false": {nil, one, &resourceapi.CapacityRequestPolicy{ZeroConsumption: ptr.To(false)}, one}, // should be same as empty
 		"min in range": {
 			nil,
-			resourceapi.CapacitySharingPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacitySharingPolicyRange{Min: one}},
-			&one,
+			two,
+			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: one}},
+			one,
 		},
 		"default in set": {
 			nil,
-			resourceapi.CapacitySharingPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one}},
-			&one,
+			two,
+			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one}},
+			one,
 		},
 		"more than min in range": {
 			&two,
-			resourceapi.CapacitySharingPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacitySharingPolicyRange{Min: one}},
-			&two,
+			two,
+			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: one}},
+			two,
 		},
 		"less than min in range": {
 			&one,
-			resourceapi.CapacitySharingPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacitySharingPolicyRange{Min: two}},
-			&two,
+			two,
+			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: two}},
+			two,
 		},
 		"with step (round up)": {
 			&two,
-			resourceapi.CapacitySharingPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacitySharingPolicyRange{Min: one, Step: ptr.To(two.DeepCopy())}},
-			&three,
+			three,
+			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: one, Step: ptr.To(two.DeepCopy())}},
+			three,
 		},
 		"with step (no remaining)": {
 			&two,
-			resourceapi.CapacitySharingPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacitySharingPolicyRange{Min: one, Step: ptr.To(one.DeepCopy())}},
+			two,
+			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: one, Step: ptr.To(one.DeepCopy())}},
+			two,
+		},
+		"valid value in set": {
 			&two,
+			three,
+			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one, two, three}},
+			two,
 		},
 		"set (round up)": {
 			&two,
-			resourceapi.CapacitySharingPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one, three}},
-			&three,
+			three,
+			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one, three}},
+			three,
 		},
 		"larger than set": {
 			&three,
-			resourceapi.CapacitySharingPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one, two}},
-			&three,
+			three,
+			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one, two}},
+			three,
 		},
 	}
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
 			g := NewWithT(t)
-			consumedCapacity := calculateConsumedCapacity(tc.requestedVal, tc.consumable)
-			if tc.expectResult == nil {
-				g.Expect(consumedCapacity).To(BeNil())
-			} else {
-				g.Expect(consumedCapacity.Cmp(*tc.expectResult)).To(BeZero())
+			capacity := resourceapi.DeviceCapacity{
+				Value:         tc.capacityValue,
+				RequestPolicy: tc.requestPolicy,
 			}
+			consumedCapacity := calculateConsumedCapacity(tc.requestedVal, capacity)
+			g.Expect(consumedCapacity.Cmp(tc.expectResult)).To(BeZero())
 		})
 	}
 }

@@ -1101,8 +1101,11 @@ func setupTestCase(t testing.TB, tc *testCase, featureGates map[featuregate.Feat
 	}
 	// We need to set compiler compatibility version for DRAConsumableCapacity feature gate, which requires 1.34.
 	if consumableEnabled, exists := featureGates[features.DRAConsumableCapacity]; exists && consumableEnabled {
-		dracel.SetCompilerWithVersion(version.MustParse("1.34"))
-		t.Cleanup(dracel.ResetCompiler)
+		dracel.SetDRAConsumableCapacity()
+		t.Cleanup(func() {
+			dracel.UnsetDRAConsumableCapacity()
+			dracel.ResetCompiler()
+		})
 	}
 	for feature, flag := range featureGates {
 		featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, feature, flag)

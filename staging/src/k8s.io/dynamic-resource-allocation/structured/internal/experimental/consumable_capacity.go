@@ -23,14 +23,14 @@ import (
 	resourceapi "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	draapi "k8s.io/dynamic-resource-allocation/api"
-	"k8s.io/dynamic-resource-allocation/structured/internal"
+	dratypes "k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 	"k8s.io/utils/ptr"
 )
 
-type ConsumedCapacity = internal.ConsumedCapacity
+type ConsumedCapacity = dratypes.ConsumedCapacity
 
 // CmpRequestOverCapacity checks whether the new capacity request can be added within the given capacity,
-// and checks whether the requested value is against the capacity sharing policy.
+// and checks whether the requested value is against the capacity requestPolicy.
 func CmpRequestOverCapacity(currentConsumedCapacity ConsumedCapacity, deviceRequestCapacity *resourceapi.CapacityRequirements,
 	allowMultipleAllocations *bool, capacity map[draapi.QualifiedName]draapi.DeviceCapacity, allocatingCapacity ConsumedCapacity) (bool, error) {
 	if requestsContainNonExistCapacity(deviceRequestCapacity, capacity) {
@@ -50,29 +50,23 @@ func CmpRequestOverCapacity(currentConsumedCapacity ConsumedCapacity, deviceRequ
 				requestedValPtr = &requestedVal
 			}
 		}
-		if isConsumableCapacity(convertedCapacity) {
-			consumedCapacity := calculateConsumedCapacity(requestedValPtr, *convertedCapacity.SharingPolicy)
-			if violatesPolicy(*consumedCapacity, convertedCapacity.SharingPolicy) {
-				return false, nil
-			}
-			// If the current clone already contains an entry for this capacity, add the consumedCapacity to it.
-			// Otherwise, initialize it with calculated consumedCapacity.
-			if _, allocatedFound := clone[convertedName]; allocatedFound {
-				clone[convertedName].Add(*consumedCapacity)
-			} else {
-				clone[convertedName] = consumedCapacity
-			}
-			// If allocatingCapacity contains an entry for this capacity, add its value to clone as well.
-			if allocatingVal, allocatingFound := allocatingCapacity[convertedName]; allocatingFound {
-				clone[convertedName].Add(*allocatingVal)
-			}
-			if clone[convertedName].Cmp(cap.Value) > 0 {
-				return false, nil
-			}
-		} else if requestedValPtr != nil {
-			if requestedValPtr.Cmp(cap.Value) > 0 {
-				return false, nil
-			}
+		consumedCapacity := calculateConsumedCapacity(requestedValPtr, convertedCapacity)
+		if violatesPolicy(consumedCapacity, convertedCapacity.RequestPolicy) {
+			return false, nil
+		}
+		// If the current clone already contains an entry for this capacity, add the consumedCapacity to it.
+		// Otherwise, initialize it with calculated consumedCapacity.
+		if _, allocatedFound := clone[convertedName]; allocatedFound {
+			clone[convertedName].Add(consumedCapacity)
+		} else {
+			clone[convertedName] = ptr.To(consumedCapacity)
+		}
+		// If allocatingCapacity contains an entry for this capacity, add its value to clone as well.
+		if allocatingVal, allocatingFound := allocatingCapacity[convertedName]; allocatingFound {
+			clone[convertedName].Add(*allocatingVal)
+		}
+		if clone[convertedName].Cmp(cap.Value) > 0 {
+			return false, nil
 		}
 	}
 	return true, nil
@@ -93,27 +87,39 @@ func requestsContainNonExistCapacity(deviceRequestCapacity *resourceapi.Capacity
 	return false
 }
 
-// isConsumableCapacity returns true if capacity has consumable spec defined.
-func isConsumableCapacity(cap resourceapi.DeviceCapacity) bool {
-	return cap.SharingPolicy != nil && cap.SharingPolicy.Default != nil
-}
-
-// calculateConsumedCapacity returns valid capacity to be consumed regarding the requested capacity and consumable spec.
-// The default consumable capacity is used if requestedValPtr is nil.
-func calculateConsumedCapacity(requestedVal *resource.Quantity, consumable resourceapi.CapacitySharingPolicy) *resource.Quantity {
-	if consumable.Default == nil {
-		return requestedVal
+// calculateConsumedCapacity returns valid capacity to be consumed regarding the requested capacity and device capacity policy.
+//
+// If no requestPolicy, return capacity.Value.
+// If no requestVal, fill the quantity by fillEmptyRequest function
+// Otherwise, use requestPolicy to calculate the consumed capacity from request if applicable.
+func calculateConsumedCapacity(requestedVal *resource.Quantity, capacity resourceapi.DeviceCapacity) resource.Quantity {
+	if capacity.RequestPolicy == nil {
+		return capacity.Value.DeepCopy()
 	}
 	if requestedVal == nil {
-		return ptr.To(consumable.Default.DeepCopy())
+		return fillEmptyRequest(capacity)
 	}
 	switch {
-	case consumable.ValidRange != nil:
-		return roundUpRange(requestedVal, consumable.ValidRange)
-	case consumable.ValidValues != nil:
-		return roundUpValidValues(requestedVal, consumable.ValidValues)
+	case capacity.RequestPolicy.ValidRange != nil:
+		return roundUpRange(requestedVal, capacity.RequestPolicy.ValidRange)
+	case capacity.RequestPolicy.ValidValues != nil:
+		return roundUpValidValues(requestedVal, capacity.RequestPolicy.ValidValues)
 	}
-	return requestedVal
+	return *requestedVal
+}
+
+// fillEmptyRequest
+// return 0 if requestPolicy.zeroConsumption is true.
+// If not, return requestPolicy.default if defined.
+// Otherwise, return capacity value.
+func fillEmptyRequest(capacity resourceapi.DeviceCapacity) resource.Quantity {
+	if capacity.RequestPolicy.ZeroConsumption != nil && *capacity.RequestPolicy.ZeroConsumption {
+		return *resource.NewQuantity(0, resource.BinarySI)
+	}
+	if capacity.RequestPolicy.Default != nil {
+		return capacity.RequestPolicy.Default.DeepCopy()
+	}
+	return capacity.Value
 }
 
 // roundUpRange rounds the requestedVal up to fit within the specified validRange.
@@ -121,12 +127,12 @@ func calculateConsumedCapacity(requestedVal *resource.Quantity, consumable resou
 //   - If Step is specified, it rounds requestedVal up to the nearest multiple of Step
 //     starting from Min.
 //   - If no Step is specified and requestedVal >= Min, it returns requestedVal as is.
-func roundUpRange(requestedVal *resource.Quantity, validRange *resourceapi.CapacitySharingPolicyRange) *resource.Quantity {
+func roundUpRange(requestedVal *resource.Quantity, validRange *resourceapi.CapacityRequestPolicyRange) resource.Quantity {
 	if requestedVal.Cmp(validRange.Min) < 0 {
-		return ptr.To(validRange.Min.DeepCopy())
+		return validRange.Min.DeepCopy()
 	}
 	if validRange.Step == nil {
-		return requestedVal
+		return *requestedVal
 	}
 	requestedInt64 := requestedVal.Value()
 	step := validRange.Step.Value()
@@ -138,21 +144,21 @@ func roundUpRange(requestedVal *resource.Quantity, validRange *resourceapi.Capac
 		n += 1
 	}
 	val := min + step*n
-	return resource.NewQuantity(val, resource.BinarySI)
+	return *resource.NewQuantity(val, resource.BinarySI)
 }
 
 // roundUpValidValues returns the first value in validValues that is greater than or equal to requestedVal.
 // If no such value exists, it returns requestedVal itself.
-func roundUpValidValues(requestedVal *resource.Quantity, validValues []resource.Quantity) *resource.Quantity {
+func roundUpValidValues(requestedVal *resource.Quantity, validValues []resource.Quantity) resource.Quantity {
 	// Simple sequential search is used as the maximum entry of validValues is finite and small (≤10),
 	// and the list must already be sorted in ascending order, ensured by API validation.
 	// Note: A binary search could alternatively be used for better efficiency if the list grows larger.
 	for _, validValue := range validValues {
 		if requestedVal.Cmp(validValue) <= 0 {
-			return ptr.To(validValue.DeepCopy())
+			return validValue.DeepCopy()
 		}
 	}
-	return requestedVal
+	return *requestedVal
 }
 
 // GetConsumedCapacityFromRequest returns valid consumed capacity,
@@ -161,47 +167,65 @@ func GetConsumedCapacityFromRequest(requestedCapacity *resourceapi.CapacityRequi
 	consumableCapacity map[resourceapi.QualifiedName]resourceapi.DeviceCapacity) map[resourceapi.QualifiedName]resource.Quantity {
 	consumedCapacity := make(map[resourceapi.QualifiedName]resource.Quantity)
 	for name, cap := range consumableCapacity {
-		if isConsumableCapacity(cap) {
-			var requestedValPtr *resource.Quantity
-			if requestedCapacity != nil && requestedCapacity.Requests != nil {
-				if requestedVal, requestedFound := requestedCapacity.Requests[name]; requestedFound {
-					requestedValPtr = &requestedVal
-				}
+		var requestedValPtr *resource.Quantity
+		if requestedCapacity != nil && requestedCapacity.Requests != nil {
+			if requestedVal, requestedFound := requestedCapacity.Requests[name]; requestedFound {
+				requestedValPtr = &requestedVal
 			}
-			capacity := calculateConsumedCapacity(requestedValPtr, *cap.SharingPolicy)
-			consumedCapacity[name] = *capacity
 		}
+		capacity := calculateConsumedCapacity(requestedValPtr, cap)
+		consumedCapacity[name] = capacity
 	}
 	return consumedCapacity
 }
 
-// violatesPolicy checks whether the request violate the sharing policy.
-func violatesPolicy(requestedVal resource.Quantity, policy *resourceapi.CapacitySharingPolicy) bool {
-	if policy == nil || policy.Default == nil {
+// violatesPolicy checks whether the request violate the requestPolicy.
+func violatesPolicy(requestedVal resource.Quantity, policy *resourceapi.CapacityRequestPolicy) bool {
+	if policy == nil {
+		// no policy to check
 		return false
 	}
-	if requestedVal == *policy.Default {
+	if policy.ZeroConsumption != nil && *policy.ZeroConsumption {
+		return violateZeroConsumption(requestedVal)
+	}
+	if policy.Default != nil && requestedVal == *policy.Default {
 		return false
 	}
-	if policy.ValidRange != nil {
-		if policy.ValidRange.Max != nil &&
-			requestedVal.Cmp(*policy.ValidRange.Max) > 0 {
+	switch {
+	case policy.ValidRange != nil:
+		return violateValidRange(requestedVal, *policy.ValidRange)
+	case len(policy.ValidValues) > 0:
+		return violateValidValues(requestedVal, policy.ValidValues)
+	}
+	// no policy violated through to completion.
+	return false
+}
+
+func violateZeroConsumption(requestedVal resource.Quantity) bool {
+	return !requestedVal.IsZero()
+}
+
+func violateValidRange(requestedVal resource.Quantity, validRange resourceapi.CapacityRequestPolicyRange) bool {
+	if validRange.Max != nil &&
+		requestedVal.Cmp(*validRange.Max) > 0 {
+		return true
+	}
+	if validRange.Step != nil {
+		requestedInt64 := requestedVal.Value()
+		step := validRange.Step.Value()
+		min := validRange.Min.Value()
+		added := (requestedInt64 - min)
+		mod := added % step
+		// must be a multiply of step
+		if mod != 0 {
 			return true
 		}
-		if policy.ValidRange.Step != nil {
-			requestedInt64 := requestedVal.Value()
-			step := policy.ValidRange.Step.Value()
-			min := policy.ValidRange.Min.Value()
-			added := (requestedInt64 - min)
-			mod := added % step
-			// must be a multiply of step
-			if mod != 0 {
-				return true
-			}
-		}
-		return false
 	}
-	for _, validVal := range policy.ValidValues {
+	return false
+}
+
+func violateValidValues(requestedVal resource.Quantity, validValues []resource.Quantity) bool {
+	for _, validVal := range validValues {
 		if requestedVal.Cmp(validVal) == 0 {
 			return false
 		}

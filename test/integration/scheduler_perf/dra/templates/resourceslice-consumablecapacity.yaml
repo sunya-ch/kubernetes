@@ -33,7 +33,7 @@ spec:
     capacity:
       memory:
         value: 80Gi
-        sharingPolicy:
+        requestPolicy:
           default: 1Gi
           validRange:
             min: 1Gi
@@ -50,7 +50,7 @@ spec:
         value: "2"
       memory:
         value: 80Gi
-        sharingPolicy:
+        requestPolicy:
           default: 1Gi
           validRange:
             min: 1Gi

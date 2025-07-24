@@ -29,10 +29,10 @@ import (
 	"k8s.io/client-go/informers"
 	resourcelisters "k8s.io/client-go/listers/resource/v1beta1"
 	resourceslicetracker "k8s.io/dynamic-resource-allocation/resourceslice/tracker"
-	"k8s.io/dynamic-resource-allocation/structured"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
+	dratypes "k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 	"k8s.io/kubernetes/pkg/scheduler/util/assumecache"
 )
 
@@ -203,7 +203,7 @@ func (c *claimTracker) List() ([]*resourceapi.ResourceClaim, error) {
 	return result, nil
 }
 
-func (c *claimTracker) ListAllAllocatedDevices() (sets.Set[structured.DeviceID], error) {
+func (c *claimTracker) ListAllAllocatedDevices() (sets.Set[dratypes.DeviceID], error) {
 	// Start with a fresh set that matches the current known state of the
 	// world according to the informers.
 	allocated := c.allocatedDevices.Get()
@@ -211,21 +211,21 @@ func (c *claimTracker) ListAllAllocatedDevices() (sets.Set[structured.DeviceID],
 	// Whatever is in flight also has to be checked.
 	c.inFlightAllocations.Range(func(key, value any) bool {
 		claim := value.(*resourceapi.ResourceClaim)
-		foreachAllocatedDevice(claim, func(deviceID structured.DeviceID) {
+		foreachAllocatedDevice(claim, func(deviceID dratypes.DeviceID) {
 			c.logger.V(6).Info("Device is in flight for allocation", "device", deviceID, "claim", klog.KObj(claim))
 			allocated.Insert(deviceID)
-		}, false, func(structured.SharedDeviceID) {}, func(structured.DeviceConsumedCapacity) {})
+		}, false, func(dratypes.SharedDeviceID) {}, func(dratypes.DeviceConsumedCapacity) {})
 		return true
 	})
 	// There's no reason to return an error in this implementation, but the error might be helpful for other implementations.
 	return allocated, nil
 }
 
-func (c *claimTracker) GatherAllocatedState() (*structured.AllocatedState, error) {
+func (c *claimTracker) GatherAllocatedState() (*dratypes.AllocatedState, error) {
 	// Start with a fresh set that matches the current known state of the
 	// world according to the informers.
 	allocated := c.allocatedDevices.Get()
-	allocatedSharedDeviceIDs := sets.New[structured.SharedDeviceID]()
+	allocatedSharedDeviceIDs := sets.New[dratypes.SharedDeviceID]()
 	aggregatedCapacity := c.allocatedDevices.Capacities()
 
 	enabledConsumableCapacity := utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity)
@@ -233,15 +233,15 @@ func (c *claimTracker) GatherAllocatedState() (*structured.AllocatedState, error
 	// Whatever is in flight also has to be checked.
 	c.inFlightAllocations.Range(func(key, value any) bool {
 		claim := value.(*resourceapi.ResourceClaim)
-		foreachAllocatedDevice(claim, func(deviceID structured.DeviceID) {
+		foreachAllocatedDevice(claim, func(deviceID dratypes.DeviceID) {
 			c.logger.V(6).Info("Device is in flight for allocation", "device", deviceID, "claim", klog.KObj(claim))
 			allocated.Insert(deviceID)
 		},
 			enabledConsumableCapacity,
-			func(sharedDeviceID structured.SharedDeviceID) {
+			func(sharedDeviceID dratypes.SharedDeviceID) {
 				c.logger.V(6).Info("Device is in flight for allocation", "shared device", sharedDeviceID, "claim", klog.KObj(claim))
 				allocatedSharedDeviceIDs.Insert(sharedDeviceID)
-			}, func(capacity structured.DeviceConsumedCapacity) {
+			}, func(capacity dratypes.DeviceConsumedCapacity) {
 				c.logger.V(6).Info("Device is in flight for allocation", "consumed capacity", capacity, "claim", klog.KObj(claim))
 				aggregatedCapacity.Insert(capacity)
 			})
@@ -249,7 +249,7 @@ func (c *claimTracker) GatherAllocatedState() (*structured.AllocatedState, error
 	})
 
 	// There's no reason to return an error in this implementation, but the error might be helpful for other implementations.
-	return &structured.AllocatedState{
+	return &dratypes.AllocatedState{
 		AllocatedDevices:         allocated,
 		AllocatedSharedDeviceIDs: allocatedSharedDeviceIDs,
 		AggregatedCapacity:       aggregatedCapacity,

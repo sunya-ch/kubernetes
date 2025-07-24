@@ -1762,9 +1762,9 @@ var _ = framework.SIGDescribe("node")(framework.WithLabel("DRA"), framework.With
 					Capacity: map[resourceapi.QualifiedName]resourceapi.DeviceCapacity{
 						"memory": {
 							Value: resource.MustParse("8Gi"),
-							SharingPolicy: &resourceapi.CapacitySharingPolicy{
+							RequestPolicy: &resourceapi.CapacityRequestPolicy{
 								Default: ptr.To(resource.MustParse("1Gi")),
-								ValidRange: &resourceapi.CapacitySharingPolicyRange{
+								ValidRange: &resourceapi.CapacityRequestPolicyRange{
 									Min: resource.MustParse("1Gi"),
 								},
 							},

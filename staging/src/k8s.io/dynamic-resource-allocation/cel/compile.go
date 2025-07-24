@@ -86,16 +86,6 @@ func GetCompiler() *compiler {
 	return lazyCompiler
 }
 
-// SetCompilerWithVersion sets compiler with a certain version.
-func SetCompilerWithVersion(version *version.Version) {
-	lazyCompilerMutex.Lock()
-	defer lazyCompilerMutex.Unlock()
-	lazyCompilerInit = sync.Once{}
-	lazyCompilerInit.Do(func() {
-		lazyCompiler = newCompilerWithVersion(version)
-	})
-}
-
 func ResetCompiler() {
 	lazyCompilerMutex.Lock()
 	defer lazyCompilerMutex.Unlock()
@@ -311,11 +301,7 @@ func (c CompilationResult) DeviceMatches(ctx context.Context, input Device) (boo
 }
 
 func newCompiler() *compiler {
-	return newCompilerWithVersion(environment.DefaultCompatibilityVersion())
-}
-
-func newCompilerWithVersion(kVersion *version.Version) *compiler {
-	envset := environment.MustBaseEnvSet(kVersion, true /* strictCost */)
+	envset := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion(), true /* strictCost */)
 	field := func(name string, declType *apiservercel.DeclType, required bool) *apiservercel.DeclField {
 		return apiservercel.NewDeclField(name, declType, required, nil, nil)
 	}
@@ -364,6 +350,7 @@ func newCompilerWithVersion(kVersion *version.Version) *compiler {
 		},
 		{
 			IntroducedVersion: version.MajorMinor(1, 34),
+			FeatureEnabled:    DRAConsumableCapacity,
 			EnvOptions: []cel.EnvOption{
 				cel.Variable(deviceVar, deviceTypeV134.CelType()),
 			},

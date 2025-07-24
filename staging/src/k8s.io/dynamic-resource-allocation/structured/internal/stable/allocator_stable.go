@@ -33,16 +33,17 @@ import (
 	"k8s.io/dynamic-resource-allocation/resourceclaim"
 	"k8s.io/dynamic-resource-allocation/structured/internal"
 	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 	"k8s.io/utils/ptr"
 )
 
 type DeviceClassLister = internal.DeviceClassLister
 type Features = internal.Features
-type DeviceID = internal.DeviceID
+type DeviceID = types.DeviceID
 type Stats = internal.Stats
 
 func MakeDeviceID(driver, pool, device string) DeviceID {
-	return internal.MakeDeviceID(driver, pool, device)
+	return types.MakeDeviceID(driver, pool, device)
 }
 
 // SupportedFeatures does not include any additional features.

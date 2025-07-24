@@ -23,9 +23,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/dynamic-resource-allocation/structured"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/features"
+	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 	schedutil "k8s.io/kubernetes/pkg/scheduler/util"
 	"k8s.io/utils/ptr"
 )
@@ -39,10 +39,10 @@ import (
 //
 // foreachAllocatedDevice does nothing if the claim is not allocated.
 func foreachAllocatedDevice(claim *resourceapi.ResourceClaim,
-	dedicatedDeviceCallback func(deviceID structured.DeviceID),
+	dedicatedDeviceCallback func(deviceID types.DeviceID),
 	enabledConsumableCapacity bool,
-	sharedDeviceCallback func(structured.SharedDeviceID),
-	consumedCapacityCallback func(structured.DeviceConsumedCapacity)) {
+	sharedDeviceCallback func(types.SharedDeviceID),
+	consumedCapacityCallback func(types.DeviceConsumedCapacity)) {
 	if claim.Status.Allocation == nil {
 		return
 	}
@@ -56,7 +56,7 @@ func foreachAllocatedDevice(claim *resourceapi.ResourceClaim,
 			// Is not considered as allocated.
 			continue
 		}
-		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
+		deviceID := types.MakeDeviceID(result.Driver, result.Pool, result.Device)
 
 		// None of the users of this helper need to abort iterating,
 		// therefore it's not supported as it only would add overhead.
@@ -66,10 +66,10 @@ func foreachAllocatedDevice(claim *resourceapi.ResourceClaim,
 		if enabledConsumableCapacity {
 			shared := result.ShareID != nil
 			if shared {
-				sharedDeviceID := structured.MakeSharedDeviceID(deviceID, result.ShareID)
+				sharedDeviceID := types.MakeSharedDeviceID(deviceID, result.ShareID)
 				sharedDeviceCallback(sharedDeviceID)
 				if result.ConsumedCapacity != nil {
-					deviceConsumedCapacity := structured.NewDeviceConsumedCapacity(deviceID, result.ConsumedCapacity)
+					deviceConsumedCapacity := types.NewDeviceConsumedCapacity(deviceID, result.ConsumedCapacity)
 					consumedCapacityCallback(deviceConsumedCapacity)
 				}
 				continue
@@ -92,9 +92,9 @@ type allocatedDevices struct {
 	logger klog.Logger
 
 	mutex                     sync.RWMutex
-	ids                       sets.Set[structured.DeviceID]
-	shareIDs                  sets.Set[structured.SharedDeviceID]
-	capacities                structured.ConsumedCapacityCollection
+	ids                       sets.Set[types.DeviceID]
+	shareIDs                  sets.Set[types.SharedDeviceID]
+	capacities                types.ConsumedCapacityCollection
 	enabledConsumableCapacity bool
 }
 
@@ -102,21 +102,21 @@ func newAllocatedDevices(logger klog.Logger) *allocatedDevices {
 
 	return &allocatedDevices{
 		logger:                    logger,
-		ids:                       sets.New[structured.DeviceID](),
-		shareIDs:                  sets.New[structured.SharedDeviceID](),
-		capacities:                structured.NewConsumedCapacityCollection(),
+		ids:                       sets.New[types.DeviceID](),
+		shareIDs:                  sets.New[types.SharedDeviceID](),
+		capacities:                types.NewConsumedCapacityCollection(),
 		enabledConsumableCapacity: utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity),
 	}
 }
 
-func (a *allocatedDevices) Get() sets.Set[structured.DeviceID] {
+func (a *allocatedDevices) Get() sets.Set[types.DeviceID] {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 
 	return a.ids.Clone()
 }
 
-func (a *allocatedDevices) Capacities() structured.ConsumedCapacityCollection {
+func (a *allocatedDevices) Capacities() types.ConsumedCapacityCollection {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 
@@ -180,24 +180,24 @@ func (a *allocatedDevices) addDevices(claim *resourceapi.ResourceClaim) {
 	}
 	// Locking of the mutex gets minimized by pre-computing what needs to be done
 	// without holding the lock.
-	deviceIDs := make([]structured.DeviceID, 0, 20)
-	var shareIDs []structured.SharedDeviceID
-	var deviceCapacities []structured.DeviceConsumedCapacity
+	deviceIDs := make([]types.DeviceID, 0, 20)
+	var shareIDs []types.SharedDeviceID
+	var deviceCapacities []types.DeviceConsumedCapacity
 	if a.enabledConsumableCapacity {
-		shareIDs = make([]structured.SharedDeviceID, 0, 20)
-		deviceCapacities = make([]structured.DeviceConsumedCapacity, 0, 20)
+		shareIDs = make([]types.SharedDeviceID, 0, 20)
+		deviceCapacities = make([]types.DeviceConsumedCapacity, 0, 20)
 	}
 	foreachAllocatedDevice(claim,
-		func(deviceID structured.DeviceID) {
+		func(deviceID types.DeviceID) {
 			a.logger.V(6).Info("Observed device allocation", "device", deviceID, "claim", klog.KObj(claim))
 			deviceIDs = append(deviceIDs, deviceID)
 		},
 		a.enabledConsumableCapacity,
-		func(sharedDeviceID structured.SharedDeviceID) {
+		func(sharedDeviceID types.SharedDeviceID) {
 			a.logger.V(6).Info("Observed shared device allocation", "shared device", sharedDeviceID, "claim", klog.KObj(claim))
 			shareIDs = append(shareIDs, sharedDeviceID)
 		},
-		func(capacity structured.DeviceConsumedCapacity) {
+		func(capacity types.DeviceConsumedCapacity) {
 			a.logger.V(6).Info("Observed consumed capacity", "device", capacity.DeviceID, "consumed capacity", capacity.ConsumedCapacity, "claim", klog.KObj(claim))
 			deviceCapacities = append(deviceCapacities, capacity)
 		},
@@ -223,24 +223,24 @@ func (a *allocatedDevices) removeDevices(claim *resourceapi.ResourceClaim) {
 
 	// Locking of the mutex gets minimized by pre-computing what needs to be done
 	// without holding the lock.
-	deviceIDs := make([]structured.DeviceID, 0, 20)
-	var shareIDs []structured.SharedDeviceID
-	var deviceCapacities []structured.DeviceConsumedCapacity
+	deviceIDs := make([]types.DeviceID, 0, 20)
+	var shareIDs []types.SharedDeviceID
+	var deviceCapacities []types.DeviceConsumedCapacity
 	if a.enabledConsumableCapacity {
-		shareIDs = make([]structured.SharedDeviceID, 0, 20)
-		deviceCapacities = make([]structured.DeviceConsumedCapacity, 0, 20)
+		shareIDs = make([]types.SharedDeviceID, 0, 20)
+		deviceCapacities = make([]types.DeviceConsumedCapacity, 0, 20)
 	}
 	foreachAllocatedDevice(claim,
-		func(deviceID structured.DeviceID) {
+		func(deviceID types.DeviceID) {
 			a.logger.V(6).Info("Observed device deallocation", "device", deviceID, "claim", klog.KObj(claim))
 			deviceIDs = append(deviceIDs, deviceID)
 		},
 		a.enabledConsumableCapacity,
-		func(sharedDeviceID structured.SharedDeviceID) {
+		func(sharedDeviceID types.SharedDeviceID) {
 			a.logger.V(6).Info("Observed shared device deallocation", "shared device", sharedDeviceID, "claim", klog.KObj(claim))
 			shareIDs = append(shareIDs, sharedDeviceID)
 		},
-		func(capacity structured.DeviceConsumedCapacity) {
+		func(capacity types.DeviceConsumedCapacity) {
 			a.logger.V(6).Info("Observed consumed capacity release", "device id", capacity.DeviceID, "consumed capacity", capacity.ConsumedCapacity, "claim", klog.KObj(claim))
 			deviceCapacities = append(deviceCapacities, capacity)
 		})

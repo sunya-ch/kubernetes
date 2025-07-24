@@ -36,39 +36,40 @@ import (
 	"k8s.io/dynamic-resource-allocation/resourceclaim"
 	"k8s.io/dynamic-resource-allocation/structured/internal"
 	"k8s.io/klog/v2"
+	dratypes "k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 	"k8s.io/utils/ptr"
 )
 
 type DeviceClassLister = internal.DeviceClassLister
 type Features = internal.Features
-type DeviceID = internal.DeviceID
+type DeviceID = dratypes.DeviceID
 type Stats = internal.Stats
 
 func MakeDeviceID(driver, pool, device string) DeviceID {
-	return internal.MakeDeviceID(driver, pool, device)
+	return dratypes.MakeDeviceID(driver, pool, device)
 }
 
 // types_experimental
-type SharedDeviceID = internal.SharedDeviceID
-type DeviceConsumedCapacity = internal.DeviceConsumedCapacity
-type ConsumedCapacityCollection = internal.ConsumedCapacityCollection
-type AllocatedState = internal.AllocatedState
+type SharedDeviceID = dratypes.SharedDeviceID
+type DeviceConsumedCapacity = dratypes.DeviceConsumedCapacity
+type ConsumedCapacityCollection = dratypes.ConsumedCapacityCollection
+type AllocatedState = dratypes.AllocatedState
 
 func GenerateNewShareID() *types.UID {
-	return internal.GenerateShareID()
+	return dratypes.GenerateShareID()
 }
 
 func NewConsumedCapacity() ConsumedCapacity {
-	return internal.NewConsumedCapacity()
+	return dratypes.NewConsumedCapacity()
 }
 
 func NewDeviceConsumedCapacity(deviceID DeviceID,
 	consumedCapacity map[resourceapi.QualifiedName]resource.Quantity) DeviceConsumedCapacity {
-	return internal.NewDeviceConsumedCapacity(deviceID, consumedCapacity)
+	return dratypes.NewDeviceConsumedCapacity(deviceID, consumedCapacity)
 }
 
 func NewConsumedCapacityCollection() ConsumedCapacityCollection {
-	return internal.NewConsumedCapacityCollection()
+	return dratypes.NewConsumedCapacityCollection()
 }
 
 // SupportedFeatures includes all additional features,
@@ -120,6 +121,11 @@ func NewAllocator(ctx context.Context,
 	slices []*resourceapi.ResourceSlice,
 	celCache *cel.Cache,
 ) (*Allocator, error) {
+	if features.ConsumableCapacity {
+		cel.SetDRAConsumableCapacity()
+	} else {
+		cel.UnsetDRAConsumableCapacity()
+	}
 	return &Allocator{
 		features:          features,
 		allocatedState:    allocatedState,
@@ -147,6 +153,7 @@ func (a *Allocator) Allocate(ctx context.Context, node *v1.Node, claims []*resou
 	alloc.logger.V(5).Info("Starting allocation", "numClaims", len(alloc.claimsToAllocate))
 	defer alloc.logger.V(5).Info("Done with allocation", "success", len(finalResult) == len(alloc.claimsToAllocate), "err", finalErr)
 
+	alloc.logger.V(5).Info("Gathering pools", "slices", alloc.slices)
 	// First determine all eligible pools.
 	pools, err := GatherPools(ctx, alloc.slices, node, a.features)
 	if err != nil {

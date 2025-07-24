@@ -20,7 +20,7 @@ import (
 	resourceapi "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/dynamic-resource-allocation/structured"
+	dratypes "k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 )
 
 // NodeInfoLister interface represents anything that can list/get NodeInfo objects from node name.
@@ -82,10 +82,10 @@ type ResourceClaimTracker interface {
 	Get(namespace, claimName string) (*resourceapi.ResourceClaim, error)
 	// ListAllAllocatedDevices lists all allocated Devices from allocated ResourceClaims. The result is guaranteed to immediately include
 	// any changes made via AssumeClaimAfterAPICall(), and SignalClaimPendingAllocation().
-	ListAllAllocatedDevices() (sets.Set[structured.DeviceID], error)
+	ListAllAllocatedDevices() (sets.Set[dratypes.DeviceID], error)
 	// GatherAllocatedState gathers information about allocated devices from allocated ResourceClaims. The result is guaranteed to immediately include
 	// any changes made via AssumeClaimAfterAPICall(), and SignalClaimPendingAllocation().
-	GatherAllocatedState() (*structured.AllocatedState, error)
+	GatherAllocatedState() (*dratypes.AllocatedState, error)
 
 	// SignalClaimPendingAllocation signals to the tracker that the given ResourceClaim will be allocated via an API call in the
 	// binding phase. This change is immediately reflected in the result of List() and the other accessors.

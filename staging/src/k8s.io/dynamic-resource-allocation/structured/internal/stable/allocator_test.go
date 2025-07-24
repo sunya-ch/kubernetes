@@ -24,9 +24,8 @@ import (
 	"k8s.io/dynamic-resource-allocation/cel"
 	"k8s.io/dynamic-resource-allocation/structured/internal"
 	"k8s.io/dynamic-resource-allocation/structured/internal/allocatortesting"
+	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 )
-
-type AllocatedState = internal.AllocatedState
 
 func TestAllocator(t *testing.T) {
 	allocatortesting.TestAllocator(t,
@@ -34,7 +33,7 @@ func TestAllocator(t *testing.T) {
 		func(
 			ctx context.Context,
 			features Features,
-			allocatedState AllocatedState,
+			allocatedState types.AllocatedState,
 			classLister DeviceClassLister,
 			slices []*resourceapi.ResourceSlice,
 			celCache *cel.Cache,

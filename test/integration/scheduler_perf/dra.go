@@ -40,6 +40,7 @@ import (
 	"k8s.io/dynamic-resource-allocation/structured"
 	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources"
+	dratypes "k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 	"k8s.io/kubernetes/pkg/scheduler/util/assumecache"
 	"k8s.io/kubernetes/test/utils/ktesting"
 	"k8s.io/utils/ptr"
@@ -328,9 +329,9 @@ claims:
 
 		claims, err := draManager.ResourceClaims().List()
 		tCtx.ExpectNoError(err, "list claims")
-		allocatedDevices := sets.New[structured.DeviceID]()
-		allocatedSharedDeviceIDs := sets.New[structured.SharedDeviceID]()
-		aggregatedCapacity := structured.NewConsumedCapacityCollection()
+		allocatedDevices := sets.New[dratypes.DeviceID]()
+		allocatedSharedDeviceIDs := sets.New[dratypes.SharedDeviceID]()
+		aggregatedCapacity := dratypes.NewConsumedCapacityCollection()
 		for _, claim := range claims {
 			if claim.Status.Allocation == nil {
 				continue
@@ -342,11 +343,11 @@ claims:
 					allocatedDevices.Insert(deviceID)
 					continue
 				}
-				sharedDeviceID := structured.MakeSharedDeviceID(deviceID, result.ShareID)
+				sharedDeviceID := dratypes.MakeSharedDeviceID(deviceID, result.ShareID)
 				allocatedSharedDeviceIDs.Insert(sharedDeviceID)
 				claimedCapacity := result.ConsumedCapacity
 				if claimedCapacity != nil {
-					allocatedCapacity := structured.NewDeviceConsumedCapacity(deviceID, claimedCapacity)
+					allocatedCapacity := dratypes.NewDeviceConsumedCapacity(deviceID, claimedCapacity)
 					aggregatedCapacity.Insert(allocatedCapacity)
 				}
 			}
