@@ -41,6 +41,7 @@ import (
 	corevalidation "k8s.io/kubernetes/pkg/apis/core/validation"
 	"k8s.io/kubernetes/pkg/apis/resource"
 	"k8s.io/kubernetes/pkg/features"
+	dratypes "k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 	"k8s.io/utils/ptr"
 )
 
@@ -166,12 +167,12 @@ func gatherRequestNames(deviceClaim *resource.DeviceClaim) requestNames {
 	return requestNames
 }
 
-func gatherAllocatedDevices(allocationResult *resource.DeviceAllocationResult) sets.Set[structured.SharedDeviceID] {
-	allocatedDevices := sets.New[structured.SharedDeviceID]()
+func gatherAllocatedDevices(allocationResult *resource.DeviceAllocationResult) sets.Set[dratypes.SharedDeviceID] {
+	allocatedDevices := sets.New[dratypes.SharedDeviceID]()
 	for _, result := range allocationResult.Results {
 		deviceName := result.Device
-		deviceID := structured.MakeDeviceID(result.Driver, result.Pool, deviceName)
-		sharedDeviceID := structured.MakeSharedDeviceID(deviceID, result.ShareID)
+		deviceID := dratypes.MakeDeviceID(result.Driver, result.Pool, deviceName)
+		sharedDeviceID := dratypes.MakeSharedDeviceID(deviceID, result.ShareID)
 		allocatedDevices.Insert(sharedDeviceID)
 	}
 	return allocatedDevices
@@ -383,7 +384,7 @@ func validateResourceClaimStatusUpdate(status, oldStatus *resource.ResourceClaim
 		func(consumer resource.ResourceClaimConsumerReference) (types.UID, string) { return consumer.UID, "uid" },
 		fldPath.Child("reservedFor"))...)
 
-	var allocatedDevices sets.Set[structured.SharedDeviceID]
+	var allocatedDevices sets.Set[dratypes.SharedDeviceID]
 	if status.Allocation != nil {
 		allocatedDevices = gatherAllocatedDevices(&status.Allocation.Devices)
 	}
@@ -391,7 +392,7 @@ func validateResourceClaimStatusUpdate(status, oldStatus *resource.ResourceClaim
 		func(device resource.AllocatedDeviceStatus, fldPath *field.Path) field.ErrorList {
 			return validateDeviceStatus(device, fldPath, allocatedDevices)
 		},
-		func(device resource.AllocatedDeviceStatus) (structured.DeviceID, string) {
+		func(device resource.AllocatedDeviceStatus) (dratypes.DeviceID, string) {
 			return structured.MakeDeviceID(device.Driver, device.Pool, device.Device), "deviceID"
 		},
 		fldPath.Child("devices"))...)
@@ -891,12 +892,12 @@ func validateDeviceAttributeVersionValue(value *string, fldPath *field.Path) fie
 	return allErrs
 }
 
-// validateMultiAllocatableDeviceCapacity must check sharing policy in consumable capacity.
+// validateMultiAllocatableDeviceCapacity must check requestPolicy in consumable capacity.
 func validateMultiAllocatableDeviceCapacity(capacity resource.DeviceCapacity, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
-	if capacity.SharingPolicy != nil {
+	if capacity.RequestPolicy != nil {
 		allErrs = append(allErrs,
-			validateSharingPolicy(capacity.Value, capacity.SharingPolicy, fldPath.Child("sharingPolicy"))...)
+			validateRequestPolicy(capacity.Value, capacity.RequestPolicy, fldPath.Child("requestPolicy"))...)
 	}
 	return allErrs
 }
@@ -904,37 +905,55 @@ func validateMultiAllocatableDeviceCapacity(capacity resource.DeviceCapacity, fl
 // validateSingleAllocatableDeviceCapacity must not allow consumable capacity.
 func validateSingleAllocatableDeviceCapacity(capacity resource.DeviceCapacity, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
-	if capacity.SharingPolicy != nil {
+	if capacity.RequestPolicy != nil {
 		allErrs = append(allErrs,
-			field.Forbidden(fldPath.Child("sharingPolicy"), "allowMultipleAllocations must be true"))
+			field.Forbidden(fldPath.Child("requestPolicy"), "allowMultipleAllocations must be true"))
 	}
 	return allErrs
 }
 
-// validateSharingPolicy validates at most one of ValidSharingValues can be defined.
+// validateRequestPolicy validates at most one of ValidSharingValues can be defined.
 // If any ValidSharingValues are defined, Default must also be defined and valid.
-func validateSharingPolicy(maxCapacity apiresource.Quantity, policy *resource.CapacitySharingPolicy, fldPath *field.Path) field.ErrorList {
+func validateRequestPolicy(maxCapacity apiresource.Quantity, policy *resource.CapacityRequestPolicy, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	count := 0
+	if policy.ZeroConsumption != nil {
+		count += 1
+	}
+	if len(policy.ValidValues) > 0 {
+		count += 1
+	}
+	if policy.ValidRange != nil {
+		count += 1
+	}
+	if count > 1 {
+		allErrs = append(allErrs, field.Forbidden(fldPath, `exactly one policy can be specified, cannot specify any of "zeroConsumption", "validValues" and "validRange" at the same time`))
+	} else {
+		allErrs = append(allErrs, validateValidSharingValues(maxCapacity, policy, fldPath)...)
+	}
+	return allErrs
+}
+
+func validateValidSharingValues(maxCapacity apiresource.Quantity, policy *resource.CapacityRequestPolicy, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 	switch {
-	case len(policy.ValidValues) > 0 && policy.ValidRange != nil:
-		allErrs = append(allErrs, field.Forbidden(fldPath, "exactly one policy can be specified, cannot specify `validValues` and `validRange` at the same time"))
 	case len(policy.ValidValues) > 0:
 		if policy.Default == nil {
 			allErrs = append(allErrs, field.Required(fldPath.Child("default"), "required when validValues is specified"))
 		} else {
-			allErrs = append(allErrs, validateSharingPolicyValidValues(*policy.Default, maxCapacity, policy.ValidValues, fldPath.Child("validValues"))...)
+			allErrs = append(allErrs, validateRequestPolicyValidValues(*policy.Default, maxCapacity, policy.ValidValues, fldPath.Child("validValues"))...)
 		}
 	case policy.ValidRange != nil:
 		if policy.Default == nil {
 			allErrs = append(allErrs, field.Required(fldPath.Child("default"), "required when validRange is defined"))
 		} else {
-			allErrs = append(allErrs, validateSharingPolicyRange(*policy.Default, maxCapacity, *policy.ValidRange, fldPath.Child("validRange"))...)
+			allErrs = append(allErrs, validateRequestPolicyRange(*policy.Default, maxCapacity, *policy.ValidRange, fldPath.Child("validRange"))...)
 		}
 	}
 	return allErrs
 }
 
-func validateSharingPolicyValidValues(defaultValue apiresource.Quantity, maxCapacity apiresource.Quantity, validValues []apiresource.Quantity, fldPath *field.Path) field.ErrorList {
+func validateRequestPolicyValidValues(defaultValue apiresource.Quantity, maxCapacity apiresource.Quantity, validValues []apiresource.Quantity, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 	foundDefault := false
 
@@ -948,7 +967,7 @@ func validateSharingPolicyValidValues(defaultValue apiresource.Quantity, maxCapa
 		}
 	}
 
-	allErrs = append(allErrs, validateSet(validValues, resource.CapacitySharingPolicyDiscreteMaxOptions,
+	allErrs = append(allErrs, validateSet(validValues, resource.CapacityRequestPolicyDiscreteMaxOptions,
 		func(option apiresource.Quantity, fldPath *field.Path) field.ErrorList {
 			var allErrs field.ErrorList
 			if option.Cmp(maxCapacity) > 0 {
@@ -960,12 +979,12 @@ func validateSharingPolicyValidValues(defaultValue apiresource.Quantity, maxCapa
 			return allErrs
 		}, quantityKey, fldPath)...)
 	if !foundDefault {
-		allErrs = append(allErrs, field.Invalid(fldPath, defaultValue.String(), "default value is not valid according to the sharing policy"))
+		allErrs = append(allErrs, field.Invalid(fldPath, defaultValue.String(), "default value is not valid according to the requestPolicy"))
 	}
 	return allErrs
 }
 
-func validateSharingPolicyRange(defaultValue apiresource.Quantity, maxCapacity apiresource.Quantity, valueRange resource.CapacitySharingPolicyRange, fldPath *field.Path) field.ErrorList {
+func validateRequestPolicyRange(defaultValue apiresource.Quantity, maxCapacity apiresource.Quantity, valueRange resource.CapacityRequestPolicyRange, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 	if valueRange.Min.Cmp(maxCapacity) > 0 {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("minimum"), valueRange.Min.String(), fmt.Sprintf("minimum is larger than capacity value: %s", maxCapacity.String())))
@@ -990,15 +1009,15 @@ func validateSharingPolicyRange(defaultValue apiresource.Quantity, maxCapacity a
 		if added.Cmp(maxCapacity) > 0 {
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("step"), valueRange.Step.String(), fmt.Sprintf("one step %s is larger than capacity value: %s", added.String(), maxCapacity.String())))
 		}
-		allErrs = append(allErrs, validateSharingPolicyRangeStep(defaultValue, valueRange.Min, *valueRange.Step, fldPath.Child("step"))...)
+		allErrs = append(allErrs, validateRequestPolicyRangeStep(defaultValue, valueRange.Min, *valueRange.Step, fldPath.Child("step"))...)
 		if valueRange.Max != nil {
-			allErrs = append(allErrs, validateSharingPolicyRangeStep(*valueRange.Max, valueRange.Min, *valueRange.Step, fldPath.Child("step"))...)
+			allErrs = append(allErrs, validateRequestPolicyRangeStep(*valueRange.Max, valueRange.Min, *valueRange.Step, fldPath.Child("step"))...)
 		}
 	}
 	return allErrs
 }
 
-func validateSharingPolicyRangeStep(value, min, step apiresource.Quantity, fldPath *field.Path) field.ErrorList {
+func validateRequestPolicyRangeStep(value, min, step apiresource.Quantity, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 	stepVal := step.Value()
 	minVal := min.Value()
@@ -1145,17 +1164,17 @@ func truncateIfTooLong(str string, maxLen int) string {
 	return str[0:(remaining+1)/2] + ellipsis + str[len(str)-remaining/2:]
 }
 
-func validateDeviceStatus(device resource.AllocatedDeviceStatus, fldPath *field.Path, allocatedDevices sets.Set[structured.SharedDeviceID]) field.ErrorList {
+func validateDeviceStatus(device resource.AllocatedDeviceStatus, fldPath *field.Path, allocatedDevices sets.Set[dratypes.SharedDeviceID]) field.ErrorList {
 	var allErrs field.ErrorList
 	allErrs = append(allErrs, validateDriverName(device.Driver, fldPath.Child("driver"))...)
 	allErrs = append(allErrs, validatePoolName(device.Pool, fldPath.Child("pool"))...)
 	allErrs = append(allErrs, validateDeviceName(device.Device, fldPath.Child("device"))...)
-	deviceID := structured.MakeDeviceID(device.Driver, device.Pool, device.Device)
+	deviceID := dratypes.MakeDeviceID(device.Driver, device.Pool, device.Device)
 	var shareID *types.UID
 	if device.ShareID != nil {
 		shareID = ptr.To(types.UID(*device.ShareID))
 	}
-	sharedDeviceID := structured.MakeSharedDeviceID(deviceID, shareID)
+	sharedDeviceID := dratypes.MakeSharedDeviceID(deviceID, shareID)
 	if !allocatedDevices.Has(sharedDeviceID) {
 		allErrs = append(allErrs, field.Invalid(fldPath, sharedDeviceID, "must be an allocated device in the claim"))
 	}

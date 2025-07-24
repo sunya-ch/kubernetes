@@ -326,7 +326,7 @@ type Device struct {
 	// AllowMultipleAllocations marks whether the device is allowed to be allocated to multiple DeviceRequests.
 	//
 	// If AllowMultipleAllocations is set to true, the device can be allocated more than once,
-	// and its capacity is shared, regardless of whether the CapacitySharingPolicy is defined or not.
+	// and all of its capacity is consumable, regardless of whether the requestPolicy is defined or not.
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
@@ -358,26 +358,24 @@ type DeviceCapacity struct {
 	// Value defines how much of a certain capacity that device has.
 	//
 	// This field reflects the fixed total capacity and does not change.
-	// If the capacity is consumable (i.e., allowMultipleAllocations is set to true
-	// and sharingPolicy is defined), the consumed amount is tracked separately by scheduler
+	// The consumed amount is tracked separately by scheduler
 	// and does not affect this value.
 	//
 	// +required
 	Value resource.Quantity
 
-	// SharingPolicy defines how this DeviceCapacity must be consumed
+	// RequestPolicy defines how this DeviceCapacity must be consumed
 	// when the device is allowed to be shared by multiple allocations.
 	//
-	// The Device must have allowMultipleAllocations set to true in order to set a sharingPolicy.
+	// The Device must have allowMultipleAllocations set to true in order to set a requestPolicy.
 	//
-	// If this field is unset, capacity sharing is unconstrained:
-	// it can be shared with any number of DeviceRequests,
-	// and the scheduler will not deduct (consume) its value from capacity of DeviceRequests,
-	// even if those requests are defined, when the device is allocated.
+	// If unset, capacity requests are unconstrained:
+	// requests can consume any amount of capacity, as long as the total consumed
+	// across all allocations does not exceed the device's defined capacity.
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
-	SharingPolicy *CapacitySharingPolicy
+	RequestPolicy *CapacityRequestPolicy
 }
 
 // Counter describes a quantity associated with a device.
@@ -388,46 +386,62 @@ type Counter struct {
 	Value resource.Quantity
 }
 
-// CapacitySharingPolicyDiscreteMaxOptions limits the number of discrete capacity values allowed in a sharing policy.
-const CapacitySharingPolicyDiscreteMaxOptions = 10
+// CapacityRequestPolicyDiscreteMaxOptions limits the number of discrete capacity values allowed in a requestPolicy.
+const CapacityRequestPolicyDiscreteMaxOptions = 10
 
-// CapacitySharingPolicy defines how requests consume device capacity.
+// CapacityRequestPolicy defines how requests consume device capacity.
 //
-// The Default field must be defined for the scheduler to consume the capacity
-// and to ensure that the total allocated capacity remains within the DeviceCapacity's Value.
-//
-// The ValidSharingValues field (either ValidValues or ValidRange) is optional.
-// At most one of ValidSharingValues can be defined.
-// If any ValidSharingValues are defined, Default must also be defined and valid.
-type CapacitySharingPolicy struct {
+// Must not set more than one ValidRequestValues.
+type CapacityRequestPolicy struct {
 	// Default specifies how much of this capacity is consumed by a request
 	// that does not contain an entry for it in DeviceRequest's Capacity.
 	//
 	// +optional
 	Default *resource.Quantity
 
-	// ^^^
-	// Default field is defined as optional for future extension.
+	// ZeroConsumption defines request cannot consume this capacity.
+	//
+	// This flag is equivalent to {default: 0, validValues{{0}}}.
+	//
+	// If the request doesn't contain this capacity entry, zero value is used.
+	//
+	// +optional
+	// +oneOf=ValidRequestValues
+	ZeroConsumption *bool
 
 	// ValidValues defines a set of acceptable quantity values in consuming requests.
 	//
 	// Must not contain more than 10 entries.
 	// Must be sorted in ascending order.
 	//
-	// If this field is set, Default must be defined and it must be included in ValidValues list.
+	// If this field is set,
+	// Default must be defined and it must be included in ValidValues list.
+	//
+	// If the requested amount does not match any valid value but smaller than some valid values,
+	// the scheduler calculates the smallest valid value that is greater than or equal to the request.
+	// That is: min(ceil(requestedValue) ∈ validValues), where requestedValue ≤ max(validValues).
+	//
+	// If the requested amount exceeds all valid values, the request violates the policy,
+	// and this device cannot be allocated.
 	//
 	// +optional
 	// +listType=atomic
-	// +oneOf=ValidSharingValues
+	// +oneOf=ValidRequestValues
 	ValidValues []resource.Quantity
 
 	// ValidRange defines an acceptable quantity value range in consuming requests.
 	//
-	// If this field is set, Default must be defined and it must fall within the defined ValidRange.
+	// If this field is set,
+	// Default must be defined and it must fall within the defined ValidRange.
+	//
+	// If the requested amount does not fall within the defined range, the request violates the policy,
+	// and this device cannot be allocated.
+	//
+	// If the request doesn't contain this capacity entry, Default value is used.
 	//
 	// +optional
-	// +oneOf=ValidSharingValues
-	ValidRange *CapacitySharingPolicyRange
+	// +oneOf=ValidRequestValues
+	ValidRange *CapacityRequestPolicyRange
 
 	// Potential extension 1: allow defining a `strategy` on a specific capacity
 	// to specify default scheduling behavior when it is not explicitly requested.
@@ -447,12 +461,12 @@ type CapacitySharingPolicy struct {
 	//   If a request is made, the device can be shared up to the guaranteed amount.
 	//   This strategy is useful in accelerator contexts, where devices are typically assumed to be dedicated.
 
-	// Potential extension 2: allow defining a common SharingPolicy in the Device struct (similar to mixins)
-	// and reference it using new fields named `SharingPolicyRef` or `SharingPolicyName`,
+	// Potential extension 2: allow defining a common RequestPolicy in the Device struct (similar to mixins)
+	// and reference it using new fields named `RequestPolicyRef` or `RequestPolicyName`,
 	// which are mutually exclusive with the Default field.
 }
 
-// CapacitySharingPolicyRange defines a valid range for consumable capacity values.
+// CapacityRequestPolicyRange defines a valid range for consumable capacity values.
 //
 //   - If the requested amount is less than Min, it is rounded up to the Min value.
 //   - If Step is set and the requested amount is between Min and Max but not aligned with Step,
@@ -460,7 +474,7 @@ type CapacitySharingPolicy struct {
 //   - If Step is not set, the requested amount is used as-is if it falls within the range Min to Max (if set).
 //   - If the requested or rounded amount exceeds Max (if set), the request does not satisfy the policy,
 //     and the device cannot be allocated.
-type CapacitySharingPolicyRange struct {
+type CapacityRequestPolicyRange struct {
 	// Min specifies the minimum capacity allowed for a consumption request.
 	//
 	// Min must be less than or equal to the capacity value.
@@ -858,7 +872,8 @@ type ExactDeviceRequest struct {
 	// Capacity define resource requirements against each capacity.
 	//
 	// If this field is unset and the device supports multiple allocations,
-	// the default value will be applied to each capacity with a defined sharing policy.
+	// the default value will be applied to each capacity according to requestPolicy.
+	// For the capacity that has no requestPolicy, the default is full capacity value.
 	//
 	// Applies to each device allocation.
 	// If Count > 1,
@@ -967,7 +982,8 @@ type DeviceSubRequest struct {
 	// Capacity define resource requirements against each capacity.
 	//
 	// If this field is unset and the device supports multiple allocations,
-	// the default value will be applied to each capacity with a defined sharing policy.
+	// the default value will be applied to each capacity according to requestPolicy.
+	// For the capacity that has no requestPolicy, the default is full capacity value.
 	//
 	// Applies to each device allocation.
 	// If Count > 1,
@@ -985,18 +1001,25 @@ type CapacityRequirements struct {
 	// Requests represent individual device resource requests for distinct resources,
 	// all of which must be provided by the device.
 	//
-	// For each device capacity with a defined sharingPolicy,
-	// the scheduler uses the policy to determine how much capacity is consumed:
-	// - If no capacity request is specified, the device sharingPolicy.default value is used.
-	// - If the device sharingPolicy defines a validRange,
-	//   the capacity request is rounded up to the nearest valid value in the range.
-	// - If the device sharingPolicy defines validValues, the capacity request is rounded up to the nearest valid value.
-	// The consumed capacity is written to the resource claim status.devices[*].consumedCapacity field.
-	//
 	// This value is used as an additional filtering condition against the available capacity on the device.
 	// This is semantically equivalent to a CEL selector with
 	// `device.capacity[<domain>].<name>.compareTo(quantity(<request quantity>)) >= 0`.
 	// For example, device.capacity['test-driver.cdi.k8s.io'].counters.compareTo(quantity('2')) >= 0.
+	//
+	// When a requestPolicy is defined, the requested amount is adjusted upward
+	// to the nearest valid value based on the policy.
+	// If the requested amount cannot be adjusted to a valid value—because it exceeds what the requestPolicy allows—
+	// the device is considered ineligible for allocation.
+	//
+	// For any capacity that is not explicitly requested:
+	// - If no requestPolicy is set, the default consumed capacity is equal to the full device capacity
+	//   (i.e., the whole device is claimed).
+	// - If a requestPolicy is set, the default consumed capacity is determined according to that policy.
+	//
+	// If the device allows multiple allocation,
+	// the aggregated amount across all requests must be less than the capacity value.
+	// The consumed capacity, which may be adjusted based on the requestPolicy if defined,
+	// is recorded in the resource claim’s status.devices[*].consumedCapacity field.
 	//
 	// +optional
 	Requests map[QualifiedName]resource.Quantity
@@ -1482,13 +1505,12 @@ type DeviceRequestAllocationResult struct {
 
 	// ConsumedCapacity tracks the amount of capacity consumed per device as part of the claim request.
 	// The consumed amount may differ from the requested amount: it is rounded up to the nearest valid
-	// value based on the device’s sharing policy if applicable and must not be less than the requested amount.
+	// value based on the device’s requestPolicy if applicable and must not be less than the requested amount.
 	//
 	// The total consumed capacity for each device must not exceed the DeviceCapacity's Value.
 	//
-	// This field is populated only for devices that support multiple allocations.
-	// It references only DeviceCapacity entries that have a specified sharingPolicy,
-	// and is empty if no such entries exist.
+	// This field is populated only for devices that allow multiple allocations.
+	// All capacity entries are included, even if the consumed amount is zero.
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity

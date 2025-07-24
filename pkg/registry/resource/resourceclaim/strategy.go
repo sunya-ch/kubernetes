@@ -32,12 +32,12 @@ import (
 	"k8s.io/apiserver/pkg/storage/names"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/dynamic-resource-allocation/structured"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/apis/resource"
 	"k8s.io/kubernetes/pkg/apis/resource/validation"
 	"k8s.io/kubernetes/pkg/features"
 	resourceutils "k8s.io/kubernetes/pkg/registry/resource"
+	dratypes "k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/structured-merge-diff/v6/fieldpath"
 )
@@ -315,13 +315,13 @@ func dropDeallocatedStatusDevices(newClaim, oldClaim *resource.ResourceClaim) {
 		return
 	}
 
-	deallocatedDevices := sets.New[structured.SharedDeviceID]()
+	deallocatedDevices := sets.New[dratypes.SharedDeviceID]()
 
 	if oldClaim.Status.Allocation != nil {
 		// Get all devices in the oldClaim.
 		for _, result := range oldClaim.Status.Allocation.Devices.Results {
-			deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
-			sharedDeviceID := structured.MakeSharedDeviceID(deviceID, result.ShareID)
+			deviceID := dratypes.MakeDeviceID(result.Driver, result.Pool, result.Device)
+			sharedDeviceID := dratypes.MakeSharedDeviceID(deviceID, result.ShareID)
 			deallocatedDevices.Insert(sharedDeviceID)
 		}
 	}
@@ -329,8 +329,8 @@ func dropDeallocatedStatusDevices(newClaim, oldClaim *resource.ResourceClaim) {
 	// Remove devices from deallocatedDevices that are still in newClaim.
 	if newClaim.Status.Allocation != nil {
 		for _, result := range newClaim.Status.Allocation.Devices.Results {
-			deviceID := structured.MakeDeviceID(result.Driver, result.Pool, result.Device)
-			sharedDeviceID := structured.MakeSharedDeviceID(deviceID, result.ShareID)
+			deviceID := dratypes.MakeDeviceID(result.Driver, result.Pool, result.Device)
+			sharedDeviceID := dratypes.MakeSharedDeviceID(deviceID, result.ShareID)
 			deallocatedDevices.Delete(sharedDeviceID)
 		}
 	}
@@ -338,12 +338,12 @@ func dropDeallocatedStatusDevices(newClaim, oldClaim *resource.ResourceClaim) {
 	// Remove from newClaim.Status.Devices.
 	n := 0
 	for _, device := range newClaim.Status.Devices {
-		deviceID := structured.MakeDeviceID(device.Driver, device.Pool, device.Device)
+		deviceID := dratypes.MakeDeviceID(device.Driver, device.Pool, device.Device)
 		var shareID *types.UID
 		if device.ShareID != nil {
 			shareID = ptr.To(types.UID(*device.ShareID))
 		}
-		sharedDeviceID := structured.MakeSharedDeviceID(deviceID, shareID)
+		sharedDeviceID := dratypes.MakeSharedDeviceID(deviceID, shareID)
 		if !deallocatedDevices.Has(sharedDeviceID) {
 			newClaim.Status.Devices[n] = device
 			n++

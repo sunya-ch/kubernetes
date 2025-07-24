@@ -243,7 +243,7 @@ func draConsumableCapacityFeatureInUse(slice *resource.ResourceSlice) bool {
 			return true
 		}
 		for _, capacity := range device.Capacity {
-			if capacity.SharingPolicy != nil {
+			if capacity.RequestPolicy != nil {
 				return true
 			}
 		}
@@ -252,7 +252,7 @@ func draConsumableCapacityFeatureInUse(slice *resource.ResourceSlice) bool {
 	return false
 }
 
-// dropDisabledDRAConsumableCapacityFields drops AllowMultipleAllocations and SharingPolicy
+// dropDisabledDRAConsumableCapacityFields drops AllowMultipleAllocations and RequestPolicy
 // fields from the new slice if they were not used in the old slice.
 func dropDisabledDRAConsumableCapacityFields(newSlice, oldSlice *resource.ResourceSlice) {
 	if utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity) ||
@@ -265,7 +265,7 @@ func dropDisabledDRAConsumableCapacityFields(newSlice, oldSlice *resource.Resour
 		newSlice.Spec.Devices[i].AllowMultipleAllocations = nil
 		if newSlice.Spec.Devices[i].Capacity != nil {
 			for ci, capacity := range newSlice.Spec.Devices[i].Capacity {
-				capacity.SharingPolicy = nil
+				capacity.RequestPolicy = nil
 				newSlice.Spec.Devices[i].Capacity[ci] = capacity
 			}
 		}

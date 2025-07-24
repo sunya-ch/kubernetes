@@ -32,6 +32,7 @@ import (
 	"k8s.io/kubernetes/pkg/apis/core"
 	"k8s.io/kubernetes/pkg/apis/resource"
 	"k8s.io/kubernetes/pkg/features"
+	dratypes "k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types"
 	"k8s.io/utils/ptr"
 )
 
@@ -1441,7 +1442,7 @@ func TestValidateClaimStatusUpdate(t *testing.T) {
 		},
 		"invalid-device-status-no-device": {
 			wantFailures: field.ErrorList{
-				field.Invalid(field.NewPath("status", "devices").Index(0), structured.MakeSharedDeviceID(structured.MakeDeviceID("b", "a", "r"), nil), "must be an allocated device in the claim"),
+				field.Invalid(field.NewPath("status", "devices").Index(0), dratypes.MakeSharedDeviceID(structured.MakeDeviceID("b", "a", "r"), nil), "must be an allocated device in the claim"),
 			},
 			oldClaim: func() *resource.ResourceClaim { return validAllocatedClaim }(),
 			update: func(claim *resource.ResourceClaim) *resource.ResourceClaim {
@@ -1570,7 +1571,7 @@ func TestValidateClaimStatusUpdate(t *testing.T) {
 		},
 		"invalid-device-status-no-device-disabled-feature-gate": {
 			wantFailures: field.ErrorList{
-				field.Invalid(field.NewPath("status", "devices").Index(0), structured.MakeSharedDeviceID(structured.MakeDeviceID("b", "a", "r"), nil), "must be an allocated device in the claim"),
+				field.Invalid(field.NewPath("status", "devices").Index(0), dratypes.MakeSharedDeviceID(structured.MakeDeviceID("b", "a", "r"), nil), "must be an allocated device in the claim"),
 			},
 			oldClaim: func() *resource.ResourceClaim { return validAllocatedClaim }(),
 			update: func(claim *resource.ResourceClaim) *resource.ResourceClaim {
@@ -1841,7 +1842,7 @@ func TestValidateClaimStatusUpdate(t *testing.T) {
 		},
 		"invalid-add-allocated-status-no-share-id": {
 			wantFailures: field.ErrorList{
-				field.Invalid(field.NewPath("status", "devices").Index(0), structured.MakeSharedDeviceID(structured.MakeDeviceID(goodName, goodName, goodName), nil), "must be an allocated device in the claim"),
+				field.Invalid(field.NewPath("status", "devices").Index(0), dratypes.MakeSharedDeviceID(structured.MakeDeviceID(goodName, goodName, goodName), nil), "must be an allocated device in the claim"),
 			},
 			oldClaim: testClaim(goodName, goodNS, validClaimSpec),
 			update: func(claim *resource.ResourceClaim) *resource.ResourceClaim {
@@ -1873,7 +1874,7 @@ func TestValidateClaimStatusUpdate(t *testing.T) {
 		},
 		"invalid-add-allocated-status-wrong-share-id": {
 			wantFailures: field.ErrorList{
-				field.Invalid(field.NewPath("status", "devices").Index(0), structured.MakeSharedDeviceID(structured.MakeDeviceID(goodName, goodName, goodName), ptr.To(goodShareID2)), "must be an allocated device in the claim"),
+				field.Invalid(field.NewPath("status", "devices").Index(0), dratypes.MakeSharedDeviceID(structured.MakeDeviceID(goodName, goodName, goodName), ptr.To(goodShareID2)), "must be an allocated device in the claim"),
 			},
 			oldClaim: testClaim(goodName, goodNS, validClaimSpec),
 			update: func(claim *resource.ResourceClaim) *resource.ResourceClaim {

@@ -441,15 +441,15 @@ func TestValidateResourceSlice(t *testing.T) {
 		},
 		"forbidden-sharing-policy-on-single-allocatable-capacity": {
 			wantFailures: field.ErrorList{
-				field.Forbidden(field.NewPath("spec", "devices").Index(1).Child("capacity").Key("cap").Child("sharingPolicy"), "allowMultipleAllocations must be true"),
+				field.Forbidden(field.NewPath("spec", "devices").Index(1).Child("capacity").Key("cap").Child("requestPolicy"), "allowMultipleAllocations must be true"),
 			},
 			slice: func() *resourceapi.ResourceSlice {
 				slice := testResourceSlice(goodName, goodName, goodName, 2)
 				capacity := resourceapi.DeviceCapacity{
 					Value: resource.MustParse("1Gi"),
-					SharingPolicy: &resourceapi.CapacitySharingPolicy{
+					RequestPolicy: &resourceapi.CapacityRequestPolicy{
 						Default: ptr.To(resource.MustParse("1Mi")),
-						ValidRange: &resourceapi.CapacitySharingPolicyRange{
+						ValidRange: &resourceapi.CapacityRequestPolicyRange{
 							Min: resource.MustParse("1Mi"),
 						},
 					},

@@ -133,9 +133,9 @@ var sliceWithConsumableCapacity = func() *resource.ResourceSlice {
 	obj.Spec.Devices[0].Capacity["memory"] =
 		resource.DeviceCapacity{
 			Value: k8sresource.MustParse("40Gi"),
-			SharingPolicy: &resource.CapacitySharingPolicy{
+			RequestPolicy: &resource.CapacityRequestPolicy{
 				Default: ptr.To(k8sresource.MustParse("1Gi")),
-				ValidRange: &resource.CapacitySharingPolicyRange{
+				ValidRange: &resource.CapacityRequestPolicyRange{
 					Min: k8sresource.MustParse("1Gi"),
 				},
 			},

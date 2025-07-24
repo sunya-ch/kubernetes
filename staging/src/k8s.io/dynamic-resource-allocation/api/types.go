@@ -84,16 +84,17 @@ type DeviceAttribute struct {
 
 type DeviceCapacity struct {
 	Value         resource.Quantity
-	SharingPolicy *CapacitySharingPolicy
+	RequestPolicy *CapacityRequestPolicy
 }
 
-type CapacitySharingPolicy struct {
-	Default     *resource.Quantity
-	ValidValues []resource.Quantity
-	ValidRange  *CapacitySharingPolicyRange
+type CapacityRequestPolicy struct {
+	Default         *resource.Quantity
+	ZeroConsumption *bool
+	ValidValues     []resource.Quantity
+	ValidRange      *CapacityRequestPolicyRange
 }
 
-type CapacitySharingPolicyRange struct {
+type CapacityRequestPolicyRange struct {
 	Min  resource.Quantity
 	Max  *resource.Quantity
 	Step *resource.Quantity

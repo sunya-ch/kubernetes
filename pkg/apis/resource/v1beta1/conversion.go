@@ -79,7 +79,7 @@ func Convert_v1beta1_DeviceRequest_To_resource_DeviceRequest(in *resourcev1beta1
 		exactDeviceRequest.Tolerations = tolerations
 		if in.Capacity != nil {
 			var capacity resource.CapacityRequirements
-			if err := autoConvert_v1beta1_CapacityRequirements_To_resource_CapacityRequirements(in.Capacity, &capacity, s); err != nil {
+			if err := Convert_v1beta1_CapacityRequirements_To_resource_CapacityRequirements(in.Capacity, &capacity, s); err != nil {
 				return err
 			}
 			exactDeviceRequest.Capacity = &capacity
@@ -101,7 +101,7 @@ func hasAnyMainRequestFieldsSet(deviceRequest *resourcev1beta1.DeviceRequest) bo
 }
 
 func Convert_resource_DeviceRequest_To_v1beta1_DeviceRequest(in *resource.DeviceRequest, out *resourcev1beta1.DeviceRequest, s conversion.Scope) error {
-	if err := autoConvert_resource_DeviceRequest_To_v1beta1_DeviceRequest(in, out, s); err != nil {
+	if err := Convert_resource_DeviceRequest_To_v1beta1_DeviceRequest(in, out, s); err != nil {
 		return err
 	}
 	if in.Exactly != nil {
