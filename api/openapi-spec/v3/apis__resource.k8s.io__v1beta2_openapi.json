@@ -137,7 +137,7 @@
             "type": "string"
           },
           "shareID": {
-            "description": "ShareID uniquely identifies an individual allocation share of the device.\n\nIf specified, must be a valid UID.",
+            "description": "ShareID uniquely identifies an individual allocation share of the device.",
             "type": "string"
           }
         },
@@ -213,7 +213,7 @@
             "x-kubernetes-list-type": "atomic"
           },
           "zeroConsumption": {
-            "description": "ZeroConsumption defines request cannot consume this capacity.\n\nThis flag is equivalent to {default: 0, validValues{{0}}}.\n\nIf the request doesn't contain this capacity entry, zero value is used.",
+            "description": "ZeroConsumption defines request cannot consume this capacity.\n\nThis flag is equivalent to {default: 0, validValues{{0}}}.\n\nIf the request doesn't contain this capacity entry, zero value is used. Default must not be defined.",
             "type": "boolean"
           }
         },
@@ -488,7 +488,7 @@
                 "$ref": "#/components/schemas/io.k8s.api.resource.v1beta2.CapacityRequestPolicy"
               }
             ],
-            "description": "RequestPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have allowMultipleAllocations set to true in order to set a requestPolicy.\n\nIf unset, capacity requests are unconstrained: requests can consume any amount of capacity, as long as the total consumed across all allocations does not exceed the device's defined capacity."
+            "description": "RequestPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have allowMultipleAllocations set to true in order to set a requestPolicy.\n\nIf unset, capacity requests are unconstrained: requests can consume any amount of capacity, as long as the total consumed across all allocations does not exceed the device's defined capacity. If request is also unset, default is the full capacity value."
           },
           "value": {
             "allOf": [
@@ -877,7 +877,7 @@
                 "$ref": "#/components/schemas/io.k8s.api.resource.v1beta2.CapacityRequirements"
               }
             ],
-            "description": "Capacity define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity according to requestPolicy. For the capacity that has no requestPolicy, the default is full capacity value.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements."
+            "description": "Capacity define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity according to requestPolicy. For the capacity that has no requestPolicy, default is the full capacity value.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements."
           },
           "count": {
             "description": "Count is used only when the count mode is \"ExactCount\". Must be greater than zero. If AllocationMode is ExactCount and this field is not specified, the default is one.",
@@ -1004,7 +1004,7 @@
                 "$ref": "#/components/schemas/io.k8s.api.resource.v1beta2.CapacityRequirements"
               }
             ],
-            "description": "Capacity define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity according to requestPolicy. For the capacity that has no requestPolicy, the default is full capacity value.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements."
+            "description": "Capacity define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity according to requestPolicy. For the capacity that has no requestPolicy, default is the full capacity value.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements."
           },
           "count": {
             "description": "Count is used only when the count mode is \"ExactCount\". Must be greater than zero. If AllocationMode is ExactCount and this field is not specified, the default is one.",
