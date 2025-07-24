@@ -263,6 +263,7 @@
   - k8s.io/client-go
   - k8s.io/component-helpers/scheduling/corev1/nodeaffinity
   - k8s.io/dynamic-resource-allocation
+  - k8s.io/kubernetes/pkg/scheduler/framework/plugins/dynamicresources/types
   - k8s.io/klog
   - k8s.io/kubelet
   - k8s.io/utils
