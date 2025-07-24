@@ -137,7 +137,7 @@
             "type": "string"
           },
           "shareID": {
-            "description": "ShareID uniquely identifies an individual allocation share of the device.\n\nIf specified, must be a valid UID.",
+            "description": "ShareID uniquely identifies an individual allocation share of the device.",
             "type": "string"
           }
         },
@@ -289,7 +289,7 @@
             "x-kubernetes-list-type": "atomic"
           },
           "zeroConsumption": {
-            "description": "ZeroConsumption defines request cannot consume this capacity.\n\nThis flag is equivalent to {default: 0, validValues{{0}}}.\n\nIf the request doesn't contain this capacity entry, zero value is used.",
+            "description": "ZeroConsumption defines request cannot consume this capacity.\n\nThis flag is equivalent to {default: 0, validValues{{0}}}.\n\nIf the request doesn't contain this capacity entry, zero value is used. Default must not be defined.",
             "type": "boolean"
           }
         },
@@ -502,7 +502,7 @@
                 "$ref": "#/components/schemas/io.k8s.api.resource.v1beta1.CapacityRequestPolicy"
               }
             ],
-            "description": "RequestPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have allowMultipleAllocations set to true in order to set a requestPolicy.\n\nIf unset, capacity requests are unconstrained: requests can consume any amount of capacity, as long as the total consumed across all allocations does not exceed the device's defined capacity."
+            "description": "RequestPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have allowMultipleAllocations set to true in order to set a requestPolicy.\n\nIf unset, capacity requests are unconstrained: requests can consume any amount of capacity, as long as the total consumed across all allocations does not exceed the device's defined capacity. If request is also unset, default is the full capacity value."
           },
           "value": {
             "allOf": [
