@@ -16,10 +16,12 @@ limitations under the License.
 
 package cel
 
+// Define functions and global variables to set FeatureEnabled field in VersionedOptions
+// within this package (compile.go).
+
 import "sync/atomic"
 
 var (
-	// emulationFeatureGateEnable
 	consumableCapacity atomic.Value
 )
 

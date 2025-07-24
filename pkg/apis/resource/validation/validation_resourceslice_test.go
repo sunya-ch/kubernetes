@@ -439,7 +439,7 @@ func TestValidateResourceSlice(t *testing.T) {
 				return slice
 			}(),
 		},
-		"forbidden-sharing-policy-on-single-allocatable-capacity": {
+		"forbidden-request-policy-on-single-allocatable-capacity": {
 			wantFailures: field.ErrorList{
 				field.Forbidden(field.NewPath("spec", "devices").Index(1).Child("capacity").Key("cap").Child("requestPolicy"), "allowMultipleAllocations must be true"),
 			},

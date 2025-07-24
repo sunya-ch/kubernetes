@@ -47943,7 +47943,7 @@ func schema_k8sio_api_resource_v1beta1_AllocatedDeviceStatus(ref common.Referenc
 					},
 					"shareID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ShareID uniquely identifies an individual allocation share of the device.\n\nIf specified, must be a valid UID.",
+							Description: "ShareID uniquely identifies an individual allocation share of the device.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -48166,7 +48166,7 @@ func schema_k8sio_api_resource_v1beta1_CapacityRequestPolicy(ref common.Referenc
 					},
 					"zeroConsumption": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ZeroConsumption defines request cannot consume this capacity.\n\nThis flag is equivalent to {default: 0, validValues{{0}}}.\n\nIf the request doesn't contain this capacity entry, zero value is used.",
+							Description: "ZeroConsumption defines request cannot consume this capacity.\n\nThis flag is equivalent to {default: 0, validValues{{0}}}.\n\nIf the request doesn't contain this capacity entry, zero value is used. Default must not be defined.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -48516,7 +48516,7 @@ func schema_k8sio_api_resource_v1beta1_DeviceCapacity(ref common.ReferenceCallba
 					},
 					"requestPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RequestPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have allowMultipleAllocations set to true in order to set a requestPolicy.\n\nIf unset, capacity requests are unconstrained: requests can consume any amount of capacity, as long as the total consumed across all allocations does not exceed the device's defined capacity.",
+							Description: "RequestPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have allowMultipleAllocations set to true in order to set a requestPolicy.\n\nIf unset, capacity requests are unconstrained: requests can consume any amount of capacity, as long as the total consumed across all allocations does not exceed the device's defined capacity. If request is also unset, default is the full capacity value.",
 							Ref:         ref("k8s.io/api/resource/v1beta1.CapacityRequestPolicy"),
 						},
 					},
@@ -50040,7 +50040,7 @@ func schema_k8sio_api_resource_v1beta2_AllocatedDeviceStatus(ref common.Referenc
 					},
 					"shareID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ShareID uniquely identifies an individual allocation share of the device.\n\nIf specified, must be a valid UID.",
+							Description: "ShareID uniquely identifies an individual allocation share of the device.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -50153,7 +50153,7 @@ func schema_k8sio_api_resource_v1beta2_CapacityRequestPolicy(ref common.Referenc
 					},
 					"zeroConsumption": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ZeroConsumption defines request cannot consume this capacity.\n\nThis flag is equivalent to {default: 0, validValues{{0}}}.\n\nIf the request doesn't contain this capacity entry, zero value is used.",
+							Description: "ZeroConsumption defines request cannot consume this capacity.\n\nThis flag is equivalent to {default: 0, validValues{{0}}}.\n\nIf the request doesn't contain this capacity entry, zero value is used. Default must not be defined.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -50592,7 +50592,7 @@ func schema_k8sio_api_resource_v1beta2_DeviceCapacity(ref common.ReferenceCallba
 					},
 					"requestPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RequestPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have allowMultipleAllocations set to true in order to set a requestPolicy.\n\nIf unset, capacity requests are unconstrained: requests can consume any amount of capacity, as long as the total consumed across all allocations does not exceed the device's defined capacity.",
+							Description: "RequestPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have allowMultipleAllocations set to true in order to set a requestPolicy.\n\nIf unset, capacity requests are unconstrained: requests can consume any amount of capacity, as long as the total consumed across all allocations does not exceed the device's defined capacity. If request is also unset, default is the full capacity value.",
 							Ref:         ref("k8s.io/api/resource/v1beta2.CapacityRequestPolicy"),
 						},
 					},
@@ -51236,7 +51236,7 @@ func schema_k8sio_api_resource_v1beta2_DeviceSubRequest(ref common.ReferenceCall
 					},
 					"capacity": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Capacity define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity according to requestPolicy. For the capacity that has no requestPolicy, the default is full capacity value.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements.",
+							Description: "Capacity define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity according to requestPolicy. For the capacity that has no requestPolicy, default is the full capacity value.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements.",
 							Ref:         ref("k8s.io/api/resource/v1beta2.CapacityRequirements"),
 						},
 					},
@@ -51422,7 +51422,7 @@ func schema_k8sio_api_resource_v1beta2_ExactDeviceRequest(ref common.ReferenceCa
 					},
 					"capacity": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Capacity define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity according to requestPolicy. For the capacity that has no requestPolicy, the default is full capacity value.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements.",
+							Description: "Capacity define resource requirements against each capacity.\n\nIf this field is unset and the device supports multiple allocations, the default value will be applied to each capacity according to requestPolicy. For the capacity that has no requestPolicy, default is the full capacity value.\n\nApplies to each device allocation. If Count > 1, request fails if there aren't enough devices that meet the requirements. If AllocationMode is set to All, request fails if any device doesn't meet the requirements.",
 							Ref:         ref("k8s.io/api/resource/v1beta2.CapacityRequirements"),
 						},
 					},

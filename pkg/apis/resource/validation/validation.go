@@ -911,8 +911,8 @@ func validateSingleAllocatableDeviceCapacity(capacity resource.DeviceCapacity, f
 	return allErrs
 }
 
-// validateRequestPolicy validates at most one of ValidSharingValues can be defined.
-// If any ValidSharingValues are defined, Default must also be defined and valid.
+// validateRequestPolicy validates at most one of ValidRequestValues can be defined.
+// If any ValidRequestValues are defined, Default must also be defined and valid.
 func validateRequestPolicy(maxCapacity apiresource.Quantity, policy *resource.CapacityRequestPolicy, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 	count := 0
@@ -928,14 +928,18 @@ func validateRequestPolicy(maxCapacity apiresource.Quantity, policy *resource.Ca
 	if count > 1 {
 		allErrs = append(allErrs, field.Forbidden(fldPath, `exactly one policy can be specified, cannot specify any of "zeroConsumption", "validValues" and "validRange" at the same time`))
 	} else {
-		allErrs = append(allErrs, validateValidSharingValues(maxCapacity, policy, fldPath)...)
+		allErrs = append(allErrs, validateValidRequestValues(maxCapacity, policy, fldPath)...)
 	}
 	return allErrs
 }
 
-func validateValidSharingValues(maxCapacity apiresource.Quantity, policy *resource.CapacityRequestPolicy, fldPath *field.Path) field.ErrorList {
+func validateValidRequestValues(maxCapacity apiresource.Quantity, policy *resource.CapacityRequestPolicy, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 	switch {
+	case policy.ZeroConsumption != nil && *policy.ZeroConsumption:
+		if policy.Default != nil {
+			allErrs = append(allErrs, field.Forbidden(fldPath.Child("default"), "default must not be defined when zeroConsumption=true"))
+		}
 	case len(policy.ValidValues) > 0:
 		if policy.Default == nil {
 			allErrs = append(allErrs, field.Required(fldPath.Child("default"), "required when validValues is specified"))

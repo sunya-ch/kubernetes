@@ -16,6 +16,9 @@ limitations under the License.
 
 package internal
 
+// This file should be moved under pkg/scheduler/framework/autoscaler_constract.
+// See https://github.com/kubernetes/kubernetes/issues/133161.
+
 import (
 	resourceapi "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"

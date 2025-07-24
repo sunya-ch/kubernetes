@@ -32,7 +32,7 @@ var map_AllocatedDeviceStatus = map[string]string{
 	"driver":      "Driver specifies the name of the DRA driver whose kubelet plugin should be invoked to process the allocation once the claim is needed on a node.\n\nMust be a DNS subdomain and should end with a DNS domain owned by the vendor of the driver.",
 	"pool":        "This name together with the driver name and the device name field identify which device was allocated (`<driver name>/<pool name>/<device name>`).\n\nMust not be longer than 253 characters and may contain one or more DNS sub-domains separated by slashes.",
 	"device":      "Device references one device instance via its name in the driver's resource pool. It must be a DNS label.",
-	"shareID":     "ShareID uniquely identifies an individual allocation share of the device.\n\nIf specified, must be a valid UID.",
+	"shareID":     "ShareID uniquely identifies an individual allocation share of the device.",
 	"conditions":  "Conditions contains the latest observation of the device's state. If the device has been configured according to the class and claim config references, the `Ready` condition should be True.\n\nMust not contain more than 8 entries.",
 	"data":        "Data contains arbitrary driver-specific data.\n\nThe length of the raw data must be smaller or equal to 10 Ki.",
 	"networkData": "NetworkData contains network-related information specific to the device.",
@@ -80,7 +80,7 @@ func (CELDeviceSelector) SwaggerDoc() map[string]string {
 var map_CapacityRequestPolicy = map[string]string{
 	"":                "CapacityRequestPolicy defines how requests consume device capacity.\n\nMust not set more than one ValidRequestValues.",
 	"default":         "Default specifies how much of this capacity is consumed by a request that does not contain an entry for it in DeviceRequest's Capacity.",
-	"zeroConsumption": "ZeroConsumption defines request cannot consume this capacity.\n\nThis flag is equivalent to {default: 0, validValues{{0}}}.\n\nIf the request doesn't contain this capacity entry, zero value is used.",
+	"zeroConsumption": "ZeroConsumption defines request cannot consume this capacity.\n\nThis flag is equivalent to {default: 0, validValues{{0}}}.\n\nIf the request doesn't contain this capacity entry, zero value is used. Default must not be defined.",
 	"validValues":     "ValidValues defines a set of acceptable quantity values in consuming requests.\n\nMust not contain more than 10 entries. Must be sorted in ascending order.\n\nIf this field is set, Default must be defined and it must be included in ValidValues list.\n\nIf the requested amount does not match any valid value but smaller than some valid values, the scheduler calculates the smallest valid value that is greater than or equal to the request. That is: min(ceil(requestedValue) ∈ validValues), where requestedValue ≤ max(validValues).\n\nIf the requested amount exceeds all valid values, the request violates the policy, and this device cannot be allocated.",
 	"validRange":      "ValidRange defines an acceptable quantity value range in consuming requests.\n\nIf this field is set, Default must be defined and it must fall within the defined ValidRange.\n\nIf the requested amount does not fall within the defined range, the request violates the policy, and this device cannot be allocated.\n\nIf the request doesn't contain this capacity entry, Default value is used.",
 }
@@ -173,7 +173,7 @@ func (DeviceAttribute) SwaggerDoc() map[string]string {
 var map_DeviceCapacity = map[string]string{
 	"":              "DeviceCapacity describes a quantity associated with a device.",
 	"value":         "Value defines how much of a certain capacity that device has.\n\nThis field reflects the fixed total capacity and does not change. The consumed amount is tracked separately by scheduler and does not affect this value.",
-	"requestPolicy": "RequestPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have allowMultipleAllocations set to true in order to set a requestPolicy.\n\nIf unset, capacity requests are unconstrained: requests can consume any amount of capacity, as long as the total consumed across all allocations does not exceed the device's defined capacity.",
+	"requestPolicy": "RequestPolicy defines how this DeviceCapacity must be consumed when the device is allowed to be shared by multiple allocations.\n\nThe Device must have allowMultipleAllocations set to true in order to set a requestPolicy.\n\nIf unset, capacity requests are unconstrained: requests can consume any amount of capacity, as long as the total consumed across all allocations does not exceed the device's defined capacity. If request is also unset, default is the full capacity value.",
 }
 
 func (DeviceCapacity) SwaggerDoc() map[string]string {

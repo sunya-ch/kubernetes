@@ -215,6 +215,7 @@ type CapacityRequestPolicy struct {
 	// This flag is equivalent to {default: 0, validValues{{0}}}.
 	//
 	// If the request doesn't contain this capacity entry, zero value is used.
+	// Default must not be defined.
 	//
 	// +optional
 	// +oneOf=ValidRequestValues
@@ -254,27 +255,16 @@ type CapacityRequestPolicy struct {
 	// +oneOf=ValidRequestValues
 	ValidRange *CapacityRequestPolicyRange `json:"validRange,omitempty" protobuf:"bytes,4,opt,name=validRange"`
 
-	// Potential extension 1: allow defining a `strategy` on a specific capacity
+	// Future possibility 1: allow defining a `strategy` on a specific capacity
 	// to specify default scheduling behavior when it is not explicitly requested.
-	// Here are some strategies those were discussed:
 	//
-	// - AlwaysConsumed:
-	//   The default behavior. If no capacity is requested, a default value is always applied.
-	//
-	// - ConsumedOrNever:
-	//   If the first consumer specifies a capacity request, the capacity is marked as consumable.
-	//   If no request is made, the capacity remains non-consumable until the first consumer releases it.
-	//   This strategy is useful in network contexts, where the device is assumed to be shared by default.
-	//
-	// - BlockOrShare:
-	//   The inverse of ConsumedOrNever. If the first consumer does not request this capacity,
-	//   it exclusively occupies the entire device (i.e., the full capacity is blocked).
-	//   If a request is made, the device can be shared up to the guaranteed amount.
-	//   This strategy is useful in accelerator contexts, where devices are typically assumed to be dedicated.
-
-	// Potential extension 2: allow defining a common RequestPolicy in the Device struct (similar to mixins)
+	// Future possibility 2: allow defining a common RequestPolicy in the Device struct (similar to mixins)
 	// and reference it using new fields named `RequestPolicyRef` or `RequestPolicyName`,
 	// which are mutually exclusive with the Default field.
+	//
+	// See more at
+	// https://github.com/kubernetes/enhancements/tree/master/keps/sig-scheduling/5075-dra-consumable-capacity#alternatives
+	// TODO: create a new "Future possibilities" section in KEP and update reference.
 }
 
 // CapacityRequestPolicyRange defines a valid range for consumable capacity values.
@@ -499,6 +489,7 @@ type DeviceCapacity struct {
 	// If unset, capacity requests are unconstrained:
 	// requests can consume any amount of capacity, as long as the total consumed
 	// across all allocations does not exceed the device's defined capacity.
+	// If request is also unset, default is the full capacity value.
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
@@ -1750,8 +1741,6 @@ type AllocatedDeviceStatus struct {
 	Device string `json:"device" protobuf:"bytes,3,rep,name=device"`
 
 	// ShareID uniquely identifies an individual allocation share of the device.
-	//
-	// If specified, must be a valid UID.
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
