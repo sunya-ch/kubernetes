@@ -53,7 +53,6 @@ spec:
             step: "0"
           validValues:
           - "0"
-          zeroConsumption: true
         value: "0"
     consumesCounters:
     - counterSet: counterSetValue
