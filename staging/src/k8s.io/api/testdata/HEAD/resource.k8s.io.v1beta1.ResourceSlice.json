@@ -93,7 +93,6 @@
               "value": "0",
               "requestPolicy": {
                 "default": "0",
-                "zeroConsumption": true,
                 "validValues": [
                   "0"
                 ],
