@@ -27,16 +27,16 @@ import (
 // DeviceRequestAllocationResultApplyConfiguration represents a declarative configuration of the DeviceRequestAllocationResult type for use
 // with apply.
 type DeviceRequestAllocationResultApplyConfiguration struct {
-	Request                       *string                                             `json:"request,omitempty"`
-	Driver                        *string                                             `json:"driver,omitempty"`
-	Pool                          *string                                             `json:"pool,omitempty"`
-	Device                        *string                                             `json:"device,omitempty"`
-	AdminAccess                   *bool                                               `json:"adminAccess,omitempty"`
-	Tolerations                   []DeviceTolerationApplyConfiguration                `json:"tolerations,omitempty"`
-	BindingConditions        []string                             `json:"bindingConditions,omitempty"`
-	BindingFailureConditions []string                             `json:"bindingFailureConditions,omitempty"`
-	ShareID          *types.UID                                          `json:"shareID,omitempty"`
-	ConsumedCapacity map[resourcev1beta2.QualifiedName]resource.Quantity `json:"consumedCapacity,omitempty"`
+	Request                  *string                                             `json:"request,omitempty"`
+	Driver                   *string                                             `json:"driver,omitempty"`
+	Pool                     *string                                             `json:"pool,omitempty"`
+	Device                   *string                                             `json:"device,omitempty"`
+	AdminAccess              *bool                                               `json:"adminAccess,omitempty"`
+	Tolerations              []DeviceTolerationApplyConfiguration                `json:"tolerations,omitempty"`
+	BindingConditions        []string                                            `json:"bindingConditions,omitempty"`
+	BindingFailureConditions []string                                            `json:"bindingFailureConditions,omitempty"`
+	ShareID                  *types.UID                                          `json:"shareID,omitempty"`
+	ConsumedCapacity         map[resourcev1beta2.QualifiedName]resource.Quantity `json:"consumedCapacity,omitempty"`
 }
 
 // DeviceRequestAllocationResultApplyConfiguration constructs a declarative configuration of the DeviceRequestAllocationResult type for use with

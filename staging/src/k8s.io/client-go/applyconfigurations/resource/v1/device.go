@@ -26,14 +26,14 @@ import (
 // DeviceApplyConfiguration represents a declarative configuration of the Device type for use
 // with apply.
 type DeviceApplyConfiguration struct {
-	Name                             *string                                                        `json:"name,omitempty"`
-	Attributes                       map[resourcev1.QualifiedName]DeviceAttributeApplyConfiguration `json:"attributes,omitempty"`
-	Capacity                         map[resourcev1.QualifiedName]DeviceCapacityApplyConfiguration  `json:"capacity,omitempty"`
-	ConsumesCounters                 []DeviceCounterConsumptionApplyConfiguration                   `json:"consumesCounters,omitempty"`
-	NodeName                         *string                                                        `json:"nodeName,omitempty"`
-	NodeSelector                     *corev1.NodeSelectorApplyConfiguration                         `json:"nodeSelector,omitempty"`
-	AllNodes                         *bool                                                          `json:"allNodes,omitempty"`
-	Taints                           []DeviceTaintApplyConfiguration                                `json:"taints,omitempty"`
+	Name                     *string                                                        `json:"name,omitempty"`
+	Attributes               map[resourcev1.QualifiedName]DeviceAttributeApplyConfiguration `json:"attributes,omitempty"`
+	Capacity                 map[resourcev1.QualifiedName]DeviceCapacityApplyConfiguration  `json:"capacity,omitempty"`
+	ConsumesCounters         []DeviceCounterConsumptionApplyConfiguration                   `json:"consumesCounters,omitempty"`
+	NodeName                 *string                                                        `json:"nodeName,omitempty"`
+	NodeSelector             *corev1.NodeSelectorApplyConfiguration                         `json:"nodeSelector,omitempty"`
+	AllNodes                 *bool                                                          `json:"allNodes,omitempty"`
+	Taints                   []DeviceTaintApplyConfiguration                                `json:"taints,omitempty"`
 	BindsToNode              *bool                                                          `json:"bindsToNode,omitempty"`
 	BindingConditions        []string                                                       `json:"bindingConditions,omitempty"`
 	BindingFailureConditions []string                                                       `json:"bindingFailureConditions,omitempty"`

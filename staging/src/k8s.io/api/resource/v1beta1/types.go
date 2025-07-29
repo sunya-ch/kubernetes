@@ -392,7 +392,7 @@ type BasicDevice struct {
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
-	AllowMultipleAllocations *bool `json:"allowMultipleAllocations,omitempty" protobuf:"bytes,8,opt,name=allowMultipleAllocations"`
+	AllowMultipleAllocations *bool `json:"allowMultipleAllocations,omitempty" protobuf:"bytes,11,opt,name=allowMultipleAllocations"`
 }
 
 // DeviceCounterConsumption defines a set of counters that
@@ -1561,7 +1561,7 @@ type DeviceRequestAllocationResult struct {
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
-	ShareID *types.UID `json:"shareID,omitempty" protobuf:"bytes,7,opt,name=shareID"`
+	ShareID *types.UID `json:"shareID,omitempty" protobuf:"bytes,9,opt,name=shareID"`
 
 	// ConsumedCapacity tracks the amount of capacity consumed per device as part of the claim request.
 	// The consumed amount may differ from the requested amount: it is rounded up to the nearest valid
@@ -1574,7 +1574,7 @@ type DeviceRequestAllocationResult struct {
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
-	ConsumedCapacity map[QualifiedName]resource.Quantity `json:"consumedCapacity,omitempty" protobuf:"bytes,8,rep,name=consumedCapacity"`
+	ConsumedCapacity map[QualifiedName]resource.Quantity `json:"consumedCapacity,omitempty" protobuf:"bytes,10,rep,name=consumedCapacity"`
 }
 
 // DeviceAllocationConfiguration gets embedded in an AllocationResult.
