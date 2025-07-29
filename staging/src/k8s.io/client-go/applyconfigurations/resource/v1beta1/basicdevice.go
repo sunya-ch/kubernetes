@@ -26,16 +26,17 @@ import (
 // BasicDeviceApplyConfiguration represents a declarative configuration of the BasicDevice type for use
 // with apply.
 type BasicDeviceApplyConfiguration struct {
-	Attributes               map[resourcev1beta1.QualifiedName]DeviceAttributeApplyConfiguration `json:"attributes,omitempty"`
-	Capacity                 map[resourcev1beta1.QualifiedName]DeviceCapacityApplyConfiguration  `json:"capacity,omitempty"`
-	ConsumesCounters         []DeviceCounterConsumptionApplyConfiguration                        `json:"consumesCounters,omitempty"`
-	NodeName                 *string                                                             `json:"nodeName,omitempty"`
-	NodeSelector             *v1.NodeSelectorApplyConfiguration                                  `json:"nodeSelector,omitempty"`
-	AllNodes                 *bool                                                               `json:"allNodes,omitempty"`
-	Taints                   []DeviceTaintApplyConfiguration                                     `json:"taints,omitempty"`
+	Attributes                       map[resourcev1beta1.QualifiedName]DeviceAttributeApplyConfiguration `json:"attributes,omitempty"`
+	Capacity                         map[resourcev1beta1.QualifiedName]DeviceCapacityApplyConfiguration  `json:"capacity,omitempty"`
+	ConsumesCounters                 []DeviceCounterConsumptionApplyConfiguration                        `json:"consumesCounters,omitempty"`
+	NodeName                         *string                                                             `json:"nodeName,omitempty"`
+	NodeSelector                     *v1.NodeSelectorApplyConfiguration                                  `json:"nodeSelector,omitempty"`
+	AllNodes                         *bool                                                               `json:"allNodes,omitempty"`
+	Taints                           []DeviceTaintApplyConfiguration                                     `json:"taints,omitempty"`
 	BindsToNode              *bool                                                               `json:"bindsToNode,omitempty"`
 	BindingConditions        []string                                                            `json:"bindingConditions,omitempty"`
 	BindingFailureConditions []string                                                            `json:"bindingFailureConditions,omitempty"`
+	AllowMultipleAllocations *bool                                                               `json:"allowMultipleAllocations,omitempty"`
 }
 
 // BasicDeviceApplyConfiguration constructs a declarative configuration of the BasicDevice type for use with
@@ -147,5 +148,13 @@ func (b *BasicDeviceApplyConfiguration) WithBindingFailureConditions(values ...s
 	for i := range values {
 		b.BindingFailureConditions = append(b.BindingFailureConditions, values[i])
 	}
+	return b
+}
+
+// WithAllowMultipleAllocations sets the AllowMultipleAllocations field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the AllowMultipleAllocations field is set to the value of the last call.
+func (b *BasicDeviceApplyConfiguration) WithAllowMultipleAllocations(value bool) *BasicDeviceApplyConfiguration {
+	b.AllowMultipleAllocations = &value
 	return b
 }
