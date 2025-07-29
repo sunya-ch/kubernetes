@@ -123,6 +123,7 @@ type DynamicResources struct {
 	enableDeviceStatus            bool
 	enableFilterTimeout           bool
 	filterTimeout                 time.Duration
+	enableConsumableCapacity      bool
 
 	fh         framework.Handle
 	clientset  kubernetes.Interface
@@ -153,6 +154,7 @@ func New(ctx context.Context, plArgs runtime.Object, fh framework.Handle, fts fe
 		enableFilterTimeout:           fts.EnableDRASchedulerFilterTimeout,
 		enableSchedulingQueueHint:     fts.EnableSchedulingQueueHint,
 		enablePartitionableDevices:    fts.EnablePartitionableDevices,
+		enableConsumableCapacity:      fts.EnableConsumableCapacity,
 		filterTimeout:                 ptr.Deref(args.FilterTimeout, metav1.Duration{}).Duration,
 		enableDeviceBindingConditions: fts.EnableDRADeviceBindingConditions,
 		enableDeviceStatus:            fts.EnableDRAResourceClaimDeviceStatus,
@@ -162,7 +164,7 @@ func New(ctx context.Context, plArgs runtime.Object, fh framework.Handle, fts fe
 		// This is a LRU cache for compiled CEL expressions. The most
 		// recent 10 of them get reused across different scheduling
 		// cycles.
-		celCache:   cel.NewCache(10),
+		celCache:   cel.NewCache(10, cel.Features{EnableConsumableCapacity: fts.EnableConsumableCapacity}),
 		draManager: fh.SharedDRAManager(),
 	}
 
@@ -478,9 +480,25 @@ func (pl *DynamicResources) PreFilter(ctx context.Context, state fwk.CycleState,
 		// Claims (and thus their devices) are treated as "allocated" if they are in the assume cache
 		// or currently their allocation is in-flight. This does not change
 		// during filtering, so we can determine that once.
-		allAllocatedDevices, err := pl.draManager.ResourceClaims().ListAllAllocatedDevices()
-		if err != nil {
-			return nil, statusError(logger, err)
+		var allocatedState *structured.AllocatedState
+		if pl.enableConsumableCapacity {
+			allocatedState, err = pl.draManager.ResourceClaims().GatherAllocatedState()
+			if err != nil {
+				return nil, statusError(logger, err)
+			}
+			if allocatedState == nil {
+				return nil, statusError(logger, errors.New("nil allocated state"))
+			}
+		} else {
+			allocatedDevices, err := pl.draManager.ResourceClaims().ListAllAllocatedDevices()
+			if err != nil {
+				return nil, statusError(logger, err)
+			}
+			allocatedState = &structured.AllocatedState{
+				AllocatedDevices:         allocatedDevices,
+				AllocatedSharedDeviceIDs: sets.New[structured.SharedDeviceID](),
+				AggregatedCapacity:       structured.NewConsumedCapacityCollection(),
+			}
 		}
 		slices, err := pl.draManager.ResourceSlices().ListWithDeviceTaintRules()
 		if err != nil {
@@ -493,8 +511,9 @@ func (pl *DynamicResources) PreFilter(ctx context.Context, state fwk.CycleState,
 			DeviceTaints:         pl.enableDeviceTaints,
 			DeviceBinding:        pl.enableDeviceBindingConditions,
 			DeviceStatus:         pl.enableDeviceStatus,
+			ConsumableCapacity:   pl.enableConsumableCapacity,
 		}
-		allocator, err := structured.NewAllocator(ctx, features, allAllocatedDevices, pl.draManager.DeviceClasses(), slices, pl.celCache)
+		allocator, err := structured.NewAllocator(ctx, features, *allocatedState, pl.draManager.DeviceClasses(), slices, pl.celCache)
 		if err != nil {
 			return nil, statusError(logger, err)
 		}
