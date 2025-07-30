@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/util/feature"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
 	coreinformers "k8s.io/client-go/informers/core/v1"
@@ -326,9 +327,10 @@ func New(ctx context.Context,
 		resourceClaimInformer := informerFactory.Resource().V1().ResourceClaims().Informer()
 		resourceClaimCache = assumecache.NewAssumeCache(logger, resourceClaimInformer, "ResourceClaim", "", nil)
 		resourceSliceTrackerOpts := resourceslicetracker.Options{
-			EnableDeviceTaints: feature.DefaultFeatureGate.Enabled(features.DRADeviceTaints),
-			SliceInformer:      informerFactory.Resource().V1().ResourceSlices(),
-			KubeClient:         client,
+			EnableDeviceTaints:       feature.DefaultFeatureGate.Enabled(features.DRADeviceTaints),
+			EnableConsumableCapacity: utilfeature.DefaultFeatureGate.Enabled(features.DRAConsumableCapacity),
+			SliceInformer:            informerFactory.Resource().V1().ResourceSlices(),
+			KubeClient:               client,
 		}
 		// If device taints are disabled, the additional informers are not needed and
 		// the tracker turns into a simple wrapper around the slice informer.
