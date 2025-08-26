@@ -541,6 +541,8 @@ func (alloc *allocator) validateDeviceRequest(request requestAccessor, parentReq
 								continue
 							}
 							if !success {
+								// Skip adding to the target list if considering capacity check is one of selector
+								// Proceed adding regardless of the consumed capacity if capacity check is not considered as allocated status
 								alloc.logger.V(7).Info("Device capacity not enough", "device", device)
 								continue
 							}
@@ -991,6 +993,7 @@ func (alloc *allocator) allocateOne(r deviceIndices, allocateSubRequest bool) (b
 				requestKey := requestIndices{claimIndex: r.claimIndex, requestIndex: r.requestIndex, subRequestIndex: r.subRequestIndex}
 				selectable, err := alloc.isSelectable(requestKey, requestData, slice, deviceIndex)
 				if err != nil {
+					alloc.logger.V(7).Info("Device not selectable with error, return", "device", deviceID, "error", err)
 					return false, err
 				}
 				if !selectable {
@@ -1113,10 +1116,17 @@ func (alloc *allocator) isSelectable(r requestIndices, requestData requestData, 
 // CmpRequestOverCapacity checks whether a device with remaining resources is consumable by the request.
 // Return true if success.
 func (alloc *allocator) CmpRequestOverCapacity(request requestAccessor, slice *draapi.ResourceSlice, deviceIndex int) (bool, error) {
-	deviceID := DeviceID{Driver: slice.Spec.Driver, Pool: slice.Spec.Pool.Name, Device: slice.Spec.Devices[deviceIndex].Name}
+	device := slice.Spec.Devices[deviceIndex]
+	return alloc.CmpRequestOverCapacityOnDevice(request, slice, device)
+}
+
+// CmpRequestOverCapacityOnDevice checks whether a device with remaining resources is consumable by the request.
+// Return true if success.
+func (alloc *allocator) CmpRequestOverCapacityOnDevice(request requestAccessor, slice *draapi.ResourceSlice, device draapi.Device) (bool, error) {
+	deviceID := DeviceID{Driver: slice.Spec.Driver, Pool: slice.Spec.Pool.Name, Device: device.Name}
 	allocatingCapacity := alloc.allocatingCapacity[deviceID]
-	allowMultipleAllocations := slice.Spec.Devices[deviceIndex].AllowMultipleAllocations
-	capacities := slice.Spec.Devices[deviceIndex].Capacity
+	allowMultipleAllocations := device.AllowMultipleAllocations
+	capacities := device.Capacity
 	if allocatedCapacity, found := alloc.allocatedState.AggregatedCapacity[deviceID]; found {
 		return CmpRequestOverCapacity(allocatedCapacity, request.capacities(), allowMultipleAllocations, capacities, allocatingCapacity)
 	}
@@ -1266,14 +1276,14 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 	var shareID *types.UID
 	if alloc.features.ConsumableCapacity {
 		// Validate whether resource request over capacity
-		success, err := alloc.CmpRequestOverCapacity(requestData.request, device.slice, r.deviceIndex)
+		success, err := alloc.CmpRequestOverCapacityOnDevice(requestData.request, device.slice, *device.Device)
 		if err != nil {
 			alloc.logger.V(7).Info("Failed to compare device capacity request",
 				"device", device, "request", requestData.request.name(), "err", err)
 			return false, nil, nil
 		}
 		if !success {
-			alloc.logger.V(7).Info("Device capacity not enough", "device", device)
+			alloc.logger.V(7).Info("Device capacity not enough", "device", device, "deviceIndex", r.deviceIndex)
 			return false, nil, nil
 		}
 
