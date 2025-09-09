@@ -17,11 +17,11 @@
 # Combining `performance` and `short` selects suitable workloads for a local
 # before/after comparisons with benchstat.
 
-# SchedulingWithResourceClaimTemplatePartitionable is a variant of SchedulingWithResourceClaimTemplate.
+# Partitionable is a variant of SchedulingWithResourceClaimTemplate.
 # It creates ResourceSlices with partitionable devices and uses a claim template referenced
 # by the test pods. It includes allocated claims that consumes counters and it sets up the devices
 # such that the allocator will have to backtrack once in order to find a working solution.
-- name: SteadyStateClusterResourceClaimTemplatePartitionable
+- name: Partitionable
   featureGates:
     DynamicResourceAllocation: true
     DRAPartitionableDevices: true
@@ -65,7 +65,7 @@
       resourceSlices: 10
       initClaims: 10
       measurePods: 10
-      duration: 2s
+      duration: 0s # disables steady-state
   - name: fast_QueueingHintsEnabled
     featureGates:
       SchedulerQueueingHints: true
@@ -78,7 +78,7 @@
       resourceSlices: 10
       initClaims: 10
       measurePods: 10
-      duration: 2s
+      duration: 0s # disables steady-state
   - name: 2000pods_100nodes
     params:
       nodesWithDRA: 100
@@ -88,11 +88,11 @@
       measurePods: 2000
       duration: 10s
 
-# SchedulingWithResourceClaimTemplatePartitionableBacktracking is a variant of
+# PartitionableBacktracking is a variant of
 # SchedulingWithResourceClaimTemplate. It creates a single ResourceSlice and a
 # ResourceClaim that forces the allocator to backtrack multiple times in order
 # to find a solution.
-- name: SteadyStateClusterResourceClaimTemplatePartitionableBacktracking
+- name: PartitionableBacktracking
   featureGates:
     DynamicResourceAllocation: true
     DRAPartitionableDevices: true
@@ -113,8 +113,6 @@
   - opcode: createPods
     namespace: test
     countParam: $measurePods
-    steadyState: true
-    durationParam: $duration
     podTemplatePath: ../templates/pod-with-claim-template.yaml
     collectMetrics: true
   workloads:
@@ -129,7 +127,6 @@
       nodesWithoutDRA: 1
       resourceSlices: 1
       measurePods: 1
-      duration: 2s
   - name: fast_QueueingHintsEnabled
     featureGates:
       SchedulerQueueingHints: true
@@ -141,4 +138,3 @@
       nodesWithoutDRA: 1
       resourceSlices: 1
       measurePods: 1
-      duration: 2s

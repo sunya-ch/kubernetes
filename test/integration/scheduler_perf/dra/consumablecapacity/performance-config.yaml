@@ -17,13 +17,13 @@
 # Combining `performance` and `short` selects suitable workloads for a local
 # before/after comparisons with benchstat.
 
-# SteadyStateClusterResourceClaimTemplateConsumableCapacity is a variant of
+# ConsumableCapacity is a variant of
 # SchedulingWithResourceClaimTemplate. It creates a single ResourceSlice that have two devices, 
 # one preallocate device slice and one basic device. Both allows multiple allocations and contain consumable capacity.
 # And, it creates a resource claim template with two requests.
 # Each requests half of this capacity for two count.
 # The first request checks distinctAttribute which the other checks matchAttribute.
-- name: SteadyStateClusterResourceClaimTemplateConsumableCapacity
+- name: ConsumableCapacity
   featureGates:
     DynamicResourceAllocation: true
     DRAConsumableCapacity: true
@@ -60,7 +60,7 @@
       nodesWithoutDRA: 1
       resourceSlices: 1
       measurePods: 1
-      duration: 2s
+      duration: 0s # disables steady-state
       maxClaimsPerNode: 2
   - name: fast_with_DRAPartitionableDevices
     featureGates:
@@ -72,7 +72,7 @@
       nodesWithoutDRA: 1
       resourceSlices: 1
       measurePods: 1
-      duration: 2s
+      duration: 0s # disables steady-state
       maxClaimsPerNode: 2
   - name: 2000pods_100nodes
     params:

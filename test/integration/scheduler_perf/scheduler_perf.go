@@ -1713,7 +1713,7 @@ func (e *WorkloadExecutor) runCreatePodsOp(opIndex int, op *createPodsOp) error 
 		// Only record those namespaces that may potentially require barriers
 		// in the future.
 		e.numPodsScheduledPerNamespace[namespace] += op.Count
-	case op.SteadyState:
+	case op.SteadyState && op.Duration.Duration > 0:
 		if err := createPodsSteadily(e.tCtx, namespace, e.podInformer, op); err != nil {
 			return err
 		}
