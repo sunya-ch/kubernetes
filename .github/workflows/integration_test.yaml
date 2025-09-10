@@ -13,7 +13,14 @@ jobs:
         ./hack/install-etcd.sh
         echo "PATH=$(pwd)/third_party/etcd:$PATH" >> $GITHUB_ENV
         ulimit -n 1200
+    - name: Install Delve
+      run: go install github.com/go-delve/delve/cmd/dlv@latest
+
+    - name: Add Go bin to PATH
+      run: echo "${HOME}/go/bin" >> $GITHUB_PATH
+
     - name: Integration test
       run: |
-        make test-integration WHAT=./test/integration/scheduler_perf/... GOFLAGS=-v KUBE_COVER=y
-        make test-integration WHAT=./test/integration/dra/... GOFLAGS=-v KUBE_COVER=y
+        dlv test ./test/integration/scheduler_perf/dra/consumablecapacity/ -- -test.run='TestSchedulerPerf/SteadyStateClusterResourceClaimTemplateConsumableCapacity/fast$' -use-testing-log -v=5 -test.v
+        # make test-integration WHAT=./test/integration/scheduler_perf/... GOFLAGS=-v KUBE_COVER=y
+        # make test-integration WHAT=./test/integration/dra/... GOFLAGS=-v KUBE_COVER=y
