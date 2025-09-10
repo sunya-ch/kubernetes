@@ -169,7 +169,7 @@ func isAttempted(pod *v1.Pod) bool {
 // and unattempted pods in the specified namespaces.
 // Label selector can be used to filter the pods.
 // Note that no namespaces specified matches all namespaces.
-func getScheduledPods(podInformer coreinformers.PodInformer, labelSelector map[string]string, namespaces ...string) ([]*v1.Pod, []*v1.Pod, []*v1.Pod, error) {
+func getScheduledPods(tCtx ktesting.TContext, podInformer coreinformers.PodInformer, labelSelector map[string]string, namespaces ...string) ([]*v1.Pod, []*v1.Pod, []*v1.Pod, error) {
 	pods, err := podInformer.Lister().List(labels.Everything())
 	if err != nil {
 		return nil, nil, nil, err
@@ -186,11 +186,15 @@ func getScheduledPods(podInformer coreinformers.PodInformer, labelSelector map[s
 				scheduled = append(scheduled, pod)
 			} else if isAttempted(pod) {
 				attempted = append(attempted, pod)
+				tCtx.Logf("attempted schedule pod but not success yet %s: %s", pod.Status.Phase, pod.Status.Message)
 			} else {
 				unattempted = append(unattempted, pod)
+				tCtx.Logf("unattempted pod %s: %s", pod.Status.Phase, pod.Status.Message)
 			}
 		}
+		tCtx.Logf("pod %s/%s state: %s: %s (labels: %v, selector: %v)", pod.Name, pod.Namespace, pod.Status.Phase, pod.Status.Message, pod.Labels, labelSelector)
 	}
+	tCtx.Logf("Number of listed pod: %d", len(pods))
 	return scheduled, attempted, unattempted, nil
 }
 

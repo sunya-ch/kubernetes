@@ -2169,7 +2169,7 @@ func waitUntilPodsScheduledInNamespace(tCtx ktesting.TContext, podInformer corei
 			return true, ctx.Err()
 		default:
 		}
-		scheduled, attempted, unattempted, err := getScheduledPods(podInformer, labelSelector, namespace)
+		scheduled, attempted, unattempted, err := getScheduledPods(tCtx, podInformer, labelSelector, namespace)
 		if err != nil {
 			return false, err
 		}
@@ -2177,7 +2177,7 @@ func waitUntilPodsScheduledInNamespace(tCtx ktesting.TContext, podInformer corei
 			tCtx.Logf("scheduling succeed")
 			return true, nil
 		}
-		tCtx.Logf("namespace: %s, pods: want %d, got %d", namespace, wantCount, len(scheduled))
+		tCtx.Logf("namespace: %s, pods: want %d, got %d (%d, %d)", namespace, wantCount, len(scheduled), len(attempted), len(unattempted))
 		if len(attempted) > 0 {
 			pendingPod = attempted[0]
 		} else if len(unattempted) > 0 {
@@ -2206,7 +2206,7 @@ func waitUntilPodsAttemptedInNamespace(tCtx ktesting.TContext, podInformer corei
 			return true, ctx.Err()
 		default:
 		}
-		scheduled, attempted, unattempted, err := getScheduledPods(podInformer, labelSelector, namespace)
+		scheduled, attempted, unattempted, err := getScheduledPods(tCtx, podInformer, labelSelector, namespace)
 		if err != nil {
 			return false, err
 		}
