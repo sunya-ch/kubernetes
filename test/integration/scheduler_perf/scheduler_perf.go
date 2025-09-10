@@ -1713,7 +1713,7 @@ func (e *WorkloadExecutor) runCreatePodsOp(opIndex int, op *createPodsOp) error 
 		// Only record those namespaces that may potentially require barriers
 		// in the future.
 		e.numPodsScheduledPerNamespace[namespace] += op.Count
-	case op.SteadyState && op.Duration.Duration > 0:
+	case op.SteadyState:
 		if err := createPodsSteadily(e.tCtx, namespace, e.podInformer, op); err != nil {
 			return err
 		}
@@ -1976,7 +1976,7 @@ func getNodePreparer(prefix string, cno *createNodesOp, clientset clientset.Inte
 // createPodsRapidly implements the "create pods rapidly" mode of [createPodsOp].
 // It's a nop when cpo.SteadyState is true.
 func createPodsRapidly(tCtx ktesting.TContext, namespace string, cpo *createPodsOp) error {
-	if cpo.SteadyState {
+	if cpo.SteadyState && cpo.Duration.Duration > 0 {
 		return nil
 	}
 	strategy, err := getPodStrategy(cpo)
@@ -1993,7 +1993,7 @@ func createPodsRapidly(tCtx ktesting.TContext, namespace string, cpo *createPods
 // createPodsSteadily implements the "create pods and delete pods" mode of [createPodsOp].
 // It's a nop when cpo.SteadyState is false.
 func createPodsSteadily(tCtx ktesting.TContext, namespace string, podInformer coreinformers.PodInformer, cpo *createPodsOp) error {
-	if !cpo.SteadyState {
+	if !cpo.SteadyState || cpo.Duration.Duration == 0 {
 		return nil
 	}
 	strategy, err := getPodStrategy(cpo)
