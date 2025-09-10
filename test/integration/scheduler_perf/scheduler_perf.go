@@ -1976,7 +1976,7 @@ func getNodePreparer(prefix string, cno *createNodesOp, clientset clientset.Inte
 // createPodsRapidly implements the "create pods rapidly" mode of [createPodsOp].
 // It's a nop when cpo.SteadyState is true.
 func createPodsRapidly(tCtx ktesting.TContext, namespace string, cpo *createPodsOp) error {
-	if cpo.SteadyState {
+	if cpo.Duration.Duration > 0 {
 		return nil
 	}
 	strategy, err := getPodStrategy(cpo)
