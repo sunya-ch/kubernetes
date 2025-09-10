@@ -66,6 +66,7 @@ func waitUntilPodIsScheduled(ctx context.Context, c clientset.Interface, name, n
 		time.Sleep(pollingPeriod)
 		p, err := c.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{ResourceVersion: "0"})
 		if err == nil && p.Spec.NodeName != "" {
+			klog.Infof("Pod %s message: %s", p.Status.Phase, p.Status.Message)
 			return p, nil
 		}
 	}

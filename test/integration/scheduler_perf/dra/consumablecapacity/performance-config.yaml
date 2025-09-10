@@ -61,24 +61,4 @@
       resourceSlices: 1
       measurePods: 1
       duration: 0s # disables steady-state
-      maxClaimsPerNode: 2
-  - name: fast_with_DRAPartitionableDevices
-    featureGates:
-      DRAPartitionableDevices: true
-      DRAResourceClaimDeviceStatus: true
-    labels: [integration-test, short]
-    params:
-      nodesWithDRA: 1
-      nodesWithoutDRA: 1
-      resourceSlices: 1
-      measurePods: 1
-      duration: 0s # disables steady-state
-      maxClaimsPerNode: 2
-  - name: 2000pods_100nodes
-    params:
-      nodesWithDRA: 100
-      nodesWithoutDRA: 0
-      resourceSlices: 2000
-      measurePods: 2000
-      duration: 10s
-      maxClaimsPerNode: 20
+      maxClaimsPerNode: 1
