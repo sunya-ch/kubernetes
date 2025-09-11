@@ -4188,6 +4188,32 @@ func TestAllocator(t *testing.T,
 				},
 			},
 		},
+		"consumable-capacity-multi-allocatable-device-without-capacity-without-capacity-request": {
+			features: Features{
+				ConsumableCapacity: true,
+			},
+			claimsToAllocate: objects(
+				claim(claim0, "", classA).withRequests(deviceRequest(req0, classA, 1)),
+				claim(claim1, "", classA).withRequests(deviceRequest(req0, classA, 1)),
+			),
+			classes: objects(classWithAllowMultipleAllocations(classA, driverA, true)),
+			slices: unwrap(
+				slice(slice1, node1, pool1, driverA,
+					device(device1, nil, nil).withAllowMultipleAllocations(),
+				),
+			),
+			node: node(node1, region1),
+			expectResults: []any{ // both should get full capacity for different devices
+				allocationResult(
+					localNodeSelector(node1),
+					deviceRequestAllocationResult(req0, driverA, pool1, device1).withConsumedCapacity(&fixedShareID, nil),
+				),
+				allocationResult(
+					localNodeSelector(node1),
+					deviceRequestAllocationResult(req0, driverA, pool1, device1).withConsumedCapacity(&fixedShareID, nil),
+				),
+			},
+		},
 		"consumable-capacity-multi-allocatable-device-without-policy-without-capacity-request": {
 			features: Features{
 				ConsumableCapacity: true,
