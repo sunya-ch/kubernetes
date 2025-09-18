@@ -1,0 +1,29 @@
+name: Run verify on branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to checkout'
+        required: true
+        default: 'main'
+
+env:
+  TERM: xterm
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout selected branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.branch }}
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.24.4
+    - name: Verify
+      run: |
+        rm -rf /opt/hostedtoolcache
+        make verify BRANCH=${{ github.event.inputs.branch }}
