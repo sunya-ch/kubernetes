@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/server/healthz"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/component-base/configz"
+	"k8s.io/component-base/zpages/flagz"
 	"k8s.io/component-base/zpages/statusz"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/features"
@@ -74,8 +76,9 @@ func isSubpath(subpath, path string) bool {
 //	/runningPods/*	=> verb=<api verb from request>, resource=nodes, name=<node name>, subresource(s)=pods,proxy
 //	/healthz/* 		=> verb=<api verb from request>, resource=nodes, name=<node name>, subresource(s)=healthz,proxy
 //	/configz 		=> verb=<api verb from request>, resource=nodes, name=<node name>, subresource(s)=configz,proxy
-func (n nodeAuthorizerAttributesGetter) GetRequestAttributes(u user.Info, r *http.Request) []authorizer.Attributes {
-
+//	/flagz 		    => verb=<api verb from request>, resource=nodes, name=<node name>, subresource(s)=configz,proxy
+func (n nodeAuthorizerAttributesGetter) GetRequestAttributes(ctx context.Context, u user.Info, r *http.Request) []authorizer.Attributes {
+	logger := klog.FromContext(ctx)
 	apiVerb := ""
 	switch r.Method {
 	case "POST":
@@ -120,6 +123,8 @@ func (n nodeAuthorizerAttributesGetter) GetRequestAttributes(u user.Info, r *htt
 		subresources = append(subresources, "checkpoint")
 	case isSubpath(requestPath, statusz.DefaultStatuszPath):
 		subresources = append(subresources, "statusz")
+	case isSubpath(requestPath, flagz.DefaultFlagzPath):
+		subresources = append(subresources, "configz")
 	default:
 		subresources = append(subresources, "proxy")
 	}
@@ -141,7 +146,7 @@ func (n nodeAuthorizerAttributesGetter) GetRequestAttributes(u user.Info, r *htt
 		attrs = append(attrs, attr)
 	}
 
-	klog.V(5).InfoS("Node request attributes", "user", attrs[0].GetUser().GetName(), "verb", attrs[0].GetVerb(), "resource", attrs[0].GetResource(), "subresource(s)", subresources)
+	logger.V(5).Info("Node request attributes", "user", attrs[0].GetUser().GetName(), "verb", attrs[0].GetVerb(), "resource", attrs[0].GetResource(), "subresource(s)", subresources)
 
 	return attrs
 }

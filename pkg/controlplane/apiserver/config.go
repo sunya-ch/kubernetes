@@ -40,6 +40,7 @@ import (
 	"k8s.io/apiserver/pkg/server/egressselector"
 	"k8s.io/apiserver/pkg/server/filters"
 	serverstorage "k8s.io/apiserver/pkg/server/storage"
+	"k8s.io/apiserver/pkg/util/compatibility"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/apiserver/pkg/util/openapi"
 	utilpeerproxy "k8s.io/apiserver/pkg/util/peerproxy"
@@ -47,9 +48,9 @@ import (
 	clientgoinformers "k8s.io/client-go/informers"
 	clientgoclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/keyutil"
+	basecompatibility "k8s.io/component-base/compatibility"
 	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
 	openapicommon "k8s.io/kube-openapi/pkg/common"
-
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	controlplaneadmission "k8s.io/kubernetes/pkg/controlplane/apiserver/admission"
 	"k8s.io/kubernetes/pkg/controlplane/apiserver/options"
@@ -102,6 +103,11 @@ type Extra struct {
 	SystemNamespaces []string
 
 	VersionedInformers clientgoinformers.SharedInformerFactory
+
+	// Coordinated Leader Election timers
+	CoordinatedLeadershipLeaseDuration time.Duration
+	CoordinatedLeadershipRenewDeadline time.Duration
+	CoordinatedLeadershipRetryPeriod   time.Duration
 }
 
 // BuildGenericConfig takes the generic controlplane apiserver options and produces
@@ -231,9 +237,7 @@ func BuildGenericConfig(
 		return
 	}
 
-	if utilfeature.DefaultFeatureGate.Enabled(genericfeatures.AggregatedDiscoveryEndpoint) {
-		genericConfig.AggregatedDiscoveryGroupManager = aggregated.NewResourceManager("apis")
-	}
+	genericConfig.AggregatedDiscoveryGroupManager = aggregated.NewResourceManager("apis")
 
 	return
 }
@@ -304,6 +308,10 @@ func CreateConfig(
 			ExtendExpiration:                    opts.Authentication.ServiceAccounts.ExtendExpiration,
 
 			VersionedInformers: versionedInformers,
+
+			CoordinatedLeadershipLeaseDuration: opts.CoordinatedLeadershipLeaseDuration,
+			CoordinatedLeadershipRenewDeadline: opts.CoordinatedLeadershipRenewDeadline,
+			CoordinatedLeadershipRetryPeriod:   opts.CoordinatedLeadershipRetryPeriod,
 		},
 	}
 
@@ -313,10 +321,17 @@ func CreateConfig(
 		if err != nil {
 			return nil, nil, err
 		}
-		// build peer proxy config only if peer ca file exists
 		if opts.PeerCAFile != "" {
-			config.PeerProxy, err = BuildPeerProxy(versionedInformers, genericConfig.StorageVersionManager, opts.ProxyClientCertFile,
-				opts.ProxyClientKeyFile, opts.PeerCAFile, opts.PeerAdvertiseAddress, genericConfig.APIServerID, config.Extra.PeerEndpointLeaseReconciler, config.Generic.Serializer)
+			leaseInformer := versionedInformers.Coordination().V1().Leases()
+			config.PeerProxy, err = BuildPeerProxy(
+				leaseInformer,
+				genericConfig.LoopbackClientConfig,
+				opts.ProxyClientCertFile,
+				opts.ProxyClientKeyFile, opts.PeerCAFile,
+				opts.PeerAdvertiseAddress,
+				genericConfig.APIServerID,
+				config.Extra.PeerEndpointLeaseReconciler,
+				config.Generic.Serializer)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -365,6 +380,7 @@ func CreateConfig(
 		clientgoExternalClient,
 		dynamicExternalClient,
 		utilfeature.DefaultFeatureGate,
+		compatibility.DefaultComponentGlobalsRegistry.EffectiveVersionFor(basecompatibility.DefaultKubeComponent),
 		append(genericInitializers, additionalInitializers...)...,
 	)
 	if err != nil {
@@ -373,7 +389,7 @@ func CreateConfig(
 
 	if len(opts.Authentication.ServiceAccounts.KeyFiles) > 0 {
 		// Load and set the public keys.
-		var pubKeys []interface{}
+		var pubKeys []any
 		for _, f := range opts.Authentication.ServiceAccounts.KeyFiles {
 			keys, err := keyutil.PublicKeysFromFile(f)
 			if err != nil {
@@ -386,7 +402,10 @@ func CreateConfig(
 			return nil, nil, fmt.Errorf("failed to set up public service account keys: %w", err)
 		}
 		config.ServiceAccountPublicKeysGetter = keysGetter
+	} else if opts.Authentication.ServiceAccounts.ExternalPublicKeysGetter != nil {
+		config.ServiceAccountPublicKeysGetter = opts.Authentication.ServiceAccounts.ExternalPublicKeysGetter
 	}
+
 	config.ServiceAccountIssuerURL = opts.Authentication.ServiceAccounts.Issuers[0]
 	config.ServiceAccountJWKSURI = opts.Authentication.ServiceAccounts.JWKSURI
 

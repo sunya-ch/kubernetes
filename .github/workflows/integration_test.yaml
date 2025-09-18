@@ -1,0 +1,27 @@
+name: Run integration tests on branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to checkout'
+        required: true
+        default: 'main'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout selected branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.branch }}
+    - name: Set up for integration test
+      run: |
+        ./hack/install-etcd.sh
+        echo "PATH=$(pwd)/third_party/etcd:$PATH" >> $GITHUB_ENV
+        ulimit -n 1200
+    - name: Integration test
+      run: |
+        make test-integration WHAT=./test/integration/scheduler_perf/... GOFLAGS=-v KUBE_COVER=y
+        make test-integration WHAT=./test/integration/dra/... GOFLAGS=-v KUBE_COVER=y

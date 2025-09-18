@@ -198,6 +198,7 @@ type StatefulSetSpec struct {
 	// the network identity of the set. Pods get DNS/hostnames that follow the
 	// pattern: pod-specific-string.serviceName.default.svc.cluster.local
 	// where "pod-specific-string" is managed by the StatefulSet controller.
+	// +optional
 	ServiceName string
 
 	// PodManagementPolicy controls how pods are created during initial scale up,
@@ -228,9 +229,12 @@ type StatefulSetSpec struct {
 	// +optional
 	MinReadySeconds int32
 
-	// PersistentVolumeClaimRetentionPolicy describes the policy used for PVCs created from
-	// the StatefulSet VolumeClaimTemplates. This requires the
-	// StatefulSetAutoDeletePVC feature gate to be enabled, which is beta and default on from 1.27.
+	// persistentVolumeClaimRetentionPolicy describes the lifecycle of persistent
+	// volume claims created from volumeClaimTemplates. By default, all persistent
+	// volume claims are created as needed and retained until manually deleted. This
+	// policy allows the lifecycle to be altered, for example by deleting persistent
+	// volume claims when their stateful set is deleted, or when their pod is scaled
+	// down.
 	// +optional
 	PersistentVolumeClaimRetentionPolicy *StatefulSetPersistentVolumeClaimRetentionPolicy
 
@@ -532,7 +536,7 @@ type DeploymentStatus struct {
 	// Total number of terminating pods targeted by this deployment. Terminating pods have a non-null
 	// .metadata.deletionTimestamp and have not yet reached the Failed or Succeeded .status.phase.
 	//
-	// This is an alpha field. Enable DeploymentPodReplacementPolicy to be able to use this field.
+	// This is an alpha field. Enable DeploymentReplicaSetTerminatingReplicas to be able to use this field.
 	// +optional
 	TerminatingReplicas *int32
 
@@ -891,7 +895,7 @@ type ReplicaSetStatus struct {
 	// The number of terminating pods for this replica set. Terminating pods have a non-null .metadata.deletionTimestamp
 	// and have not yet reached the Failed or Succeeded .status.phase.
 	//
-	// This is an alpha field. Enable DeploymentPodReplacementPolicy to be able to use this field.
+	// This is an alpha field. Enable DeploymentReplicaSetTerminatingReplicas to be able to use this field.
 	// +optional
 	TerminatingReplicas *int32
 

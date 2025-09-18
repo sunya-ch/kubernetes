@@ -35,7 +35,7 @@ import (
 	fcache "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/klog/v2/ktesting"
 
-	fuzz "github.com/google/gofuzz"
+	"sigs.k8s.io/randfill"
 )
 
 func Example() {
@@ -110,12 +110,12 @@ func Example() {
 	}
 
 	// Let's wait for the controller to process the things we just added.
-	outputSet := sets.String{}
+	outputSet := sets.Set[string]{}
 	for i := 0; i < len(testIDs); i++ {
 		outputSet.Insert(<-deletionCounter)
 	}
 
-	for _, key := range outputSet.List() {
+	for _, key := range sets.List(outputSet) {
 		fmt.Println(key)
 	}
 	// Output:
@@ -168,12 +168,12 @@ func ExampleNewInformer() {
 	}
 
 	// Let's wait for the controller to process the things we just added.
-	outputSet := sets.String{}
-	for i := 0; i < len(testIDs); i++ {
+	outputSet := sets.Set[string]{}
+	for range testIDs {
 		outputSet.Insert(<-deletionCounter)
 	}
 
-	for _, key := range outputSet.List() {
+	for _, key := range sets.List(outputSet) {
 		fmt.Println(key)
 	}
 	// Output:
@@ -250,22 +250,22 @@ func TestHammerController(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			// Let's add a few objects to the source.
-			currentNames := sets.String{}
+			currentNames := sets.Set[string]{}
 			rs := rand.NewSource(rand.Int63())
-			f := fuzz.New().NilChance(.5).NumElements(0, 2).RandSource(rs)
+			f := randfill.New().NilChance(.5).NumElements(0, 2).RandSource(rs)
 			for i := 0; i < 100; i++ {
 				var name string
 				var isNew bool
 				if currentNames.Len() == 0 || rand.Intn(3) == 1 {
-					f.Fuzz(&name)
+					f.Fill(&name)
 					isNew = true
 				} else {
-					l := currentNames.List()
+					l := sets.List(currentNames)
 					name = l[rand.Intn(len(l))]
 				}
 
 				pod := &v1.Pod{}
-				f.Fuzz(pod)
+				f.Fill(pod)
 				pod.ObjectMeta.Name = name
 				pod.ObjectMeta.Namespace = "default"
 				// Add, update, or delete randomly.

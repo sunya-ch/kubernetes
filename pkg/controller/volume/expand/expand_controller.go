@@ -20,12 +20,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"time"
 
 	"k8s.io/klog/v2"
 	"k8s.io/mount-utils"
-	utilexec "k8s.io/utils/exec"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	v1 "k8s.io/api/core/v1"
@@ -329,7 +327,7 @@ func (expc *expandController) Run(ctx context.Context) {
 	logger.Info("Starting expand controller")
 	defer logger.Info("Shutting down expand controller")
 
-	if !cache.WaitForNamedCacheSync("expand", ctx.Done(), expc.pvcsSynced) {
+	if !cache.WaitForNamedCacheSyncWithContext(ctx, expc.pvcsSynced) {
 		return
 	}
 
@@ -407,20 +405,12 @@ func (expc *expandController) NewWrapperUnmounter(volName string, spec volume.Sp
 	return nil, fmt.Errorf("NewWrapperUnmounter not supported by expand controller's VolumeHost implementation")
 }
 
-func (expc *expandController) GetMounter(pluginName string) mount.Interface {
+func (expc *expandController) GetMounter() mount.Interface {
 	return nil
-}
-
-func (expc *expandController) GetExec(pluginName string) utilexec.Interface {
-	return utilexec.New()
 }
 
 func (expc *expandController) GetHostName() string {
 	return ""
-}
-
-func (expc *expandController) GetHostIP() (net.IP, error) {
-	return nil, fmt.Errorf("GetHostIP not supported by expand controller's VolumeHost implementation")
 }
 
 func (expc *expandController) GetNodeAllocatable() (v1.ResourceList, error) {
