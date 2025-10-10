@@ -27,6 +27,11 @@ jobs:
       IMAGE_NAME: kindest/node
       KUBE_GIT_VERSION: ${{ github.event.inputs.k8sversion }}
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+
       - name: Install Kind
         run: |
           curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64

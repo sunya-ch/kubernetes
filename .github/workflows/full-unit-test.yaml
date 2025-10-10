@@ -20,6 +20,11 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: 1.24.4
+    - name: Install etcd
+      run: |
+        ./hack/install-etcd.sh
+        echo "PATH=$(pwd)/third_party/etcd:$PATH" >> $GITHUB_ENV
+        ulimit -n 1200
     - name: Test
       run: |
         make test
