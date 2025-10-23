@@ -1035,7 +1035,7 @@ func (cm *containerManagerImpl) GetDynamicResources(pod *v1.Pod, container *v1.C
 					DriverName: driverName,
 					PoolName:   device.PoolName,
 					DeviceName: device.DeviceName,
-					ShareId:    device.ShareID,
+					ShareId:    (*string)(device.ShareID),
 				}
 				claimResources = append(claimResources, resources)
 			}

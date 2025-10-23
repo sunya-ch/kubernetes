@@ -56,7 +56,7 @@ type DriverState struct {
 type Device struct {
 	PoolName     string
 	DeviceName   string
-	ShareID      *string
+	ShareID      *types.UID
 	RequestNames []string
 	CDIDeviceIDs []string
 }

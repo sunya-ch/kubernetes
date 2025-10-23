@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/kubelet/checkpointmanager"
 	testutil "k8s.io/kubernetes/pkg/kubelet/cm/cpumanager/state/testing"
@@ -80,7 +81,7 @@ func TestCheckpointGetOrCreate(t *testing.T) {
 								{
 									PoolName:     "worker-1",
 									DeviceName:   "dev-1",
-									ShareID:      ptr.To("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+									ShareID:      ptr.To(types.UID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")),
 									RequestNames: []string{"test request"},
 									CDIDeviceIDs: []string{"example.com/example=cdi-example"},
 								},
@@ -311,7 +312,7 @@ func TestCheckpointStateStore(t *testing.T) {
 								{
 									PoolName:     "worker-1",
 									DeviceName:   "dev-1",
-									ShareID:      ptr.To("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+									ShareID:      ptr.To(types.UID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")),
 									RequestNames: []string{"test request"},
 									CDIDeviceIDs: []string{"example.com/example=cdi-example"},
 								},

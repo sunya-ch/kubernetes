@@ -418,7 +418,7 @@ func (m *Manager) prepareResources(ctx context.Context, pod *v1.Pod) error {
 				}
 				for _, device := range result.GetDevices() {
 					info.addDevice(plugin.DriverName(), state.Device{PoolName: device.PoolName,
-						DeviceName: device.DeviceName, ShareID: device.ShareId,
+						DeviceName: device.DeviceName, ShareID: (*types.UID)(device.ShareId),
 						RequestNames: device.RequestNames, CDIDeviceIDs: device.CdiDeviceIds})
 				}
 				return nil

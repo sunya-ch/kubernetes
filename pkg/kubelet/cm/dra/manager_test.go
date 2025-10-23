@@ -62,7 +62,8 @@ const (
 )
 
 var (
-	shareID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	shareID  = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	shareUID = types.UID(shareID)
 )
 
 type fakeDRADriverGRPCServer struct {
@@ -549,7 +550,7 @@ func genClaimInfoStateWithShareID(cdiDeviceID string) state.ClaimInfoState {
 	}
 	if cdiDeviceID != "" {
 		s.DriverState[driverName] = state.DriverState{Devices: []state.Device{
-			{PoolName: poolName, DeviceName: deviceName, ShareID: &shareID, RequestNames: []string{requestName}, CDIDeviceIDs: []string{cdiDeviceID}},
+			{PoolName: poolName, DeviceName: deviceName, ShareID: &shareUID, RequestNames: []string{requestName}, CDIDeviceIDs: []string{cdiDeviceID}},
 		}}
 	}
 	return s

@@ -22,6 +22,7 @@ limitations under the License.
 package state
 
 import (
+	types "k8s.io/apimachinery/pkg/types"
 	sets "k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -60,7 +61,7 @@ func (in *Device) DeepCopyInto(out *Device) {
 	*out = *in
 	if in.ShareID != nil {
 		in, out := &in.ShareID, &out.ShareID
-		*out = new(string)
+		*out = new(types.UID)
 		**out = **in
 	}
 	if in.RequestNames != nil {
