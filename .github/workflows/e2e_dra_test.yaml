@@ -1,4 +1,4 @@
-name: Run e2e tests on branch
+name: Run e2e DRA tests on branch
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      KUBE_GIT_VERSION: v1.34.0-alpha.0.2276+6f3400c755b5e1-dirty
+      KUBE_GIT_VERSION: v1.34.1-alpha.0.6377+946ed4eb5c55ac-dirty
     steps:
     - name: Checkout selected branch
       uses: actions/checkout@v4
@@ -51,7 +51,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v5
       with:
-        go-version: 1.24.4
+        go-version: 1.25.0
     - name: Add Go bin to PATH
       run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
     - name: Run test
