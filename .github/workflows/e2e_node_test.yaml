@@ -1,0 +1,57 @@
+name: Run e2e DRA tests on branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to checkout'
+        required: true
+        default: 'main'
+      k8sversion:
+        description: 'Kubernetes version'
+        required: true
+        default: '1.34'
+
+env:
+  VERSION: ${{ github.event.inputs.k8sversion }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout selected branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.branch }}
+    - name: Set up for integration test
+      run: |
+        ./hack/install-etcd.sh
+        echo "PATH=$(pwd)/third_party/etcd:$PATH" >> $GITHUB_ENV
+        ulimit -n 1200
+    - name: Show containerd default cgroup driver
+      run: |
+          sudo ctr version
+          sudo cat /etc/containerd/config.toml | grep systemd || echo "no systemd driver found"
+    - name: Configure containerd to use cgroupfs
+      run: |
+          # Generate default config if missing
+          sudo mkdir -p /etc/containerd
+          sudo containerd config default | sudo tee /etc/containerd/config.toml > /dev/null
+
+          # Switch from "SystemdCgroup = true" to "SystemdCgroup = false"
+          sudo sed -i 's/SystemdCgroup = true/SystemdCgroup = false/g' /etc/containerd/config.toml
+
+          # Restart containerd to apply the changes
+          sudo systemctl restart containerd
+    - name: Build ginkgo
+      run: |
+        make ginkgo
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.25.0
+    - name: Add Go bin to PATH
+      run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+    - name: Run test
+      run: |
+        make test-e2e-node PRINT_HELP=y
