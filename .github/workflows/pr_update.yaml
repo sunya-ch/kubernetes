@@ -20,7 +20,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.24.4
+          go-version: 1.25.0
 
       - name: Update
         run: |
@@ -55,7 +55,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: Automated update from make update via GitHub Actions
           branch: update-branch
-          base: ${{ github.ref_name }}
+          base: ${{ github.event.inputs.branch }}
           title: Automated update PR
           body: This PR was created automatically by GitHub Actions.
           draft: false
