@@ -37,6 +37,12 @@ var (
 	one   = resource.MustParse("1")
 	two   = resource.MustParse("2")
 	three = resource.MustParse("3")
+
+	pointTwoFive = resource.MustParse("250m")
+	pointFour    = resource.MustParse("400m")
+	pointThree   = resource.MustParse("300m")
+	pointTwo     = resource.MustParse("200m")
+	pointOne     = resource.MustParse("100m")
 )
 
 func deviceConsumedCapacity(deviceID DeviceID) DeviceConsumedCapacity {
@@ -100,7 +106,7 @@ func TestConsumableCapacity(t *testing.T) {
 				Value: one, // no request and no policy (no default), expect capacity value
 			},
 		}
-		consumedCapacity := GetConsumedCapacityFromRequest(requestedCapacity, consumableCapacity)
+		consumedCapacity := GetConsumedCapacityFromRequest(requestedCapacity, consumableCapacity, false)
 		g := NewWithT(t)
 		g.Expect(consumedCapacity).To(HaveLen(3))
 		for name, val := range consumedCapacity {
@@ -117,49 +123,76 @@ func TestConsumableCapacity(t *testing.T) {
 
 func testViolateCapacityRequestPolicy(t *testing.T) {
 	testcases := map[string]struct {
-		requestedVal  resource.Quantity
-		requestPolicy *resourceapi.CapacityRequestPolicy
-
-		expectResult bool
+		requestedVal            resource.Quantity
+		requestPolicy           *resourceapi.CapacityRequestPolicy
+		fractionalCapacityRange bool
+		expectResult            bool
 	}{
-		"no constraint": {one, nil, false},
+		"no constraint": {requestedVal: one, expectResult: false},
 		"less than maximum": {
-			one,
-			&resourceapi.CapacityRequestPolicy{
+			requestedVal: one,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{
 				Default:    ptr.To(one),
 				ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: ptr.To(one), Max: &two},
 			},
-			false,
+			expectResult: false,
 		},
 		"more than maximum": {
-			two,
-			&resourceapi.CapacityRequestPolicy{
+			requestedVal: two,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{
 				Default:    ptr.To(one),
 				ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: ptr.To(one), Max: &one},
 			},
-			true,
+			expectResult: true,
 		},
 		"in set": {
-			one,
-			&resourceapi.CapacityRequestPolicy{
+			requestedVal: one,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{
 				Default:     ptr.To(one),
 				ValidValues: []resource.Quantity{one},
 			},
-			false,
+			expectResult: false,
 		},
 		"not in set": {
-			two,
-			&resourceapi.CapacityRequestPolicy{
+			requestedVal: two,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{
 				Default:     ptr.To(one),
 				ValidValues: []resource.Quantity{one},
 			},
-			true,
+			expectResult: true,
+		},
+		// fractional step: min=0.2, step=0.1, max=1
+		"fractional step aligned (0.3 = min+1*step)": {
+			requestedVal: pointThree,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{
+				Default: &pointTwo,
+				ValidRange: &resourceapi.CapacityRequestPolicyRange{
+					Min:  &pointTwo,
+					Max:  &one,
+					Step: &pointOne,
+				},
+			},
+			fractionalCapacityRange: true,
+			expectResult:            false,
+		},
+		"fractional step not aligned (0.25 is not a multiple of 0.1 from 0.2)": {
+			requestedVal: pointTwoFive,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{
+				Default: &pointTwo,
+				ValidRange: &resourceapi.CapacityRequestPolicyRange{
+					Min:  &pointTwo,
+					Max:  &one,
+					Step: &pointOne,
+				},
+			},
+			fractionalCapacityRange: true,
+			expectResult:            true,
 		},
 	}
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
 			g := NewWithT(t)
-			violate := violatesPolicy(tc.requestedVal, tc.requestPolicy)
+			violate := violatesPolicy(tc.requestedVal, tc.requestPolicy, tc.fractionalCapacityRange)
 			g.Expect(violate).To(BeEquivalentTo(tc.expectResult))
 		})
 	}
@@ -167,66 +200,96 @@ func testViolateCapacityRequestPolicy(t *testing.T) {
 
 func testCalculateConsumedCapacity(t *testing.T) {
 	testcases := map[string]struct {
-		requestedVal  *resource.Quantity
-		capacityValue resource.Quantity
-		requestPolicy *resourceapi.CapacityRequestPolicy
-
-		expectResult resource.Quantity
+		requestedVal            *resource.Quantity
+		capacityValue           resource.Quantity
+		requestPolicy           *resourceapi.CapacityRequestPolicy
+		fractionalCapacityRange bool
+		expectResult            resource.Quantity
 	}{
-		"empty": {nil, one, &resourceapi.CapacityRequestPolicy{}, one},
+		"empty": {requestedVal: nil, capacityValue: one, requestPolicy: &resourceapi.CapacityRequestPolicy{}, expectResult: one},
 		"min in range": {
-			nil,
-			two,
-			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: ptr.To(one)}},
-			one,
+			requestedVal:  nil,
+			capacityValue: two,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: ptr.To(one)}},
+			expectResult:  one,
 		},
 		"default in set": {
-			nil,
-			two,
-			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one}},
-			one,
+			requestedVal:  nil,
+			capacityValue: two,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one}},
+			expectResult:  one,
 		},
 		"more than min in range": {
-			&two,
-			two,
-			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: ptr.To(one)}},
-			two,
+			requestedVal:  &two,
+			capacityValue: two,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: ptr.To(one)}},
+			expectResult:  two,
 		},
 		"less than min in range": {
-			&one,
-			two,
-			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: ptr.To(two)}},
-			two,
+			requestedVal:  &one,
+			capacityValue: two,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: ptr.To(two)}},
+			expectResult:  two,
 		},
 		"with step (round up)": {
-			&two,
-			three,
-			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: ptr.To(one), Step: ptr.To(two.DeepCopy())}},
-			three,
+			requestedVal:  &two,
+			capacityValue: three,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: ptr.To(one), Step: ptr.To(two.DeepCopy())}},
+			expectResult:  three,
 		},
 		"with step (no remaining)": {
-			&two,
-			two,
-			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: ptr.To(one), Step: ptr.To(one.DeepCopy())}},
-			two,
+			requestedVal:  &two,
+			capacityValue: two,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidRange: &resourceapi.CapacityRequestPolicyRange{Min: ptr.To(one), Step: ptr.To(one.DeepCopy())}},
+			expectResult:  two,
+		},
+		// fractional step: min=0.2, step=0.1, max=1; request=0.25; rounds up to 0.3
+		"fractional step round up (0.25 to 0.3)": {
+			requestedVal:  &pointTwoFive,
+			capacityValue: resource.MustParse("1"),
+			requestPolicy: &resourceapi.CapacityRequestPolicy{
+				Default: &pointTwo,
+				ValidRange: &resourceapi.CapacityRequestPolicyRange{
+					Min:  &pointTwo,
+					Max:  &one,
+					Step: &pointOne,
+				},
+			},
+			fractionalCapacityRange: true,
+			expectResult:            resource.MustParse("300m"),
+		},
+		// fractional step: request already aligned; no rounding
+		"fractional step already aligned (0.4 = min+2*step)": {
+			requestedVal:  &pointFour,
+			capacityValue: resource.MustParse("1"),
+			requestPolicy: &resourceapi.CapacityRequestPolicy{
+				Default: &pointTwo,
+				ValidRange: &resourceapi.CapacityRequestPolicyRange{
+					Min:  &pointTwo,
+					Max:  &one,
+					Step: &pointOne,
+				},
+			},
+			fractionalCapacityRange: true,
+			expectResult:            resource.MustParse("400m"),
 		},
 		"valid value in set": {
-			&two,
-			three,
-			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one, two, three}},
-			two,
+			requestedVal:  &two,
+			capacityValue: three,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one, two, three}},
+			expectResult:  two,
 		},
 		"set (round up)": {
-			&two,
-			three,
-			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one, three}},
-			three,
+			requestedVal:  &two,
+			capacityValue: three,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one, three}},
+			expectResult:  three,
 		},
 		"larger than set": {
-			&three,
-			three,
-			&resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one, two}},
-			three,
+			requestedVal:  &three,
+			capacityValue: three,
+			requestPolicy: &resourceapi.CapacityRequestPolicy{Default: ptr.To(one), ValidValues: []resource.Quantity{one, two}},
+			expectResult:  three,
 		},
 	}
 	for name, tc := range testcases {
@@ -236,7 +299,7 @@ func testCalculateConsumedCapacity(t *testing.T) {
 				Value:         tc.capacityValue,
 				RequestPolicy: tc.requestPolicy,
 			}
-			consumedCapacity := calculateConsumedCapacity(tc.requestedVal, capacity)
+			consumedCapacity := calculateConsumedCapacity(tc.requestedVal, capacity, tc.fractionalCapacityRange)
 			g.Expect(consumedCapacity.Cmp(tc.expectResult)).To(BeZero())
 		})
 	}

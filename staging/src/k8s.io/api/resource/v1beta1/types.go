@@ -612,12 +612,19 @@ type CapacityRequestPolicy struct {
 
 // CapacityRequestPolicyRange defines a valid range for consumable capacity values.
 //
+// By default, all comparisons use whole-unit (integer) arithmetic via
+// resource.Quantity.Value(). When the DRAFractionalCapacityRange feature gate is
+// enabled and at least one of Min, Max, or Step is a fractional quantity (i.e.
+// its milli-value is not a multiple of 1000), milli-unit arithmetic is used
+// instead, supporting values with up to 3 decimal places (e.g. 100m = 0.1).
+//
 //   - If the requested amount is less than Min, it is rounded up to the Min value.
-//   - If Step is set and the requested amount is between Min and Max but not aligned with Step,
-//     it will be rounded up to the next value equal to Min + (n * Step).
-//   - If Step is not set, the requested amount is used as-is if it falls within the range Min to Max (if set).
-//   - If the requested or rounded amount exceeds Max (if set), the request does not satisfy the policy,
-//     and the device cannot be allocated.
+//   - If Step is set and the requested amount is between Min and Max but not aligned
+//     with Step, it will be rounded up to the next value equal to Min + (n * Step).
+//   - If Step is not set, the requested amount is used as-is if it falls within
+//     the range Min to Max (if set).
+//   - If the requested or rounded amount exceeds Max (if set), the request does not
+//     satisfy the policy, and the device cannot be allocated.
 type CapacityRequestPolicyRange struct {
 	// Min specifies the minimum capacity allowed for a consumption request.
 	//
@@ -640,6 +647,9 @@ type CapacityRequestPolicyRange struct {
 	//
 	// Max (if set) and requestPolicy.default must be a multiple of Step.
 	// Min + Step must be less than or equal to the capacity value.
+	//
+	// When the DRAFractionalCapacityRange feature gate is enabled and milli-unit
+	// arithmetic is in use, Step must be at least 1m (0.001).
 	//
 	// +optional
 	Step *resource.Quantity `json:"step,omitempty" protobuf:"bytes,3,opt,name=step"`
