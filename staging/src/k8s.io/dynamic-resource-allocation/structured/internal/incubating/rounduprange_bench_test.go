@@ -106,6 +106,35 @@ var benchCases = []struct {
 	},
 }
 
+// roundUpRangeMilli is a candidate implementation that uses MilliValue()
+// instead of Value() so fractional steps down to 1m are handled correctly,
+// and instead of inf.Dec so no heap allocation is needed.
+func roundUpRangeMilli(requestedVal *resource.Quantity, validRange *resourceapi.CapacityRequestPolicyRange) resource.Quantity {
+	if requestedVal.Cmp(*validRange.Min) < 0 {
+		return validRange.Min.DeepCopy()
+	}
+	if validRange.Step == nil {
+		return *requestedVal
+	}
+	requestedMilli := requestedVal.MilliValue()
+	stepMilli := validRange.Step.MilliValue()
+	minMilli := validRange.Min.MilliValue()
+	added := requestedMilli - minMilli
+	n := added / stepMilli
+	if added%stepMilli != 0 {
+		n += 1
+	}
+	valMilli := minMilli + stepMilli*n
+	// Return in the same format as the step quantity. If the result is a
+	// whole number, use NewQuantity to keep the representation compact and
+	// compatible with quantities parsed from whole-number strings.
+	format := validRange.Step.Format
+	if valMilli%1000 == 0 {
+		return *resource.NewQuantity(valMilli/1000, format)
+	}
+	return *resource.NewMilliQuantity(valMilli, format)
+}
+
 func BenchmarkRoundUpRangeOld(b *testing.B) {
 	for _, tc := range benchCases {
 		b.Run(tc.name, func(b *testing.B) {
@@ -134,6 +163,20 @@ func BenchmarkRoundUpRangeNew(b *testing.B) {
 	}
 }
 
+func BenchmarkRoundUpRangeMilli(b *testing.B) {
+	for _, tc := range benchCases {
+		b.Run(tc.name, func(b *testing.B) {
+			req := tc.requested.DeepCopy()
+			vr := tc.validRange
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = roundUpRangeMilli(&req, &vr)
+			}
+		})
+	}
+}
+
 // implSpec pairs a display name with the function under test.
 type implSpec struct {
 	name string
@@ -148,6 +191,7 @@ func TestRoundUpRangeComparison(t *testing.T) {
 	impls := []implSpec{
 		{"old (int64)", roundUpRangeOld},
 		{"new (inf.Dec)", roundUpRange},
+		{"milli (int64)", roundUpRangeMilli},
 	}
 
 	type result struct {
