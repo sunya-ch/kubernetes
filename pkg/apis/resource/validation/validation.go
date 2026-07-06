@@ -26,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 
+	infdec "gopkg.in/inf.v0"
+
 	"github.com/google/uuid"
 
 	corev1 "k8s.io/api/core/v1"
@@ -1194,11 +1196,19 @@ func validateRequestPolicyRange(defaultValue apiresource.Quantity, maxCapacity a
 
 func validateRequestPolicyRangeStep(value, min, step apiresource.Quantity, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
-	stepVal := step.Value()
-	minVal := min.Value()
-	val := value.Value()
-	added := (val - minVal)
-	if added%stepVal != 0 {
+	// span = value - min; check span is a whole-number multiple of step.
+	// Using inf.Dec arithmetic avoids int64 overflow and is correct at any scale.
+	// DeepCopy before AsDec to avoid mutating the originals.
+	span := value.DeepCopy()
+	span.Sub(min)
+	spanDec := span.AsDec()
+	stepCopy := step.DeepCopy()
+	stepDec := stepCopy.AsDec()
+	// n = floor(span / step); if n*step != span then it's not aligned.
+	var nDec, remDec, mulDec infdec.Dec
+	n := nDec.QuoRound(spanDec, stepDec, 0, infdec.RoundDown)
+	remainder := remDec.Sub(spanDec, mulDec.Mul(n, stepDec))
+	if remainder.Sign() != 0 {
 		allErrs = append(allErrs, field.Invalid(fldPath, value.String(), fmt.Sprintf("value is not a multiple of a given step (%s) from (%s)", step.String(), min.String())))
 	}
 	return allErrs
