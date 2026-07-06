@@ -19,6 +19,7 @@ package incubating
 import (
 	"errors"
 
+	inf "gopkg.in/inf.v0"
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
@@ -118,17 +119,30 @@ func roundUpRange(requestedVal *resource.Quantity, validRange *resourceapi.Capac
 	if validRange.Step == nil {
 		return *requestedVal
 	}
-	requestedInt64 := requestedVal.Value()
-	step := validRange.Step.Value()
-	min := validRange.Min.Value()
-	added := (requestedInt64 - min)
-	n := added / step
-	mod := added % step
-	if mod != 0 {
-		n += 1
+	// Compute how far requested is above min, then round up to the next
+	// multiple of step. All arithmetic uses inf.Dec via Quantity.AsDec() so
+	// it is exact at any scale and cannot overflow.
+	span := requestedVal.DeepCopy()
+	span.Sub(*validRange.Min) // span = requested - min
+	stepCopy := validRange.Step.DeepCopy()
+	stepDec := stepCopy.AsDec()
+	minCopy := validRange.Min.DeepCopy()
+	minDec := minCopy.AsDec()
+
+	// n = ceil(span / step)
+	var nDec, resultDec, mulDec inf.Dec
+	n := nDec.QuoRound(span.AsDec(), stepDec, 0, inf.RoundUp)
+
+	// result = min + n*step, computed entirely in Dec.
+	resultDec.Add(minDec, mulDec.Mul(n, stepDec))
+
+	// If the result is a whole number, use NewQuantity to keep the representation compact
+	// and compatible with quantities parsed from whole-number strings.
+	format := validRange.Step.Format
+	if v, ok := resultDec.Unscaled(); ok && resultDec.Scale() == 0 {
+		return *resource.NewQuantity(v, format)
 	}
-	val := min + step*n
-	return *resource.NewQuantity(val, resource.BinarySI)
+	return *resource.NewDecimalQuantity(resultDec, format)
 }
 
 // roundUpValidValues returns the first value in validValues that is greater than or equal to requestedVal.
@@ -188,13 +202,18 @@ func violateValidRange(requestedVal resource.Quantity, validRange resourceapi.Ca
 		return true
 	}
 	if validRange.Step != nil {
-		requestedInt64 := requestedVal.Value()
-		step := validRange.Step.Value()
-		min := validRange.Min.Value()
-		added := (requestedInt64 - min)
-		mod := added % step
-		// must be a multiply of step
-		if mod != 0 {
+		// span = requested - min; check span is a whole-number multiple of step.
+		// DeepCopy before AsDec to avoid mutating the originals.
+		span := requestedVal.DeepCopy()
+		span.Sub(*validRange.Min)
+		spanDec := span.AsDec()
+		stepCopy := validRange.Step.DeepCopy()
+		stepDec := stepCopy.AsDec()
+		// n = floor(span / step); if n*step != span then it's not aligned.
+		var nDec, remDec, mulDec inf.Dec
+		n := nDec.QuoRound(spanDec, stepDec, 0, inf.RoundDown)
+		remainder := remDec.Sub(spanDec, mulDec.Mul(n, stepDec))
+		if remainder.Sign() != 0 {
 			return true
 		}
 	}
