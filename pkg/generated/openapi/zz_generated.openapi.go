@@ -46408,7 +46408,7 @@ func schema_k8sio_api_resource_v1_CapacityRequestPolicyRange(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CapacityRequestPolicyRange defines a valid range for consumable capacity values.\n\n  - If the requested amount is less than Min, it is rounded up to the Min value.\n  - If Step is set and the requested amount is between Min and Max but not aligned with Step,\n    it will be rounded up to the next value equal to Min + (n * Step).\n  - If Step is not set, the requested amount is used as-is if it falls within the range Min to Max (if set).\n  - If the requested or rounded amount exceeds Max (if set), the request does not satisfy the policy,\n    and the device cannot be allocated.",
+				Description: "CapacityRequestPolicyRange defines a valid range for consumable capacity values.\n\nBy default, all comparisons use whole-unit (integer) arithmetic via resource.Quantity.Value(). When the DRAFractionalCapacityRange feature gate is enabled and at least one of Min, Max, or Step is a fractional quantity (i.e. its milli-value is not a multiple of 1000), milli-unit arithmetic is used instead, supporting values with up to 3 decimal places (e.g. 100m = 0.1).\n\n  - If the requested amount is less than Min, it is rounded up to the Min value.\n  - If Step is set and the requested amount is between Min and Max but not aligned\n    with Step, it will be rounded up to the next value equal to Min + (n * Step).\n  - If Step is not set, the requested amount is used as-is if it falls within\n    the range Min to Max (if set).\n  - If the requested or rounded amount exceeds Max (if set), the request does not\n    satisfy the policy, and the device cannot be allocated.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"min": {
@@ -46425,7 +46425,7 @@ func schema_k8sio_api_resource_v1_CapacityRequestPolicyRange(ref common.Referenc
 					},
 					"step": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Step defines the step size between valid capacity amounts within the range.\n\nMax (if set) and requestPolicy.default must be a multiple of Step. Min + Step must be less than or equal to the capacity value.",
+							Description: "Step defines the step size between valid capacity amounts within the range.\n\nMax (if set) and requestPolicy.default must be a multiple of Step. Min + Step must be less than or equal to the capacity value.\n\nWhen the DRAFractionalCapacityRange feature gate is enabled and milli-unit arithmetic is in use, Step must be at least 1m (0.001).",
 							Ref:         ref(resource.Quantity{}.OpenAPIModelName()),
 						},
 					},
@@ -49422,7 +49422,7 @@ func schema_k8sio_api_resource_v1beta1_CapacityRequestPolicyRange(ref common.Ref
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CapacityRequestPolicyRange defines a valid range for consumable capacity values.\n\n  - If the requested amount is less than Min, it is rounded up to the Min value.\n  - If Step is set and the requested amount is between Min and Max but not aligned with Step,\n    it will be rounded up to the next value equal to Min + (n * Step).\n  - If Step is not set, the requested amount is used as-is if it falls within the range Min to Max (if set).\n  - If the requested or rounded amount exceeds Max (if set), the request does not satisfy the policy,\n    and the device cannot be allocated.",
+				Description: "CapacityRequestPolicyRange defines a valid range for consumable capacity values.\n\nBy default, all comparisons use whole-unit (integer) arithmetic via resource.Quantity.Value(). When the DRAFractionalCapacityRange feature gate is enabled and at least one of Min, Max, or Step is a fractional quantity (i.e. its milli-value is not a multiple of 1000), milli-unit arithmetic is used instead, supporting values with up to 3 decimal places (e.g. 100m = 0.1).\n\n  - If the requested amount is less than Min, it is rounded up to the Min value.\n  - If Step is set and the requested amount is between Min and Max but not aligned\n    with Step, it will be rounded up to the next value equal to Min + (n * Step).\n  - If Step is not set, the requested amount is used as-is if it falls within\n    the range Min to Max (if set).\n  - If the requested or rounded amount exceeds Max (if set), the request does not\n    satisfy the policy, and the device cannot be allocated.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"min": {
@@ -49439,7 +49439,7 @@ func schema_k8sio_api_resource_v1beta1_CapacityRequestPolicyRange(ref common.Ref
 					},
 					"step": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Step defines the step size between valid capacity amounts within the range.\n\nMax (if set) and requestPolicy.default must be a multiple of Step. Min + Step must be less than or equal to the capacity value.",
+							Description: "Step defines the step size between valid capacity amounts within the range.\n\nMax (if set) and requestPolicy.default must be a multiple of Step. Min + Step must be less than or equal to the capacity value.\n\nWhen the DRAFractionalCapacityRange feature gate is enabled and milli-unit arithmetic is in use, Step must be at least 1m (0.001).",
 							Ref:         ref(resource.Quantity{}.OpenAPIModelName()),
 						},
 					},
@@ -51528,7 +51528,7 @@ func schema_k8sio_api_resource_v1beta2_CapacityRequestPolicyRange(ref common.Ref
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CapacityRequestPolicyRange defines a valid range for consumable capacity values.\n\n  - If the requested amount is less than Min, it is rounded up to the Min value.\n  - If Step is set and the requested amount is between Min and Max but not aligned with Step,\n    it will be rounded up to the next value equal to Min + (n * Step).\n  - If Step is not set, the requested amount is used as-is if it falls within the range Min to Max (if set).\n  - If the requested or rounded amount exceeds Max (if set), the request does not satisfy the policy,\n    and the device cannot be allocated.",
+				Description: "CapacityRequestPolicyRange defines a valid range for consumable capacity values.\n\nBy default, all comparisons use whole-unit (integer) arithmetic via resource.Quantity.Value(). When the DRAFractionalCapacityRange feature gate is enabled and at least one of Min, Max, or Step is a fractional quantity (i.e. its milli-value is not a multiple of 1000), milli-unit arithmetic is used instead, supporting values with up to 3 decimal places (e.g. 100m = 0.1).\n\n  - If the requested amount is less than Min, it is rounded up to the Min value.\n  - If Step is set and the requested amount is between Min and Max but not aligned\n    with Step, it will be rounded up to the next value equal to Min + (n * Step).\n  - If Step is not set, the requested amount is used as-is if it falls within\n    the range Min to Max (if set).\n  - If the requested or rounded amount exceeds Max (if set), the request does not\n    satisfy the policy, and the device cannot be allocated.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"min": {
@@ -51545,7 +51545,7 @@ func schema_k8sio_api_resource_v1beta2_CapacityRequestPolicyRange(ref common.Ref
 					},
 					"step": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Step defines the step size between valid capacity amounts within the range.\n\nMax (if set) and requestPolicy.default must be a multiple of Step. Min + Step must be less than or equal to the capacity value.",
+							Description: "Step defines the step size between valid capacity amounts within the range.\n\nMax (if set) and requestPolicy.default must be a multiple of Step. Min + Step must be less than or equal to the capacity value.\n\nWhen the DRAFractionalCapacityRange feature gate is enabled and milli-unit arithmetic is in use, Step must be at least 1m (0.001).",
 							Ref:         ref(resource.Quantity{}.OpenAPIModelName()),
 						},
 					},

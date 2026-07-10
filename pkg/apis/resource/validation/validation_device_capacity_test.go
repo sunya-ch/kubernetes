@@ -68,10 +68,10 @@ func TestValidateDeviceCapacity(t *testing.T) {
 	validRangeField := policyField.Child("validRange")
 
 	scenarios := map[string]struct {
-		capacity                        resource.DeviceCapacity
-		oldPolicy                       *resource.CapacityRequestPolicy
-		fractionalCapacityRangeGate     bool
-		wantFailures                    field.ErrorList
+		capacity                    resource.DeviceCapacity
+		oldPolicy                   *resource.CapacityRequestPolicy
+		fractionalCapacityRangeGate bool
+		wantFailures                field.ErrorList
 	}{
 		"no-policy": {
 			capacity: testDeviceCapacity(one, nil),

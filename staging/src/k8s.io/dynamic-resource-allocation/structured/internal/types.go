@@ -77,14 +77,14 @@ const (
 type Features struct {
 	// Sorted alphabetically. When adding a new entry, also extend Set and FeaturesAll.
 
-	AdminAccess               bool
-	ConsumableCapacity        bool
-	DeviceBindingAndStatus    bool
-	DeviceTaints              bool
-	FractionalCapacityRange   bool
-	ListTypeAttributes        bool
-	PartitionableDevices      bool
-	PrioritizedList           bool
+	AdminAccess             bool
+	ConsumableCapacity      bool
+	DeviceBindingAndStatus  bool
+	DeviceTaints            bool
+	FractionalCapacityRange bool
+	ListTypeAttributes      bool
+	PartitionableDevices    bool
+	PrioritizedList         bool
 }
 
 // Set returns all features which are set to true.
