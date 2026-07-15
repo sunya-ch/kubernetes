@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"gopkg.in/inf.v0"
 
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -1180,7 +1181,7 @@ func validateRequestPolicyValidValues(defaultValue apiresource.Quantity, maxCapa
 // oldRange is the previously-stored range (nil on create).
 func validateRequestPolicyRange(defaultValue apiresource.Quantity, maxCapacity apiresource.Quantity,
 	valueRange resource.CapacityRequestPolicyRange, oldRange *resource.CapacityRequestPolicyRange, fldPath *field.Path) field.ErrorList {
-	if oldRange != nil && *oldRange == valueRange {
+	if oldRange != nil && apiequality.Semantic.DeepEqual(*oldRange, valueRange) {
 		return nil
 	}
 	var allErrs field.ErrorList
@@ -1205,26 +1206,43 @@ func validateRequestPolicyRange(defaultValue apiresource.Quantity, maxCapacity a
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("max"), defaultValue.String(), fmt.Sprintf("default is more than max: %s", valueRange.Max.String())))
 		}
 	}
-	var hasFractional = false
+	useMilli := false
 	if utilfeature.DefaultFeatureGate.Enabled(features.DRAFractionalCapacityRange) {
-		hasFractional = rangeHasFractional(valueRange)
+		useMilli = rangeHasFractional(valueRange)
 		// Overflow guards apply when DRAFractionalCapacityRange is enabled and the incoming
 		// range has fractional values. The check is skipped when the already-stored range
 		// also had fractional values: that object pre-dates the gate and must not be broken
 		// by an update.
-		if hasFractional && (oldRange == nil || !rangeHasFractional(*oldRange)) {
+		if useMilli && (oldRange == nil || !rangeHasFractional(*oldRange)) {
+			hasUnsafeValue := false
+			maxMilliValue := *apiresource.NewQuantity(apiresource.MaxMilliValue, apiresource.DecimalSI)
 			for _, pair := range []struct {
 				q    *apiresource.Quantity
 				name string
 			}{
+				{&defaultValue, "default"},
 				{valueRange.Min, "min"},
 				{valueRange.Max, "max"},
 				{valueRange.Step, "step"},
 			} {
-				if pair.q != nil && pair.q.Value() > apiresource.MaxMilliValue {
-					allErrs = append(allErrs, field.Invalid(fldPath.Child(pair.name), pair.q.String(),
-						"value exceeds the maximum allowed for fractional ranges"))
+				if pair.q != nil {
+					if pair.q.Cmp(maxMilliValue) > 0 {
+						allErrs = append(allErrs, field.Invalid(fldPath.Child(pair.name), pair.q.String(),
+							"value exceeds the maximum allowed for fractional ranges"))
+						hasUnsafeValue = true
+					} else if pair.q.AsDec().Scale() > 3 {
+						milliQuantity := apiresource.NewMilliQuantity(pair.q.MilliValue(), pair.q.Format)
+						if pair.q.Cmp(*milliQuantity) != 0 {
+							allErrs = append(allErrs, field.Invalid(fldPath.Child(pair.name), pair.q.String(),
+								"value precision is finer than milli"))
+							hasUnsafeValue = true
+						}
+					}
 				}
+			}
+			if hasUnsafeValue {
+				// fast return to avoid unsafe calculation
+				return allErrs
 			}
 		}
 	}
@@ -1238,16 +1256,21 @@ func validateRequestPolicyRange(defaultValue apiresource.Quantity, maxCapacity a
 				allErrs = append(allErrs, field.Invalid(fldPath.Child("step"), valueRange.Step.String(), fmt.Sprintf("one step %s is larger than capacity value: %s", added.String(), maxCapacity.String())))
 			}
 			// Use milli-value arithmetic whenever any field is fractional to preserve.
-			// hasFractional is set only when the DRAFractionalCapacityRange feature gate is enabled.
-			allErrs = append(allErrs, validateRequestPolicyRangeStep(defaultValue, *valueRange.Min, *valueRange.Step, hasFractional, fldPath.Child("step"))...)
+			// useMilli is set only when the DRAFractionalCapacityRange feature gate is enabled.
+			allErrs = append(allErrs, validateRequestPolicyRangeStep(defaultValue, *valueRange.Min, *valueRange.Step, useMilli, fldPath.Child("step"))...)
 			if valueRange.Max != nil {
-				allErrs = append(allErrs, validateRequestPolicyRangeStep(*valueRange.Max, *valueRange.Min, *valueRange.Step, hasFractional, fldPath.Child("step"))...)
+				allErrs = append(allErrs, validateRequestPolicyRangeStep(*valueRange.Max, *valueRange.Min, *valueRange.Step, useMilli, fldPath.Child("step"))...)
 			}
 		}
 	}
 	return allErrs
 }
 
+// validateRequestPolicyRangeStep checks if the value is a valid step increment
+// starting from the minimum value (i.e., value - min is a multiple of step).
+//
+// Pre-requisite: value, min, and step must be pre-validated to ensure they
+// contain no sub-milli fractional precision and are within MaxMilliValue.
 func validateRequestPolicyRangeStep(value, min, step apiresource.Quantity, useMilli bool, fldPath *field.Path) field.ErrorList {
 	var stepVal, minVal, val int64
 	if useMilli {
@@ -1265,8 +1288,7 @@ func validateRequestPolicyRangeStep(value, min, step apiresource.Quantity, useMi
 	return nil
 }
 
-// rangeHasFractional reports whether any non-nil field of r has sub-integer precision
-// (MilliValue % 1000 != 0) and fits within the milli-value int64 range.
+// rangeHasFractional reports whether any non-nil field of r has sub-integer precision.
 func rangeHasFractional(r resource.CapacityRequestPolicyRange) bool {
 	for _, q := range []*apiresource.Quantity{r.Min, r.Max, r.Step} {
 		if q != nil && isFractionalQuantity(*q) {
@@ -1276,10 +1298,12 @@ func rangeHasFractional(r resource.CapacityRequestPolicyRange) bool {
 	return false
 }
 
-// isFractionalQuantity reports whether q has sub-integer precision and fits in the
-// milli-value int64 range (Value() <= MaxMilliValue).
+// isFractionalQuantity reports whether q has sub-integer precision.
 func isFractionalQuantity(q apiresource.Quantity) bool {
-	return q.Value() <= apiresource.MaxMilliValue && q.MilliValue()%1000 != 0
+	dec := q.AsDec()
+	infDec := inf.Dec{}
+	rounded := infDec.Round(dec, 0, inf.RoundDown)
+	return dec.Cmp(rounded) != 0
 }
 
 func validateDeviceCounter(counter resource.Counter, fldPath *field.Path) field.ErrorList {

@@ -278,14 +278,30 @@ func TestValidateDeviceCapacity(t *testing.T) {
 			capacity: testDeviceCapacity(
 				apiresource.MustParse("100P"),
 				testCapacityRequestPolicy(
-					ptr.To(apiresource.MustParse("10P")),
+					ptr.To(apiresource.MustParse("20P")),
 					nil,
 					testValidRange(ptr.To(apiresource.MustParse("10P")), nil, ptr.To(apiresource.MustParse("100m"))),
 				),
 			),
 			fractionalCapacityRangeGate: true,
 			wantFailures: field.ErrorList{
+				field.Invalid(validRangeField.Child("default"), "20P", "value exceeds the maximum allowed for fractional ranges"),
 				field.Invalid(validRangeField.Child("min"), "10P", "value exceeds the maximum allowed for fractional ranges"),
+			},
+		},
+		"fractional-too-fine-precision": {
+			capacity: testDeviceCapacity(
+				apiresource.MustParse("1"),
+				testCapacityRequestPolicy(
+					ptr.To(apiresource.MustParse("20u")),
+					nil,
+					testValidRange(ptr.To(apiresource.MustParse("10u")), nil, nil),
+				),
+			),
+			fractionalCapacityRangeGate: true,
+			wantFailures: field.ErrorList{
+				field.Invalid(validRangeField.Child("default"), "20u", "value precision is finer than milli"),
+				field.Invalid(validRangeField.Child("min"), "10u", "value precision is finer than milli"),
 			},
 		},
 		"fractional-range-stored-object-exemption": {
