@@ -82,7 +82,11 @@ func capacityNameForStatus(name draapi.FullyQualifiedName, driver draapi.UniqueS
 //     far during this in-progress run (other requests it has tentatively assigned to this
 //     device in this backtracking search, not yet committed).
 //     Names are fully-qualified.
-func cmpRequestOverCapacity(currentConsumedCapacity ConsumedCapacity, requestedCapacity *resourceapi.CapacityRequirements, device deviceWithID, allocatingCapacity ConsumedCapacity, fractionalCapacityRange bool) (map[draapi.FullyQualifiedName]resource.Quantity, bool, error) {
+//
+// With adminAccess, a capacity which is not requested (or requested as zero)
+// consumes nothing and is exempt from the request policy, including its default.
+// Only an actual, non-zero request is subject to the policy.
+func cmpRequestOverCapacity(currentConsumedCapacity ConsumedCapacity, requestedCapacity *resourceapi.CapacityRequirements, device deviceWithID, allocatingCapacity ConsumedCapacity, fractionalCapacityRange, adminAccess bool) (map[draapi.FullyQualifiedName]resource.Quantity, bool, error) {
 	resolvedRequests, ok, err := resolveCapacityRequests(requestedCapacity, device)
 	if err != nil {
 		return nil, false, err
@@ -104,7 +108,7 @@ func cmpRequestOverCapacity(currentConsumedCapacity ConsumedCapacity, requestedC
 		if requestedVal, requestedFound := resolvedRequests[name]; requestedFound {
 			requestedValPtr = &requestedVal
 		}
-		consumedCapacity, err := calculateConsumedCapacity(requestedValPtr, cap, fractionalCapacityRange)
+		consumedCapacity, err := calculateConsumedCapacity(requestedValPtr, cap, fractionalCapacityRange, adminAccess)
 		if err != nil {
 			// The request is negative or not representable in this capacity's range arithmetic.
 			// Surface a fatal error so the allocator aborts instead of retrying other
@@ -124,7 +128,8 @@ func cmpRequestOverCapacity(currentConsumedCapacity ConsumedCapacity, requestedC
 	clone := currentConsumedCapacity.Clone()
 	for name, cap := range device.Capacity.Entries() {
 		consumedCapacity := consumed[name]
-		if violatesPolicy(consumedCapacity, cap.RequestPolicy, fractionalCapacityRange) {
+		// Consuming nothing is the admin privilege, so there is no policy to comply with.
+		if (!adminAccess || !consumedCapacity.IsZero()) && violatesPolicy(consumedCapacity, cap.RequestPolicy, fractionalCapacityRange) {
 			return nil, false, nil
 		}
 		// If the current clone already contains an entry for this capacity, add the consumedCapacity to it.
@@ -191,17 +196,22 @@ func resolveCapacityRequests(deviceRequestCapacity *resourceapi.CapacityRequirem
 
 // calculateConsumedCapacity returns valid capacity to be consumed regarding the requested capacity and device capacity policy.
 //
+// With adminAccess, no request or a zero request consumes nothing; the request policy
+// (including its default) is not applied.
 // If no requestPolicy, return capacity.Value.
 // If no requestVal, fill the quantity by fillEmptyRequest function
 // Otherwise, use requestPolicy to calculate the consumed capacity from request if applicable.
-func calculateConsumedCapacity(requestedVal *resource.Quantity, capacity *draapi.DeviceCapacity, fractionalCapacityRange bool) (resource.Quantity, error) {
-	if requestedVal == nil {
-		return fillEmptyRequest(capacity), nil
-	}
+func calculateConsumedCapacity(requestedVal *resource.Quantity, capacity *draapi.DeviceCapacity, fractionalCapacityRange, adminAccess bool) (resource.Quantity, error) {
 	// Must be checked before rounding: the request policy can round a negative
 	// request up to a valid value, which would hide it from the caller's check.
-	if requestedVal.Sign() < 0 {
+	if requestedVal != nil && requestedVal.Sign() < 0 {
 		return resource.Quantity{}, fmt.Errorf("%w: request %s", errNegativeCapacity, requestedVal.String())
+	}
+	if adminAccess && (requestedVal == nil || requestedVal.IsZero()) {
+		return resource.Quantity{}, nil
+	}
+	if requestedVal == nil {
+		return fillEmptyRequest(capacity), nil
 	}
 	if capacity.RequestPolicy == nil {
 		return *requestedVal, nil
@@ -312,14 +322,14 @@ func roundUpValidValues(requestedVal *resource.Quantity, validValues []resource.
 
 // getConsumedCapacityFromRequest returns valid consumed capacity,
 // according to claim request and defined capacity.
-func getConsumedCapacityFromRequest(resolvedRequests map[draapi.FullyQualifiedName]resource.Quantity, device deviceWithID, fractionalCapacityRange bool) (ConsumedCapacity, error) {
+func getConsumedCapacityFromRequest(resolvedRequests map[draapi.FullyQualifiedName]resource.Quantity, device deviceWithID, fractionalCapacityRange, adminAccess bool) (ConsumedCapacity, error) {
 	consumedCapacity := NewConsumedCapacity()
 	for name, cap := range device.Capacity.Entries() {
 		var requestedValPtr *resource.Quantity
 		if requestedVal, requestedFound := resolvedRequests[name]; requestedFound {
 			requestedValPtr = &requestedVal
 		}
-		consumed, err := calculateConsumedCapacity(requestedValPtr, cap, fractionalCapacityRange)
+		consumed, err := calculateConsumedCapacity(requestedValPtr, cap, fractionalCapacityRange, adminAccess)
 		if err != nil {
 			// Feasibility already ran, so this should not happen. Return the error
 			// rather than a raw request so a future caller cannot record an

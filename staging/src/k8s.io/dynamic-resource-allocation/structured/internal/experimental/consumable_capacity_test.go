@@ -148,7 +148,7 @@ func testConsumableCapacity(tCtx ktesting.TContext) {
 			},
 			slice: slice,
 		}
-		consumedCapacity, err := getConsumedCapacityFromRequest(requestedCapacity, device, false)
+		consumedCapacity, err := getConsumedCapacityFromRequest(requestedCapacity, device, false, false)
 		tCtx.Require(err).NotTo(g.HaveOccurred())
 		tCtx.Require(consumedCapacity).To(g.HaveLen(3))
 		for name, val := range consumedCapacity {
@@ -168,6 +168,7 @@ func testConsumableCapacity(tCtx ktesting.TContext) {
 
 	tCtx.Run("cmp-request-over-capacity-fatal-beats-soft", testCmpRequestOverCapacityFatalBeatsSoft)
 	tCtx.Run("cmp-request-over-capacity-conflict-beats-missing", testCmpRequestOverCapacityConflictBeatsMissing)
+	tCtx.Run("admin-access-consumes-nothing", testAdminAccessConsumesNothing)
 }
 
 // testCmpRequestOverCapacityFatalBeatsSoft pins that a representability error takes
@@ -209,7 +210,7 @@ func testCmpRequestOverCapacityFatalBeatsSoft(tCtx ktesting.TContext) {
 	// Go's map order is unspecified, so run the check repeatedly to make an
 	// order-dependent regression very likely to surface rather than to rely on one order.
 	for range 64 {
-		_, ok, err := cmpRequestOverCapacity(NewConsumedCapacity(), request, device, NewConsumedCapacity(), false)
+		_, ok, err := cmpRequestOverCapacity(NewConsumedCapacity(), request, device, NewConsumedCapacity(), false, false)
 		tCtx.Require(ok).To(g.BeFalseBecause("an unrepresentable request must not be considered satisfiable"))
 		tCtx.Require(err).To(g.MatchError(errCapacityRequestNotRepresentable), "a representability error must take precedence over the soft over-capacity mismatch")
 	}
@@ -245,10 +246,77 @@ func testCmpRequestOverCapacityConflictBeatsMissing(tCtx ktesting.TContext) {
 	}
 	// Go's map order is unspecified, so run the check repeatedly.
 	for range 64 {
-		_, ok, err := cmpRequestOverCapacity(NewConsumedCapacity(), request, device, NewConsumedCapacity(), false)
+		_, ok, err := cmpRequestOverCapacity(NewConsumedCapacity(), request, device, NewConsumedCapacity(), false, false)
 		tCtx.Require(ok).To(g.BeFalseBecause("a conflicting request must not be considered satisfiable"))
 		tCtx.Require(err).To(g.MatchError(g.ContainSubstring("requested both as")), "the conflict must take precedence over the missing capacity")
 	}
+}
+
+// testAdminAccessConsumesNothing pins that admin access without a capacity request consumes
+// nothing and is exempt from the request policy (including its default), while an actual
+// request is still subject to the policy and a normal request is not exempt.
+func testAdminAccessConsumesNothing(tCtx ktesting.TContext) {
+	slice := &draapi.ResourceSlice{}
+	driverName := slice.MakeUniqueString(driverA)
+	device := deviceWithID{
+		Device: &draapi.Device{
+			Capacity: draapi.DeviceCapacities{
+				Nested: map[draapi.UniqueString]map[draapi.UniqueString]*draapi.DeviceCapacity{
+					driverName: {
+						slice.MakeUniqueString(capacity0): {
+							Value: two,
+							RequestPolicy: &resourceapi.CapacityRequestPolicy{
+								Default:     &one,
+								ValidValues: []resource.Quantity{one, two},
+							},
+						},
+						slice.MakeUniqueString(capacity1): {Value: two}, // no policy
+					},
+				},
+				DriverName: driverName,
+			},
+		},
+		id:    DeviceID{Driver: driverName},
+		slice: slice,
+	}
+	zeroRequest := &resourceapi.CapacityRequirements{
+		Requests: map[resourceapi.QualifiedName]resource.Quantity{capacity0: zero},
+	}
+	// The zero request would violate the policy (0 is not in ValidValues) for a normal request,
+	// but is rounded up to the first valid value; admin access keeps it at zero.
+	for name, tc := range map[string]struct {
+		request     *resourceapi.CapacityRequirements
+		adminAccess bool
+		expectOK    bool
+		expected    map[string]resource.Quantity
+	}{
+		"admin, no request":    {adminAccess: true, expectOK: true, expected: map[string]resource.Quantity{capacity0: zero, capacity1: zero}},
+		"admin, zero request":  {request: zeroRequest, adminAccess: true, expectOK: true, expected: map[string]resource.Quantity{capacity0: zero, capacity1: zero}},
+		"normal, no request":   {expectOK: true, expected: map[string]resource.Quantity{capacity0: one, capacity1: two}},
+		"normal, zero request": {request: zeroRequest, expectOK: true, expected: map[string]resource.Quantity{capacity0: one, capacity1: two}},
+	} {
+		tCtx.Run(name, func(tCtx ktesting.TContext) {
+			resolved, ok, err := cmpRequestOverCapacity(NewConsumedCapacity(), tc.request, device, NewConsumedCapacity(), false, tc.adminAccess)
+			tCtx.Require(err).NotTo(g.HaveOccurred())
+			tCtx.Require(ok).To(g.Equal(tc.expectOK))
+			consumed, err := getConsumedCapacityFromRequest(resolved, device, false, tc.adminAccess)
+			tCtx.Require(err).NotTo(g.HaveOccurred())
+			tCtx.Require(consumed).To(g.HaveLen(len(tc.expected)))
+			for n, want := range tc.expected {
+				got := consumed[draapi.MakeFullyQualifiedName(resourceapi.QualifiedName(n), driverName, slice.LookupUniqueString)]
+				tCtx.Require(got).NotTo(g.BeNil())
+				tCtx.Expect(got.Cmp(want)).To(g.BeZero(), "capacity %s: got %s, want %s", n, got.String(), want.String())
+			}
+		})
+	}
+
+	// An actual request is subject to the policy even with admin access.
+	three := resource.MustParse("3")
+	_, ok, err := cmpRequestOverCapacity(NewConsumedCapacity(), &resourceapi.CapacityRequirements{
+		Requests: map[resourceapi.QualifiedName]resource.Quantity{capacity0: three},
+	}, device, NewConsumedCapacity(), false, true)
+	tCtx.Require(err).NotTo(g.HaveOccurred())
+	tCtx.Require(ok).To(g.BeFalseBecause("a non-zero admin request must comply with the policy"))
 }
 
 func testSafeMilliValue(tCtx ktesting.TContext) {
@@ -703,7 +771,7 @@ func testCalculateConsumedCapacity(tCtx ktesting.TContext) {
 				Value:         tc.capacityValue,
 				RequestPolicy: tc.requestPolicy,
 			}
-			consumedCapacity, err := calculateConsumedCapacity(tc.requestedVal, &capacity, tc.fractionalCapacityRange)
+			consumedCapacity, err := calculateConsumedCapacity(tc.requestedVal, &capacity, tc.fractionalCapacityRange, false)
 			if tc.expectErr {
 				expectErrIs := tc.expectErrIs
 				if expectErrIs == nil {

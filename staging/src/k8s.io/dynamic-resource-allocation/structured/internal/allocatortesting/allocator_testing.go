@@ -307,6 +307,12 @@ func (in wrapDeviceRequest) withCapacityRequest(name resourceapi.QualifiedName, 
 	return wrapDeviceRequest{*out}
 }
 
+func (in wrapDeviceRequest) withAdminAccess() wrapDeviceRequest {
+	out := in.DeepCopy()
+	out.Exactly.AdminAccess = new(true)
+	return wrapDeviceRequest{*out}
+}
+
 func (in wrapDeviceRequest) withSelectors(selectors ...resourceapi.DeviceSelector) wrapDeviceRequest {
 	out := in.DeepCopy()
 	out.Exactly.Selectors = selectors
@@ -765,6 +771,12 @@ func deviceRequestAllocationResult(request, driver, pool, device string) wrapDev
 			Device:  device,
 		},
 	}
+}
+
+func (in wrapDeviceRequestAllocationResult) withAdminAccess() wrapDeviceRequestAllocationResult {
+	out := in.DeepCopy()
+	out.AdminAccess = new(true)
+	return wrapDeviceRequestAllocationResult{out}
 }
 
 type wrapDeviceRequestAllocationResult struct {
@@ -6480,6 +6492,92 @@ func TestAllocator(t *testing.T,
 				),
 			},
 		},
+		"consumable-capacity-admin-access-implicit-zero-request-on-exhausted-capacity": {
+			// Admin access without a capacity request consumes nothing: the request policy
+			// (min 2, default 2) is not applied, so the exhausted device is still allocated.
+			features: Features{
+				ConsumableCapacity: true,
+				AdminAccess:        true,
+			},
+			claimsToAllocate: objects(
+				claim(claim0).withRequests(deviceRequest(req0, classA, 1).withAdminAccess()),
+			),
+			allocatedCapacityDevices: map[DeviceID]ConsumedCapacity{
+				MakeDeviceID(driverA, pool1, device1): {
+					draapi.FullyQualifiedName{Domain: u(driverA), Identifier: u(string(capacity0))}: new(two),
+				},
+			},
+			classes: objects(classWithAllowMultipleAllocations(classA, driverA, true)),
+			slices: unwrapResourceSlices(
+				sliceWithDevices(slice1, node1, pool1, driverA,
+					device(device1).withAllowMultipleAllocations().withCapacityRequestPolicyRange(map[resourceapi.QualifiedName]resource.Quantity{capacity0: two}),
+				),
+			),
+			node: node(node1, region1),
+
+			expectResults: []any{
+				allocationResult(
+					localNodeSelector(node1),
+					deviceRequestAllocationResult(req0, driverA, pool1, device1).withAdminAccess().
+						withConsumedCapacity(&fixedShareID, map[resourceapi.QualifiedName]resource.Quantity{capacity0: {}}),
+				),
+			},
+			expectWithFeatures: func(expectResults []any, expectError types.GomegaMatcher, expectErrorIs error, features Features) ([]any, types.GomegaMatcher, error) {
+				if !features.AdminAccess {
+					return nil, g.MatchError(g.ContainSubstring("admin access is requested, but the feature is disabled")), nil
+				}
+				if !features.ConsumableCapacity {
+					// No capacity tracking: the admin request just gets the device.
+					return []any{allocationResult(
+						localNodeSelector(node1),
+						deviceAllocationResult(req0, driverA, pool1, device1, true),
+					)}, expectError, expectErrorIs
+				}
+				return expectResults, expectError, expectErrorIs
+			},
+		},
+		"consumable-capacity-admin-access-explicit-zero-request-on-exhausted-capacity": {
+			// An explicit zero request is the same as no request for admin access:
+			// it consumes nothing and is not rounded up to the policy minimum.
+			features: Features{
+				ConsumableCapacity: true,
+				AdminAccess:        true,
+			},
+			claimsToAllocate: objects(
+				claim(claim0).withRequests(deviceRequest(req0, classA, 1).withCapacityRequest(capacity0, zero).withAdminAccess()),
+			),
+			allocatedCapacityDevices: map[DeviceID]ConsumedCapacity{
+				MakeDeviceID(driverA, pool1, device1): {
+					draapi.FullyQualifiedName{Domain: u(driverA), Identifier: u(string(capacity0))}: new(two),
+				},
+			},
+			classes: objects(classWithAllowMultipleAllocations(classA, driverA, true)),
+			slices: unwrapResourceSlices(
+				sliceWithDevices(slice1, node1, pool1, driverA,
+					device(device1).withAllowMultipleAllocations().withCapacityRequestPolicyRange(map[resourceapi.QualifiedName]resource.Quantity{capacity0: two}),
+				),
+			),
+			node: node(node1, region1),
+
+			expectResults: []any{
+				allocationResult(
+					localNodeSelector(node1),
+					deviceRequestAllocationResult(req0, driverA, pool1, device1).withAdminAccess().
+						withConsumedCapacity(&fixedShareID, map[resourceapi.QualifiedName]resource.Quantity{capacity0: {}}),
+				),
+			},
+			expectWithFeatures: func(expectResults []any, expectError types.GomegaMatcher, expectErrorIs error, features Features) ([]any, types.GomegaMatcher, error) {
+				switch {
+				// The capacity feature is checked before admin access.
+				case !features.ConsumableCapacity:
+					return nil, g.MatchError(g.ContainSubstring("has capacity requests, but the DRAConsumableCapacity feature is disabled")), nil
+				case !features.AdminAccess:
+					return nil, g.MatchError(g.ContainSubstring("admin access is requested, but the feature is disabled")), nil
+				}
+				return expectResults, expectError, expectErrorIs
+			},
+		},
+
 		"consumable-capacity-multi-allocatable-device-violates-zero-request-policy": {
 			features: Features{
 				ConsumableCapacity: true,

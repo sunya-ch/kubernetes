@@ -649,7 +649,7 @@ func (alloc *allocator) validateDeviceRequest(request requestAccessor, parentReq
 							// so capacity-blocked matching devices stay in allDevices and All fails.
 							apiDevice := slice.Spec.Devices[deviceIndex]
 							_, success, err := cmpRequestOverCapacity(emptyConsumedCapacity, requestData.request.capacities(),
-								device, emptyConsumedCapacity, alloc.features.FractionalCapacityRange)
+								device, emptyConsumedCapacity, alloc.features.FractionalCapacityRange, request.adminAccess())
 							if err != nil {
 								return requestData, fmt.Errorf("claim %s, request %s: checking capacity for device %s: %w", klog.KObj(claim), requestData.request.name(), apiDevice.Name, err)
 							}
@@ -1597,9 +1597,9 @@ func (alloc *allocator) isSelectable(r requestIndices, requestData requestData, 
 func (alloc *allocator) cmpRequestOverCapacity(request requestAccessor, device deviceWithID) (map[draapi.FullyQualifiedName]resource.Quantity, bool, error) {
 	allocatingCapacity := alloc.allocatingCapacity[device.id]
 	if allocatedCapacity, found := alloc.allocatedState.AggregatedCapacity[device.id]; found {
-		return cmpRequestOverCapacity(allocatedCapacity, request.capacities(), device, allocatingCapacity, alloc.features.FractionalCapacityRange)
+		return cmpRequestOverCapacity(allocatedCapacity, request.capacities(), device, allocatingCapacity, alloc.features.FractionalCapacityRange, request.adminAccess())
 	}
-	return cmpRequestOverCapacity(NewConsumedCapacity(), request.capacities(), device, allocatingCapacity, alloc.features.FractionalCapacityRange)
+	return cmpRequestOverCapacity(NewConsumedCapacity(), request.capacities(), device, allocatingCapacity, alloc.features.FractionalCapacityRange, request.adminAccess())
 }
 
 func (alloc *allocator) selectorsMatch(r requestIndices, slice *draapi.ResourceSlice, device *draapi.Device, deviceID DeviceID, class *resourceapi.DeviceClass, selectors []resourceapi.DeviceSelector) (bool, error) {
@@ -1835,7 +1835,7 @@ func (alloc *allocator) allocateDevice(r deviceIndices, device deviceWithID, mus
 		}
 
 		if allowMultipleAllocations {
-			consumedCapacity, err = getConsumedCapacityFromRequest(resolvedRequests, device, alloc.features.FractionalCapacityRange)
+			consumedCapacity, err = getConsumedCapacityFromRequest(resolvedRequests, device, alloc.features.FractionalCapacityRange, request.adminAccess())
 			if err != nil {
 				alloc.rollbackDevice(r, device, &requestData, state)
 				return false, nil, fmt.Errorf("claim %s, request %s: computing consumed capacity for device %s: %w", klog.KObj(claim), requestData.request.name(), device.id, err)
